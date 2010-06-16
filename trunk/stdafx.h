@@ -49,6 +49,7 @@ extern CAppModule _Module;
 #include <atlctrlw.h>
 #include <atlsplit.h>
 #include <atlctrlx.h>
+#include <atltheme.h>
 #include "atlwfile.h"
 #include "Thread.h"
 

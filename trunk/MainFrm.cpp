@@ -27,14 +27,14 @@ class CBartoThread : public CThreadImpl<CBartoThread>
 		Util::print("Control Thread starting");
 
 		CDiskWriter diskWriter;
-		CString nzbUrl = _T("file://c:/Users/Barto/Downloads/VW Sharan-Technik.par2.nzb");
-		Util::print(CStringA(nzbUrl));
-		CNzb* nzb = CNzb::Create(nzbUrl);
+		CNzb* nzb = CNzb::Create(_T("file://c:/Users/Barto/Downloads/VW Sharan-Technik.par2.nzb"));
+		CNzb* nzb2 = CNzb::Create(_T("file://c:/Users/Barto/Downloads/VW Kever 1200-1200A-1300-1300A-1500 tot 1967 Manual GE.par2.nzb"));
 		ASSERT(nzb);
 		{ CNewzflow::CLock lock;
 			theApp->nzbs.Add(nzb);
+			theApp->nzbs.Add(nzb2);
 
-			for(int i = 0; i < 10; i++) {
+			for(int i = 0; i < 5; i++) {
 				CNewzflow::Instance()->downloaders.Add(new CDownloader);
 			}
 		}
@@ -207,6 +207,7 @@ LRESULT CMainFrame::OnNzbChanged(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled*
 {
 	LPNMLISTVIEW lvn = (LPNMLISTVIEW)pnmh;
 	if(lvn->hdr.hwndFrom == m_list && (lvn->uChanged & LVIF_STATE) && !(lvn->uOldState & LVIS_SELECTED) && (lvn->uNewState & LVIS_SELECTED)) {
+		// TODO: multi-select
 		m_files.SetNzb((CNzb*)m_list.GetItemData(lvn->iItem));
 	}
 	return 0;
