@@ -44,4 +44,27 @@ namespace Util
 		str.Format(_T("[%4x] %s\n"), GetCurrentThreadId(), CString(s));
 		OutputDebugString(str);
 	}
+
+	CString FormatSize(__int64 size)
+	{
+		static TCHAR prefix[] = _T("KMGT");
+		CString s;
+		if(size < 1024)
+			s.Format(_T("%I64 B"), size);
+		else {
+			int idx = -1;
+			double dsize = (double)size;
+			while(dsize >= 1024.0 && idx+1 < sizeof(prefix)/sizeof(prefix[0])) {
+				idx++;
+				dsize /= 1024.0;
+			}
+			if(dsize < 10.0)
+				s.Format(_T("%.2f %cB"), dsize, prefix[idx]);
+			else if(dsize < 100.0)
+				s.Format(_T("%.1f %cB"), dsize, prefix[idx]);
+			else
+				s.Format(_T("%.0f %cB"), dsize, prefix[idx]);
+		}
+		return s;
+	}
 };
