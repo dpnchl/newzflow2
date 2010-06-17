@@ -321,6 +321,18 @@ HRESULT STDMETHODCALLTYPE SAXErrorHandlerImpl::ignorableWarning(
 	return S_OK;
 }
 
+CString GetNzbStatusString(ENzbStatus status)
+{
+	switch(status) {
+	case kQueued:		return _T("Queued");
+	case kPaused:		return _T("Paused");
+	case kDownloading:	return _T("Downloading");
+	case kCompleted:	return _T("Completed");
+	case kError:		return _T("Error");
+	default:			return _T("???");
+	}
+}
+
 CNzb* CNzb::Create(const CString& path)
 {
 	CComPtr<ISAXXMLReader> pRdr;

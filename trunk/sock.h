@@ -56,14 +56,20 @@ public:
 	static bool InitWinsock();
 	static void CloseWinsock();
 
-	bool Connect(const CString& host, const CString& service);
+	bool Connect(const CString& host, const CString& service, const CString& user, const CString& passwd);
 	void Close();
+
+	CStringA Request(const char* fmt, ...);
+
 	bool Send(const char* fmt, ...);
+	bool SendV(const char* fmt, va_list va);
 	CStringA ReceiveLine();
 
 
 protected:
 	SOCKET s;
+
+	CStringA user, passwd;
 
 	CFifoBuffer recvBuffer;
 

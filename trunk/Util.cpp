@@ -50,7 +50,7 @@ namespace Util
 		static TCHAR prefix[] = _T("KMGT");
 		CString s;
 		if(size < 1024)
-			s.Format(_T("%I64 B"), size);
+			s.Format(_T("%I64d B"), size);
 		else {
 			int idx = -1;
 			double dsize = (double)size;
