@@ -132,7 +132,7 @@ void CNntpSocket::CloseWinsock()
 	WSACleanup();
 }
 
-bool CNntpSocket::Connect(const CString& host, const CString& service)
+bool CNntpSocket::Connect(const CString& host, const CString& service, const CString& _user, const CString& _passwd)
 {
 	// create socket
 	ADDRINFOT *result = NULL, hints;
@@ -169,6 +169,8 @@ bool CNntpSocket::Connect(const CString& host, const CString& service)
 	}
 	FreeAddrInfo(result);
 	timeStart = time(NULL);
+	user = CStringA(_user);
+	passwd = CStringA(_passwd);
 	return s != INVALID_SOCKET;
 }
 
@@ -197,6 +199,13 @@ bool CNntpSocket::Send(const char* fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
+	bool ret = SendV(fmt, args);
+	va_end(args);
+	return ret;
+}
+
+bool CNntpSocket::SendV(const char* fmt, va_list args)
+{
 	CStringA line;
 	line.FormatV(fmt, args);
 	va_end(args);
@@ -207,6 +216,37 @@ bool CNntpSocket::Send(const char* fmt, ...)
 	int iResult = send(s, line, line.GetLength(), 0);
 	bytesSent += iResult;
 	return iResult != SOCKET_ERROR;
+}
+
+CStringA CNntpSocket::Request(const char* fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+again:
+	bool ret = SendV(fmt, args);
+	if(!ret)
+		return "";
+	CStringA reply = ReceiveLine(); Util::print(reply);
+	if(reply.IsEmpty())
+		return "";
+	if(reply.Left(3) == "480") {
+		if(user.IsEmpty() || passwd.IsEmpty())
+			return "";
+		Send("AUTHINFO USER %s\n", user); 
+		reply = ReceiveLine(); Util::print(reply);
+		if(reply.Left(3) == "281")
+			goto again;
+		if(reply.Left(3) == "381") {
+			Send("AUTHINFO PASS %s\n", passwd);
+			reply = ReceiveLine(); Util::print(reply);
+			if(reply.Left(3) == "281")
+				goto again;
+			return "";
+		} else
+			return "";
+	}
+	return reply;
+	va_end(args);
 }
 
 void CNntpSocket::Close()

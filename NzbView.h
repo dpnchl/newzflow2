@@ -4,6 +4,8 @@
 
 #pragma once
 
+
+
 class CNzbView : public CWindowImpl<CNzbView, CListViewCtrl>, public CCustomDraw<CNzbView>
 {
 public:

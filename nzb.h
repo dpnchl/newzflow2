@@ -12,6 +12,7 @@ enum ENzbStatus {
 	kError,
 };
 
+CString GetNzbStatusString(ENzbStatus status);
 
 class CNzbSegment {
 public:

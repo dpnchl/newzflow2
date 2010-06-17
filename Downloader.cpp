@@ -84,51 +84,81 @@ static CString GetIni(LPCTSTR section, LPCTSTR key, LPCTSTR def)
 
 DWORD CDownloader::Run()
 {
-	sock.Connect(GetIni(_T("Server"), _T("Host"), _T("localhost")), GetIni(_T("Server"), _T("Port"), _T("119")));
-	CStringA reply = sock.ReceiveLine(); Util::print(reply);
-	sock.Send("AUTHINFO USER %s\n", (const char*)CStringA(GetIni(_T("Server"), _T("User"), _T("xxx")))); reply = sock.ReceiveLine(); Util::print(reply);
-	sock.Send("AUTHINFO PASS %s\n", (const char*)CStringA(GetIni(_T("Server"), _T("Password"), _T("xxx")))); reply = sock.ReceiveLine(); Util::print(reply);
+	sock.Connect(
+		GetIni(_T("Server"), _T("Host"), _T("localhost")), 
+		GetIni(_T("Server"), _T("Port"), _T("119")),
+		GetIni(_T("Server"), _T("User"), NULL),
+		GetIni(_T("Server"), _T("Password"), NULL)
+	);
+	CStringA reply = sock.ReceiveLine();
+	if(reply.Left(3) != "200")
+		return 1;
+
 	CString curGroup;
 	while(CNzbSegment* s = CNewzflow::Instance()->GetSegment()) {
 		CNzbFile* f = s->parent;
-		if(f->groups[0] != curGroup) {
-			sock.Send("GROUP %s\n", CStringA(f->groups[0])); reply = sock.ReceiveLine(); Util::print(reply);
-			curGroup = f->groups[0];
-		}
-		sock.Send("ARTICLE <%s>\n", CStringA(s->msgId)); 
-//		CFile fout;
-//		fout.Open(CString("temp\\") + f->segments[j]->msgId, GENERIC_WRITE, 0, CREATE_ALWAYS);
-		reply = sock.ReceiveLine();  Util::print(reply);
-		bool noBody = false;
-		// skip headers
-		while(1) {
-			reply = sock.ReceiveLine(); 
-			if(reply.GetLength() > 0 && (reply[0] == '\n' || reply[0] == '\r'))
-				break;
-			if(reply.GetLength() >= 2 && reply[0] == '.' && reply[1] != '.') {
-				noBody = true;
+		ENzbStatus status = kError;
+		for(size_t i = 0; i < f->groups.GetCount(); i++) {
+			const CString& group = f->groups[i];
+			if(group != curGroup) {
+				reply = sock.Request("GROUP %s\n", CStringA(group));
+				if(reply.Left(3) != "211") {
+					continue;
+				}
+				curGroup = group;
+			}
+			reply = sock.Request("ARTICLE <%s>\n", CStringA(s->msgId));
+			if(reply.Left(3) == "220") {
+				status = kDownloading;
 				break;
 			}
-		};
-		// process body
-		if(!noBody) {
-			CYDecoder yd;
+		}
+		if(status == kDownloading) {
+			//CFile fout;
+			//fout.Open(CString("temp\\") + f->segments[j]->msgId, GENERIC_WRITE, 0, CREATE_ALWAYS);
+			bool noBody = false;
+			// skip headers
 			while(1) {
 				reply = sock.ReceiveLine(); 
-				if(reply.GetLength() >= 2 && reply[0] == '.') {
-					if(reply[1] == '.')
-						reply = reply.Mid(1); // special case: '.' at beginning of line is duplicated
-					else
-						break; // special case: '.' at begining of line: end of article
+				if(reply.IsEmpty()) {
+					status = kError;
+					break;
 				}
-//				fout.Write(reply, reply.GetLength());
-				yd.ProcessLine(reply);
+				if(reply.GetLength() > 0 && (reply[0] == '\n' || reply[0] == '\r'))
+					break;
+				if(reply.GetLength() >= 2 && reply[0] == '.' && reply[1] != '.') {
+					noBody = true;
+					break;
+				}
+			};
+			// process body
+			if(noBody) {
+				status = kError;
+			} else {
+				CYDecoder yd;
+				while(1) {
+					reply = sock.ReceiveLine(); 
+					if(reply.IsEmpty()) {
+						status = kError;
+						break;
+					}
+					if(reply.GetLength() >= 2 && reply[0] == '.') {
+						if(reply[1] == '.')
+							reply = reply.Mid(1); // special case: '.' at beginning of line is duplicated
+						else {
+							status = kCompleted;
+							break; // special case: '.' at begining of line: end of article
+						}
+					}
+					//fout.Write(reply, reply.GetLength());
+					yd.ProcessLine(reply);
+				}
 			}
-//			fout.Close();
+			//fout.Close();
 		}
-		CNewzflow::Instance()->UpdateSegment(s, kCompleted);
+		CNewzflow::Instance()->UpdateSegment(s, status);
 	}
-	sock.Send("QUIT\n"); reply = sock.ReceiveLine(); Util::print(reply);
+	sock.Request("QUIT\n");
 	sock.Close();
 
 	return 0;

@@ -21,6 +21,7 @@ enum {
 	kName,
 	kSize,
 	kDone,
+	kStatus,
 };
 
 void CNzbView::Init(HWND hwndParent)
@@ -35,9 +36,11 @@ void CNzbView::Init(HWND hwndParent)
 	AddColumn(_T("Name"), kName);
 	AddColumn(_T("Size"), kSize, -1, LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM, LVCFMT_RIGHT);
 	AddColumn(_T("Done"), kDone, -1, LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM, LVCFMT_RIGHT);
+	AddColumn(_T("Status"), kStatus);
 	SetColumnWidth(kSize, 80);
 	SetColumnWidth(kName, 400);
 	SetColumnWidth(kDone, 80);
+	SetColumnWidth(kStatus, 120);
 }
 
 LRESULT CNzbView::OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)
@@ -69,6 +72,7 @@ LRESULT CNzbView::OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, B
 			AddItem(i, kSize, Util::FormatSize(total));
 			s.Format(_T("%.1f%%"), 100. * (double)completed / (double)total);
 			AddItem(i, kDone, s);
+			AddItem(i, kStatus, GetNzbStatusString(nzb->status));
 		}
 		SetRedraw(FALSE);
 		while(count < lvCount) {
@@ -106,9 +110,9 @@ DWORD CNzbView::OnSubItemPrePaint(int /*idCtrl*/, LPNMCUSTOMDRAW lpNMCustomDraw)
 		GetItemText(cd->nmcd.dwItemSpec, cd->iSubItem, strItemText);
 
 		// draw progress bar															
-		rcProgress.DeflateRect(1, 1, 1, 1);
+		//rcProgress.DeflateRect(1, 1, 1, 1);
 		rcProgress.right = rcProgress.left + (int)( (double)rcProgress.Width() * ((max(min(_tstof(strItemText), 100), 0)) / 100.0));
-		m_thmProgress.DrawThemeBackground(dcPaint, PP_CHUNK, 0, rcProgress, NULL);
+		m_thmProgress.DrawThemeBackground(dcPaint, PP_FILL, 0, rcProgress, NULL);
 
 		m_thmProgress.DrawThemeText(dcPaint, cd->iPartId, cd->iStateId, strItemText, -1, DT_CENTER | DT_SINGLELINE | DT_VCENTER, 0, &cd->nmcd.rc);
 
