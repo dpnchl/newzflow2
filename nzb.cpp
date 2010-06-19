@@ -321,7 +321,7 @@ HRESULT STDMETHODCALLTYPE SAXErrorHandlerImpl::ignorableWarning(
 	return S_OK;
 }
 
-CString GetNzbStatusString(ENzbStatus status)
+CString GetNzbStatusString(ENzbStatus status, float done /*= 0.f*/)
 {
 	switch(status) {
 	case kQueued:		return _T("Queued");
@@ -329,6 +329,20 @@ CString GetNzbStatusString(ENzbStatus status)
 	case kDownloading:	return _T("Downloading");
 	case kCompleted:	return _T("Completed");
 	case kError:		return _T("Error");
+	case kVerifying:	{ CString s; s.Format(_T("Verifying %.1f%%"), done); return s; }
+	case kFinished:		return _T("Finished");
+	default:			return _T("???");
+	}
+}
+
+CString GetParStatusString(EParStatus status, float done)
+{
+	switch(status) {
+	case kUnknown:		return _T("");
+	case kScanning:		{ CString s; s.Format(_T("Scanning %.1f%%"), done); return s; }
+	case kMissing:		return _T("Missing");
+	case kFound:		return _T("Found");
+	case kDamaged:		return _T("Damaged");
 	default:			return _T("???");
 	}
 }
@@ -352,4 +366,13 @@ CNzb* CNzb::Create(const CString& path)
 	CoUninitialize();
 	content->GetNzb()->name = path; // TODO
 	return content->GetNzb();
+}
+
+CNzbFile* CNzb::FindByName(const CString& name)
+{
+	for(size_t i = 0; i < files.GetCount(); i++) {
+		if(name.CompareNoCase(files[i]->fileName) == 0)
+			return files[i];
+	}
+	return NULL;
 }

@@ -37,7 +37,7 @@ LRESULT CConnectionView::OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lPar
 			CDownloader* dl = CNewzflow::Instance()->downloaders[i];
 			CString s;
 			s.Format(_T("%d"), i+1);
-			if(i >= lvCount) {
+			if((int)i >= lvCount) {
 				AddItem(i, 0, s);
 			}
 			s.Format(_T("%.1f kB/s"), dl->sock.speed.Get() / 1024.f);
@@ -49,7 +49,7 @@ LRESULT CConnectionView::OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lPar
 			AddItem(i, 2, s);
 		}
 		SetRedraw(FALSE);
-		while(count < lvCount) {
+		while((int)count < lvCount) {
 			DeleteItem(count);
 			lvCount--;
 		}

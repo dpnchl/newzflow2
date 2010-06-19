@@ -2,8 +2,6 @@
 #include "util.h"
 #include "DiskWriter.h"
 
-/*static*/ CDiskWriter* CDiskWriter::s_pInstance = NULL;
-
 void CDiskWriter::Add(const CString& file, __int64 offset, void* buffer, unsigned int size)
 {
 	CJob* job = new CJob;

@@ -30,8 +30,8 @@ void CNzbView::Init(HWND hwndParent)
 
 	m_thmProgress.OpenThemeData(*this, L"PROGRESS");
 
-	SetExtendedListViewStyle(LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
-	SetWindowTheme(*this, L"explorer", NULL);
+	SetExtendedListViewStyle(LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER | LVS_EX_HEADERDRAGDROP);
+//	SetWindowTheme(*this, L"explorer", NULL);
 	AddColumn(_T("#"), kOrder, -1, LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM, LVCFMT_RIGHT);
 	AddColumn(_T("Name"), kName);
 	AddColumn(_T("Size"), kSize, -1, LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM, LVCFMT_RIGHT);
@@ -54,7 +54,7 @@ LRESULT CNzbView::OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, B
 			CNzb* nzb = theApp->nzbs[i];
 			CString s;
 			s.Format(_T("%d"), i+1);
-			if(i >= lvCount) {
+			if((int)i >= lvCount) {
 				AddItem(i, kOrder, s);
 			}
 			SetItemData(i, (DWORD_PTR)nzb);
@@ -72,10 +72,10 @@ LRESULT CNzbView::OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, B
 			AddItem(i, kSize, Util::FormatSize(total));
 			s.Format(_T("%.1f%%"), 100. * (double)completed / (double)total);
 			AddItem(i, kDone, s);
-			AddItem(i, kStatus, GetNzbStatusString(nzb->status));
+			AddItem(i, kStatus, GetNzbStatusString(nzb->status, nzb->done));
 		}
 		SetRedraw(FALSE);
-		while(count < lvCount) {
+		while((int)count < lvCount) {
 			DeleteItem(count);
 			lvCount--;
 		}
@@ -100,9 +100,11 @@ DWORD CNzbView::OnSubItemPrePaint(int /*idCtrl*/, LPNMCUSTOMDRAW lpNMCustomDraw)
 	LPNMLVCUSTOMDRAW cd = (LPNMLVCUSTOMDRAW)lpNMCustomDraw;
 	if(cd->iSubItem == kDone) {
 		CDCHandle dcPaint(cd->nmcd.hdc);
+		CRect rc;
+		GetSubItemRect(cd->nmcd.dwItemSpec, cd->iSubItem, LVIR_BOUNDS, rc);
 
 		// draw progress frame
-		CRect rcProgress(cd->nmcd.rc);
+		CRect rcProgress(rc);
 		rcProgress.DeflateRect(3, 2);
 		m_thmProgress.DrawThemeBackground(dcPaint, PP_BAR, 0, rcProgress, NULL);
 
@@ -110,11 +112,11 @@ DWORD CNzbView::OnSubItemPrePaint(int /*idCtrl*/, LPNMCUSTOMDRAW lpNMCustomDraw)
 		GetItemText(cd->nmcd.dwItemSpec, cd->iSubItem, strItemText);
 
 		// draw progress bar															
-		//rcProgress.DeflateRect(1, 1, 1, 1);
+		rcProgress.DeflateRect(1, 1, 1, 1);
 		rcProgress.right = rcProgress.left + (int)( (double)rcProgress.Width() * ((max(min(_tstof(strItemText), 100), 0)) / 100.0));
-		m_thmProgress.DrawThemeBackground(dcPaint, PP_FILL, 0, rcProgress, NULL);
+		m_thmProgress.DrawThemeBackground(dcPaint, PP_CHUNK, 0, rcProgress, NULL);
 
-		m_thmProgress.DrawThemeText(dcPaint, cd->iPartId, cd->iStateId, strItemText, -1, DT_CENTER | DT_SINGLELINE | DT_VCENTER, 0, &cd->nmcd.rc);
+		m_thmProgress.DrawThemeText(dcPaint, cd->iPartId, cd->iStateId, strItemText, -1, DT_CENTER | DT_SINGLELINE | DT_VCENTER, 0, rc);
 
 		return CDRF_SKIPDEFAULT;
 	}

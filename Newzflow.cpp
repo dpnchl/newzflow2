@@ -1,5 +1,12 @@
 #include "stdafx.h"
 #include "Newzflow.h"
+#include "DiskWriter.h"
+#include "PostProcessor.h"
+#include "sock.h"
+#include "Util.h"
+
+// TODO:
+// - CNzbView/CFileView: implement progress bar with no theming
 
 /*static*/ CNewzflow* CNewzflow::s_pInstance = NULL;
 
@@ -7,10 +14,27 @@ CNewzflow::CNewzflow()
 {
 	ASSERT(s_pInstance == NULL);
 	s_pInstance = this;
+
+	VERIFY(CNntpSocket::InitWinsock());
+
+	diskWriter = new CDiskWriter;
+	postProcessor = new CPostProcessor;
 }
 
 CNewzflow::~CNewzflow()
 {
+	Util::print("waiting for disk writer to finish...\n");
+	diskWriter->PostQuitMessage();
+	diskWriter->Join();
+	delete diskWriter;
+
+	Util::print("waiting for post processor to finish...\n");
+	postProcessor->PostQuitMessage();
+	postProcessor->Join();
+	delete postProcessor;
+
+	CNntpSocket::CloseWinsock();
+
 	s_pInstance = NULL;
 }
 
@@ -44,6 +68,8 @@ CNzbSegment* CNewzflow::GetSegment()
 
 void CNewzflow::UpdateSegment(CNzbSegment* s, ENzbStatus newStatus)
 {
+	ASSERT(newStatus == kError || newStatus == kCompleted);
+
 	CLock lock;
 	s->status = newStatus;
 	TRACE(_T("UpdateSegment(%s, %s)\n"), s->msgId, GetNzbStatusString(newStatus));
@@ -51,16 +77,18 @@ void CNewzflow::UpdateSegment(CNzbSegment* s, ENzbStatus newStatus)
 	CNzb* nzb = file->parent;
 	for(size_t i = 0; i < file->segments.GetCount(); i++) {
 		CNzbSegment* segment = file->segments[i];
-		if(segment->status != newStatus) {
+		if(segment->status != kCompleted && segment->status != kError) {
 			return;
 		}
 	}
+	file->status = kCompleted;
 
-	file->status = newStatus;
 	for(size_t i = 0; i < nzb->files.GetCount(); i++) {
 		CNzbFile* f = nzb->files[i];
-		if(f->status != newStatus)
+		if(f->status != kCompleted && f->status != kError)
 			return;
 	}
-	nzb->status = newStatus;
+	nzb->status = kCompleted;
+
+	postProcessor->Add(nzb);
 }

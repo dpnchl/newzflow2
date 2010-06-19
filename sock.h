@@ -29,6 +29,15 @@ protected:
 	int size, maxSize;
 };
 
+class CLineBuffer : public CFifoBuffer
+{
+public:
+	CLineBuffer();
+	CLineBuffer(int size);
+
+	CString GetLine();
+};
+
 class CSpeedMonitor
 {
 public:
