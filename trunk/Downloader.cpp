@@ -46,7 +46,7 @@ void CYDecoder::ProcessLine(const char* line)
 	if(!strncmp(line, "=ybegin ", strlen("=ybegin "))) {
 		const char* nameBegin = strstr(line, "name=") + strlen("name=");
 		const char* nameEnd = strpbrk(nameBegin, "\r\n");
-		fileName = CString("temp\\") + CString(nameBegin, nameEnd - nameBegin);
+		fileName = CString(nameBegin, nameEnd - nameBegin);
 	} else if(!strncmp(line, "=ypart", strlen("=ypart"))) {
 		const char* beginStr = strstr(line, "begin=") + strlen("begin=");
 		offset = _strtoi64(beginStr, NULL, 10) - 1;
@@ -54,7 +54,7 @@ void CYDecoder::ProcessLine(const char* line)
 		size = (unsigned int)(_strtoi64(endStr, NULL, 10) - 1 - offset + 1);
 		buffer = ptr = new char [size];
 	} else if(!strncmp(line, "=yend ", strlen("=yend "))) {
-		CDiskWriter::Instance()->Add(fileName, offset, buffer, size);
+		CNewzflow::Instance()->diskWriter->Add(CString("temp\\") + fileName, offset, buffer, size);
 		buffer = NULL; // buffer is now managed by disk writer
 	} else {
 		unsigned char lineBuf[1024], *out = lineBuf;
@@ -152,6 +152,11 @@ DWORD CDownloader::Run()
 					}
 					//fout.Write(reply, reply.GetLength());
 					yd.ProcessLine(reply);
+				}
+				if(f->fileName.IsEmpty())
+					f->fileName = yd.fileName;
+				else if(f->fileName != yd.fileName) {
+					TRACE(_T("segment has different filename than file! %s != %s\n"), f->fileName, yd.fileName);
 				}
 			}
 			//fout.Close();

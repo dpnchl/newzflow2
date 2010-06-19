@@ -11,26 +11,12 @@ class CDiskWriter : public CGuiThreadImpl<CDiskWriter>
 	END_MSG_MAP()
 
 public:
-	CDiskWriter() : CGuiThreadImpl<CDiskWriter>(&_Module)
-	{
-		ASSERT(s_pInstance == NULL);
-		s_pInstance = this;
-	}
-	~CDiskWriter()
-	{
-		s_pInstance = NULL;
-	}
-	static CDiskWriter* Instance()
-	{
-		return s_pInstance;
-	}
+	CDiskWriter() : CGuiThreadImpl<CDiskWriter>(&_Module) {}
 
 	void Add(const CString& file, __int64 offset, void* buffer, unsigned int size);
 	LRESULT OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
 
 protected:
-	static CDiskWriter* s_pInstance;
-
 	class CJob {
 	public:
 		CString file;

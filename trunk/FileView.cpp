@@ -25,8 +25,10 @@ enum {
 	kName,
 	kSize,
 	kDone,
-	kStatus,
+	kProgress,
 	kSegments,
+	kStatus,
+	kParStatus,
 };
 
 void CFileView::Init(HWND hwndParent)
@@ -40,12 +42,16 @@ void CFileView::Init(HWND hwndParent)
 	AddColumn(_T("Name"), kName);
 	AddColumn(_T("Size"), kSize, -1, LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM, LVCFMT_RIGHT);
 	AddColumn(_T("Done"), kDone, -1, LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM, LVCFMT_RIGHT);
-	AddColumn(_T("%"), kStatus, -1, LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM, LVCFMT_RIGHT);
+	AddColumn(_T("%"), kProgress, -1, LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM, LVCFMT_RIGHT);
 	AddColumn(_T("# Seg"), kSegments, -1, LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM, LVCFMT_RIGHT);
+	AddColumn(_T("Status"), kStatus);
+	AddColumn(_T("PAR Status"), kParStatus);
 	SetColumnWidth(kName, 400);
 	SetColumnWidth(kSize, 80);
 	SetColumnWidth(kDone, 80);
-	SetColumnWidth(kStatus, 150);
+	SetColumnWidth(kProgress, 150);
+	SetColumnWidth(kStatus, 120);
+	SetColumnWidth(kParStatus, 120);
 }
 
 void CFileView::SetNzb(CNzb* _nzb)
@@ -73,7 +79,7 @@ LRESULT CFileView::OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, 
 		for(size_t i = 0; i < count; i++) {
 			CNzbFile* file = nzb->files[i];
 			CString s = file->subject;
-			if(i >= lvCount) {
+			if((int)i >= lvCount) {
 				AddItem(i, kName, s);
 			} else {
 				SetItemText(i, kName, s);
@@ -87,13 +93,15 @@ LRESULT CFileView::OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, 
 			AddItem(i, kSize, Util::FormatSize(size));
 			AddItem(i, kDone, Util::FormatSize(done));
 			s.Format(_T("%.1f %%"), 100.f * (float)done / (float)size);
-			AddItem(i, kStatus, s);
+			AddItem(i, kProgress, s);
 			s.Format(_T("%d"), file->segments.GetCount());
 			AddItem(i, kSegments, s);
+			AddItem(i, kStatus, GetNzbStatusString(file->status));
+			AddItem(i, kParStatus, GetParStatusString(file->parStatus, file->parDone));
 			SetItemData(i, (DWORD_PTR)file);
 		}
 		SetRedraw(FALSE);
-		while(count < lvCount) {
+		while((int)count < lvCount) {
 			DeleteItem(count);
 			lvCount--;
 		}
@@ -144,17 +152,18 @@ public:
 DWORD CFileView::OnSubItemPrePaint(int /*idCtrl*/, LPNMCUSTOMDRAW lpNMCustomDraw)
 {
 	LPNMLVCUSTOMDRAW cd = (LPNMLVCUSTOMDRAW)lpNMCustomDraw;
-	if(cd->iSubItem == kStatus) {
-		CRect rc(cd->nmcd.rc);
+	if(cd->iSubItem == kProgress) {
+		CRect rc;
+		GetSubItemRect(cd->nmcd.dwItemSpec, cd->iSubItem, LVIR_BOUNDS, rc);
 		if(rc.Width() <= 10)
 			return CDRF_DODEFAULT;
 
-		CMemoryDC dcMem(cd->nmcd.hdc, cd->nmcd.rc);
-		CTempDC dcOk(cd->nmcd.hdc, cd->nmcd.rc), dcErr(cd->nmcd.hdc, cd->nmcd.rc);
+		CMemoryDC dcMem(cd->nmcd.hdc, rc);
+		CTempDC dcOk(cd->nmcd.hdc, rc), dcErr(cd->nmcd.hdc, rc);
 
 		dcMem.BitBlt(rc.left, rc.top, rc.Width(), rc.Height(), cd->nmcd.hdc, rc.left, rc.top, SRCCOPY);
 
-		CRect rcProgress(cd->nmcd.rc);
+		CRect rcProgress(rc);
 		rcProgress.DeflateRect(3, 2);
 		m_thmProgress.DrawThemeBackground(dcMem, PP_BAR, 0, rcProgress, NULL);
 		m_thmProgress.DrawThemeBackground(dcOk, PP_BAR, 0, rcProgress, NULL);
@@ -190,12 +199,12 @@ bytesInStartSlice =
 				slicesOk[i] = slicesErr[i] = 0.f;
 			}
 			__int64 totalSize = 0;
-			for(int i = 0; i < file->segments.GetCount(); i++) {
+			for(size_t i = 0; i < file->segments.GetCount(); i++) {
 				totalSize += file->segments[i]->bytes;
 			}
 			float bytesPerSlice = (float)totalSize / (float)width;
 			__int64 offset = 0;
-			for(int i = 0; i < file->segments.GetCount(); i++) {
+			for(size_t i = 0; i < file->segments.GetCount(); i++) {
 				CNzbSegment* seg = file->segments[i];
 				if(seg->status == kCompleted) {
 					float internalOffset = (float)offset;

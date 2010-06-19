@@ -3,6 +3,8 @@
 #include "nzb.h"
 
 class CDownloader;
+class CDiskWriter;
+class CPostProcessor;
 
 class CNewzflow
 {
@@ -20,6 +22,8 @@ public:
 	void UpdateSegment(CNzbSegment* s, ENzbStatus newStatus);
 	CAtlArray<CNzb*> nzbs;
 	CAtlArray<CDownloader*> downloaders;
+	CDiskWriter* diskWriter;
+	CPostProcessor* postProcessor;
 
 	CComAutoCriticalSection cs;
 

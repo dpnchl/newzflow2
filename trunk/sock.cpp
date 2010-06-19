@@ -100,6 +100,42 @@ void CFifoBuffer::Replace(const void* ptr, int len)
 	size = len;
 }
 
+// CLineBuffer
+//////////////////////////////////////////////////////////////////////////
+
+CLineBuffer::CLineBuffer()
+: CFifoBuffer()
+{
+}
+
+CLineBuffer::CLineBuffer(int size)
+: CFifoBuffer(size)
+{
+}
+
+CString CLineBuffer::GetLine()
+{
+	int crlf = -1;
+	for(int i = 0; i < size; i++) {
+		if(buffer[i] == '\r' || buffer[i] == '\n') {
+			crlf = i;
+			break;
+		}
+	}
+	if(crlf == -1)
+		return _T("");
+
+	CString ret(CStringA(buffer, crlf));
+	if(ret.IsEmpty()) ret = _T(" ");
+
+	if(buffer[crlf] == '\r' && crlf < size-1 && buffer[crlf+1] == '\n')
+		crlf++;
+
+	Consume(NULL, crlf+1);
+
+	return ret;
+}
+
 // CNntpSocket
 //////////////////////////////////////////////////////////////////////////
 
@@ -322,3 +358,4 @@ void CSpeedMonitor::Trim()
 	while(!history.IsEmpty() && history.GetTail().first < now - slots)
 		history.RemoveTail();
 }
+

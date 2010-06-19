@@ -229,6 +229,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\PostProcessor.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\sock.cpp"
 				>
 			</File>
@@ -295,6 +299,10 @@
 			</File>
 			<File
 				RelativePath=".\NzbView.h"
+				>
+			</File>
+			<File
+				RelativePath=".\PostProcessor.h"
 				>
 			</File>
 			<File
