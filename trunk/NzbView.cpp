@@ -9,16 +9,37 @@
 #include "Newzflow.h"
 #include "Util.h"
 
+#ifdef _DEBUG
+#define new DEBUG_CLIENTBLOCK
+#endif
+
+CNzbView::~CNzbView()
+{
+	m_imageList.Destroy();
+}
+
 BOOL CNzbView::PreTranslateMessage(MSG* pMsg)
 {
 	pMsg;
 	return FALSE;
 }
 
+// image list - µTorrent compatible
+// ilQueued comes from own resource, it's not in µTorrent's image list, so all µTorrent's IDs are offset by 1
+enum {
+	ilQueued = 0,
+	ilDownloading = 1,
+	ilStopped = 3,
+	ilPaused = 4,
+	ilError = 7,
+	ilCompleted = 8,
+	ilVerifying = 12,
+};
+
 // columns
 enum {
-	kOrder,
 	kName,
+	kOrder,
 	kSize,
 	kDone,
 	kStatus,
@@ -30,8 +51,18 @@ void CNzbView::Init(HWND hwndParent)
 
 	m_thmProgress.OpenThemeData(*this, L"PROGRESS");
 
+	m_imageList.Create(16, 16, ILC_COLOR32, 0, 100);
+	CImage image;
+	image.LoadFromResource(ModuleHelper::GetResourceInstance(), IDB_STATUS_OWN); // first add "own" image
+	m_imageList.Add(image, (HBITMAP)NULL);
+	image.Destroy();
+	if(!SUCCEEDED(image.Load(_T("tstatus.bmp")))) // then try to load µTorrent-compatible images from disk... 
+		image.LoadFromResource(ModuleHelper::GetResourceInstance(), IDB_STATUS); // ...or from resource
+	m_imageList.Add(image, (HBITMAP)NULL);
+	SetImageList(m_imageList, LVSIL_SMALL);
+
 	SetExtendedListViewStyle(LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER | LVS_EX_HEADERDRAGDROP);
-//	SetWindowTheme(*this, L"explorer", NULL);
+	SetWindowTheme(*this, L"explorer", NULL);
 	AddColumn(_T("#"), kOrder, -1, LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM, LVCFMT_RIGHT);
 	AddColumn(_T("Name"), kName);
 	AddColumn(_T("Size"), kSize, -1, LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM, LVCFMT_RIGHT);
@@ -53,12 +84,25 @@ LRESULT CNzbView::OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, B
 		for(size_t i = 0; i < count; i++) {
 			CNzb* nzb = theApp->nzbs[i];
 			CString s;
-			s.Format(_T("%d"), i+1);
 			if((int)i >= lvCount) {
-				AddItem(i, kOrder, s);
+				AddItem(i, kName, nzb->name);
+			} else {
+				SetItemText(i, kName, nzb->name);
 			}
+			int image;
+			switch(nzb->status) {
+			case kQueued:		image = ilQueued; break;
+			case kDownloading:	image = ilDownloading; break;
+			case kCompleted:	image = ilCompleted; break;
+			case kError:		image = ilError; break;
+			case kVerifying:	image = ilVerifying; break;
+			case kFinished:		image = ilCompleted; break;
+			default:			image = ilQueued; break;
+			}
+			SetItem(i, kName, LVIF_IMAGE, NULL, image, 0, 0, 0);
+			s.Format(_T("%d"), i+1);
+			AddItem(i, kOrder, s);
 			SetItemData(i, (DWORD_PTR)nzb);
-			AddItem(i, kName, nzb->name);
 			__int64 completed = 0, total = 0;
 			for(size_t j = 0; j < nzb->files.GetCount(); j++) {
 				CNzbFile* f = nzb->files[j];

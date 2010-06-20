@@ -6,6 +6,10 @@
 #include <algorithm>
 #pragma comment(lib, "msxml2.lib")
 
+#ifdef _DEBUG
+#define new DEBUG_CLIENTBLOCK
+#endif
+
 
 class MyContent : public CComObjectRootEx<CComSingleThreadModel>, public ISAXContentHandler
 {

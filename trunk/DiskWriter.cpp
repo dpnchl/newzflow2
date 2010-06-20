@@ -2,6 +2,10 @@
 #include "util.h"
 #include "DiskWriter.h"
 
+#ifdef _DEBUG
+#define new DEBUG_CLIENTBLOCK
+#endif
+
 void CDiskWriter::Add(const CString& file, __int64 offset, void* buffer, unsigned int size)
 {
 	CJob* job = new CJob;

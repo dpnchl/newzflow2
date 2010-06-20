@@ -1,14 +1,55 @@
 #include "stdafx.h"
 #include "Newzflow.h"
 #include "DiskWriter.h"
+#include "Downloader.h"
 #include "PostProcessor.h"
 #include "sock.h"
 #include "Util.h"
 
+#ifdef _DEBUG
+#define new DEBUG_CLIENTBLOCK
+#endif
+
 // TODO:
 // - CNzbView/CFileView: implement progress bar with no theming
 
+// CNewzflowThread
+//////////////////////////////////////////////////////////////////////////
+
+void CNewzflowThread::Add(const CString& nzbUrl)
+{
+	PostThreadMessage(MSG_JOB, (WPARAM)new CString(nzbUrl));
+}
+
+LRESULT CNewzflowThread::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
+{
+	CString* nzbUrl = (CString*)wParam;
+
+	CNzb* nzb = CNzb::Create(*nzbUrl);
+	if(nzb) {
+		{ CNewzflow::CLock lock;
+			CNewzflow::Instance()->nzbs.Add(nzb);
+
+			for(size_t i = 0; i < CNewzflow::Instance()->finishedDownloaders.GetCount(); i++) {
+				delete CNewzflow::Instance()->finishedDownloaders[i];
+			}
+			CNewzflow::Instance()->finishedDownloaders.RemoveAll();
+
+			int numDownloaders = max(0, 5 - CNewzflow::Instance()->downloaders.GetCount());
+			for(int i = 0; i < numDownloaders; i++) {
+				CNewzflow::Instance()->downloaders.Add(new CDownloader);
+			}
+		}
+	}
+
+	delete nzbUrl;
+	return 0;
+}
+
 /*static*/ CNewzflow* CNewzflow::s_pInstance = NULL;
+
+// CNewzflow
+//////////////////////////////////////////////////////////////////////////
 
 CNewzflow::CNewzflow()
 {
@@ -17,12 +58,33 @@ CNewzflow::CNewzflow()
 
 	VERIFY(CNntpSocket::InitWinsock());
 
+	shuttingDown = false;
 	diskWriter = new CDiskWriter;
 	postProcessor = new CPostProcessor;
+	controlThread = new CNewzflowThread;
 }
 
 CNewzflow::~CNewzflow()
 {
+	shuttingDown = true;
+
+	Util::print("waiting for control thread to finish...\n");
+	controlThread->PostQuitMessage();
+	controlThread->Join();
+	delete controlThread;
+
+	Util::print("waiting for downloaders to finish...\n");
+	for(size_t i = 0; i < downloaders.GetCount(); i++) {
+		downloaders[i]->Join();
+		delete downloaders[i];
+	}
+	downloaders.RemoveAll();
+
+	for(size_t i = 0; i < finishedDownloaders.GetCount(); i++) {
+		delete finishedDownloaders[i];
+	}
+	finishedDownloaders.RemoveAll();
+
 	Util::print("waiting for disk writer to finish...\n");
 	diskWriter->PostQuitMessage();
 	diskWriter->Join();
@@ -33,9 +95,15 @@ CNewzflow::~CNewzflow()
 	postProcessor->Join();
 	delete postProcessor;
 
+	for(size_t i = 0; i < nzbs.GetCount(); i++) {
+		delete nzbs[i];
+	}
+	nzbs.RemoveAll();
+
 	CNntpSocket::CloseWinsock();
 
 	s_pInstance = NULL;
+	Util::print("~CNewzflow finished\n");
 }
 
 CNewzflow* CNewzflow::Instance()
@@ -46,6 +114,9 @@ CNewzflow* CNewzflow::Instance()
 CNzbSegment* CNewzflow::GetSegment()
 {
 	CLock lock;
+	if(shuttingDown)
+		return NULL;
+
 	for(size_t i = 0; i < nzbs.GetCount(); i++) {
 		CNzb* nzb = nzbs[i];
 		if(nzb->status != kQueued && nzb->status != kDownloading)
@@ -91,4 +162,23 @@ void CNewzflow::UpdateSegment(CNzbSegment* s, ENzbStatus newStatus)
 	nzb->status = kCompleted;
 
 	postProcessor->Add(nzb);
+}
+
+// a finished downloader calls this to remove itself from the downloaders array
+// it's put into the finishedDownloaders array that will be cleaned upon AddJob and ~CNewzflow
+// unfortunately a thread cannot delete itself.
+void CNewzflow::RemoveDownloader(CDownloader* dl)
+{
+	CLock lock;
+	// if we're shutting down, do nothing. ~CNewzflow will wait for all downloaders and delete them
+	if(shuttingDown)
+		return;
+
+	for(size_t i = 0; i < downloaders.GetCount(); i++) {
+		if(downloaders[i] == dl) {
+			downloaders.RemoveAt(i);
+			finishedDownloaders.Add(dl);
+			break;
+		}
+	}
 }

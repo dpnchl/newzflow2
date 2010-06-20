@@ -4,8 +4,6 @@
 
 #pragma once
 
-
-
 class CNzbView : public CWindowImpl<CNzbView, CListViewCtrl>, public CCustomDraw<CNzbView>
 {
 public:
@@ -18,6 +16,8 @@ public:
 		CHAIN_MSG_MAP_ALT(CCustomDraw<CNzbView>, 1)
 	END_MSG_MAP()
 
+	~CNzbView();
+
 	void Init(HWND hwndParent);
 
 	LRESULT OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
@@ -28,6 +28,7 @@ public:
 protected:
 	CTheme m_thmProgress;
 
+	CImageList m_imageList;
 
 // Handler prototypes (uncomment arguments if needed):
 //	LRESULT MessageHandler(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)
