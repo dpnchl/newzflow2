@@ -8,80 +8,13 @@
 #include "aboutdlg.h"
 #include "MainFrm.h"
 
-//////////////////////////////////////////////////////////////////////////
-
-// BARTO START
-#include "util.h"
-#include "nzb.h"
-#include "sock.h"
-#include "Downloader.h"
-//#include "DiskWriter.h"
 #include "Newzflow.h"
-#include "PostProcessor.h"
+#include "Sock.h"
+#include "Util.h"
 
-class CBartoThread : public CThreadImpl<CBartoThread>
-{
-	DWORD Run() {
-		CNewzflow* theApp = CNewzflow::Instance();
-//		VERIFY(CNntpSocket::InitWinsock());
-
-		Util::print("Control Thread starting");
-
-/*
-		CPostProcessor post;
-
-		Util::print("Waiting for post processor.");
-		post.Join();
-*/
-
-//		CDiskWriter diskWriter;
-		CNzb* nzb = CNzb::Create(_T("file://c:/Users/Barto/Documents/Visual Studio 2008/Projects/Newzflow/test/VW Sharan-Technik.par2.corrupt.nzb"));
-		//CNzb* nzb = CNzb::Create(_T("file://c:/Users/Barto/Documents/Visual Studio 2008/Projects/Newzflow/test/ubuntu-10.04-desktop-i386(devilspeed).par2.corrupt.nzb"));
-		//CNzb* nzb = CNzb::Create(_T("http://www.nzbindex.com/download/20595614/ubuntu-10.04-desktop-i386devilspeed-0123-ubuntu-10.04-desktop-i386devilspeed.par2.nzb"));
-		//CNzb* nzb2 = CNzb::Create(_T("file://c:/Users/Barto/Documents/Visual Studio 2008/Projects/Newzflow/test/VW Kever 1200-1200A-1300-1300A-1500 tot 1967 Manual GE.par2.nzb"));
-		ASSERT(nzb);
-		{ CNewzflow::CLock lock;
-			theApp->nzbs.Add(nzb);
-			//theApp->nzbs.Add(nzb2);
-
-			for(int i = 0; i < 5; i++) {
-				CNewzflow::Instance()->downloaders.Add(new CDownloader);
-			}
-		}
-
-		Util::print("waiting for downloaders to finish...\n");
-		bool active = true;
-		while(active) {
-			CString s;
-			s.Format(_T("Current Speed: %.2fkb/s"), CNntpSocket::totalSpeed.Get() / 1024.f);
-			Util::print(CStringA(s));
-
-			{ CNewzflow::CLock lock;
-				bool allFinished = true;
-				for(size_t i = 0; i < CNewzflow::Instance()->downloaders.GetCount(); i++) {
-					if(CNewzflow::Instance()->downloaders[i]->GetExitCode() == STILL_ACTIVE)
-						allFinished = false;
-				}
-				if(allFinished) active = false;
-			}
-			Sleep(2000);
-		}
-
-		{ CNewzflow::CLock lock;
-			bool allFinished = true;
-			for(size_t i = 0; i < CNewzflow::Instance()->downloaders.GetCount(); i++) {
-				delete CNewzflow::Instance()->downloaders[i];
-			}
-			CNewzflow::Instance()->downloaders.RemoveAll();
-		}
-
-		Util::print("Control Thread shutting down");
-		return 0;
-	}
-};
-
-//////////////////////////////////////////////////////////////////////////
-
+#ifdef _DEBUG
+#define new DEBUG_CLIENTBLOCK
+#endif
 
 BOOL CMainFrame::PreTranslateMessage(MSG* pMsg)
 {
@@ -171,6 +104,10 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 {
 	HWND hWndToolBar = CreateSimpleToolBarCtrl(m_hWnd, IDR_MAINFRAME, FALSE, ATL_SIMPLE_TOOLBAR_PANE_STYLE);
 
+	if(!m_toolBarImageList.Load(_T("toolbar.bmp"), 24, 24))
+		m_toolBarImageList.LoadFromResource(IDB_TOOLBAR, 24, 24);
+	m_toolBarImageList.Set(hWndToolBar);
+
 	CreateSimpleReBar(ATL_SIMPLE_REBAR_NOBORDER_STYLE);
 	AddSimpleReBarBand(hWndToolBar);
 
@@ -200,9 +137,15 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 
 	SetTimer(1234, 1000, NULL); // GUI update timer; gets distributed to all views
 
-	UIAddToolBar(m_hWndToolBar);
+	UIAddToolBar(hWndToolBar);
 	UISetCheck(ID_VIEW_TOOLBAR, 1);
 	UISetCheck(ID_VIEW_STATUS_BAR, 1);
+	UIEnable(ID_NZB_START, FALSE);
+	UIEnable(ID_NZB_STOP, FALSE);
+	UIEnable(ID_NZB_PAUSE, FALSE);
+	UIEnable(ID_NZB_REMOVE, FALSE);
+	UIEnable(ID_NZB_MOVE_UP, FALSE);
+	UIEnable(ID_NZB_MOVE_DOWN, FALSE);
 
 	// register object for message filtering and idle updates
 	CMessageLoop* pLoop = _Module.GetMessageLoop();
@@ -231,9 +174,9 @@ LRESULT CMainFrame::OnFileExit(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCt
 	return 0;
 }
 
-LRESULT CMainFrame::OnFileNew(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
+LRESULT CMainFrame::OnFileAdd(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 {
-	CBartoThread* barto = new CBartoThread;
+	CNewzflow::Instance()->controlThread->Add(_T("file://c:/Users/Barto/Documents/Visual Studio 2008/Projects/Newzflow/test/VW Sharan-Technik.par2.nzb"));
 
 	return 0;
 }
@@ -265,6 +208,10 @@ LRESULT CMainFrame::OnAppAbout(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCt
 
 LRESULT CMainFrame::OnTimer(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& /*bHandled*/)
 {
+	CString s;
+	s.Format(_T("Newzflow - %s/s"), Util::FormatSize(CNntpSocket::totalSpeed.Get()));
+	SetWindowText(s);
+
 	SendMessageToDescendants(uMsg, wParam, lParam);
 	return 0;
 }
@@ -274,6 +221,25 @@ LRESULT CMainFrame::OnNzbChanged(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled*
 	LPNMLISTVIEW lvn = (LPNMLISTVIEW)pnmh;
 	if(lvn->hdr.hwndFrom == m_list && (lvn->uChanged & LVIF_STATE) && ((lvn->uOldState & LVIS_SELECTED) != (lvn->uNewState & LVIS_SELECTED))) {
 		m_files.SetNzb((CNzb*)m_list.GetItemData(m_list.GetNextItem(-1, LVNI_SELECTED)));
+		bool enable = m_list.GetSelectedCount() > 0;
+/*
+		bool allStopped = true;
+		bool allStarted = true;
+		int item = -1;
+		for(;;) {
+			item = m_list.GetNextItem(item, LVNI_SELECTED);
+			if(item == -1)
+				break;
+			CNzb* nzb = (CNzb*)m_list.GetItemData(item);
+			if(nzb->status != kDownloading) allStarted = FALSE;
+		}
+*/
+		UIEnable(ID_NZB_START, enable);
+		UIEnable(ID_NZB_PAUSE, enable);
+		UIEnable(ID_NZB_STOP, enable);
+		UIEnable(ID_NZB_REMOVE, enable);
+		UIEnable(ID_NZB_MOVE_UP, enable);
+		UIEnable(ID_NZB_MOVE_DOWN, enable);
 	}
 	return 0;
 }

@@ -9,6 +9,10 @@
 #include "Newzflow.h"
 #include "Util.h"
 
+#ifdef _DEBUG
+#define new DEBUG_CLIENTBLOCK
+#endif
+
 CFileView::CFileView()
 {
 	nzb = NULL;

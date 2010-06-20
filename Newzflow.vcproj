@@ -4,6 +4,7 @@
 	Version="9,00"
 	Name="Newzflow"
 	ProjectGUID="{7FFA03C5-9C8B-40F9-8AB6-E3E7ECE21075}"
+	RootNamespace="Newzflow"
 	TargetFrameworkVersion="196613"
 	>
 	<Platforms>
@@ -331,6 +332,10 @@
 			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;jpg;jpeg;jpe;manifest"
 			>
 			<File
+				RelativePath=".\res\bitmap1.bmp"
+				>
+			</File>
+			<File
 				RelativePath=".\res\Newzflow.ico"
 				>
 			</File>
@@ -342,7 +347,23 @@
 				RelativePath=".\res\toolbar.bmp"
 				>
 			</File>
+			<File
+				RelativePath=".\res\toolbar16.bmp"
+				>
+			</File>
+			<File
+				RelativePath=".\res\tstatus.bmp"
+				>
+			</File>
+			<File
+				RelativePath=".\res\tstatus_own.bmp"
+				>
+			</File>
 		</Filter>
+		<File
+			RelativePath=".\credits.txt"
+			>
+		</File>
 	</Files>
 	<Globals>
 	</Globals>

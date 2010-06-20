@@ -8,6 +8,7 @@
 #include "ConnectionView.h"
 #include "TabView.h"
 #include "FileView.h"
+#include "Util.h"
 
 class CMainFrame : public CFrameWindowImpl<CMainFrame>, public CUpdateUI<CMainFrame>,
 		public CMessageFilter, public CIdleHandler
@@ -20,6 +21,7 @@ public:
 	CConnectionView m_connections;
 	CFileView m_files;
 	CFont m_font;
+	CToolBarImageList m_toolBarImageList;
 
 	int m_vertSplitY; // user wanted position, from bottom
 	int m_vertSplitYReal; // real position
@@ -34,6 +36,12 @@ public:
 	BEGIN_UPDATE_UI_MAP(CMainFrame)
 		UPDATE_ELEMENT(ID_VIEW_TOOLBAR, UPDUI_MENUPOPUP)
 		UPDATE_ELEMENT(ID_VIEW_STATUS_BAR, UPDUI_MENUPOPUP)
+		UPDATE_ELEMENT(ID_NZB_START, UPDUI_TOOLBAR)
+		UPDATE_ELEMENT(ID_NZB_STOP, UPDUI_TOOLBAR)
+		UPDATE_ELEMENT(ID_NZB_PAUSE, UPDUI_TOOLBAR)
+		UPDATE_ELEMENT(ID_NZB_REMOVE, UPDUI_TOOLBAR)
+		UPDATE_ELEMENT(ID_NZB_MOVE_UP, UPDUI_TOOLBAR)
+		UPDATE_ELEMENT(ID_NZB_MOVE_DOWN, UPDUI_TOOLBAR)
 	END_UPDATE_UI_MAP()
 
 	BEGIN_MSG_MAP(CMainFrame)
@@ -45,7 +53,8 @@ public:
 		MESSAGE_HANDLER(WM_LBUTTONDOWN, OnLButtonDown)
 		MESSAGE_HANDLER(WM_LBUTTONUP, OnLButtonUp)
 		COMMAND_ID_HANDLER(ID_APP_EXIT, OnFileExit)
-		COMMAND_ID_HANDLER(ID_FILE_NEW, OnFileNew)
+		COMMAND_ID_HANDLER(ID_FILE_ADD, OnFileAdd)
+		COMMAND_ID_HANDLER(ID_FILE_ADD_URL, OnFileAdd)
 		COMMAND_ID_HANDLER(ID_VIEW_TOOLBAR, OnViewToolBar)
 		COMMAND_ID_HANDLER(ID_VIEW_STATUS_BAR, OnViewStatusBar)
 		COMMAND_ID_HANDLER(ID_APP_ABOUT, OnAppAbout)
@@ -66,7 +75,7 @@ public:
 	LRESULT OnSetCursor(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
 	LRESULT OnNzbChanged(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/);
 	LRESULT OnFileExit(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
-	LRESULT OnFileNew(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
+	LRESULT OnFileAdd(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnViewToolBar(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnViewStatusBar(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnAppAbout(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);

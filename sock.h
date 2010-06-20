@@ -45,7 +45,7 @@ public:
 	~CSpeedMonitor();
 
 	void OnReceive(int bytes);
-	float Get();
+	int Get();
 
 protected:
 	void Trim();

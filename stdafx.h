@@ -26,6 +26,7 @@
 
 #define _CRT_SECURE_NO_WARNINGS
 #define _WTL_NO_CSTRING
+#define _WTL_NO_WTYPES
 
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -50,6 +51,7 @@ extern CAppModule _Module;
 #include <atlctl.h>
 #include <atlmisc.h>
 #include <atlcoll.h>
+#include <atlimage.h>
 
 #include <atlframe.h>
 #include <atlctrls.h>
@@ -70,6 +72,13 @@ namespace std {
 		typedef match_results<const TCHAR*> tcmatch;
 	}
 }
+
+#ifdef _DEBUG
+   #define DEBUG_CLIENTBLOCK   new( _CLIENT_BLOCK, __FILE__, __LINE__)
+#else
+   #define DEBUG_CLIENTBLOCK
+#endif // _DEBUG
+
 
 // for SSL
 /*

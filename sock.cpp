@@ -3,6 +3,10 @@
 #include "util.h"
 #include "sock.h"
 
+#ifdef _DEBUG
+#define new DEBUG_CLIENTBLOCK
+#endif
+
 // CFifoBuffer
 //////////////////////////////////////////////////////////////////////////
 
@@ -326,14 +330,14 @@ void CSpeedMonitor::OnReceive(int bytes)
 	Trim();
 }
 
-float CSpeedMonitor::Get()
+int CSpeedMonitor::Get()
 {
 	CComCritSecLock<CComAutoCriticalSection> lock(cs);
 
 	Trim();
 
 	if(history.GetCount() < 2)
-		return 0.f;
+		return 0;
 
 	// don't take head into account, it may still be active
 	int bytes = 0;
@@ -345,7 +349,7 @@ float CSpeedMonitor::Get()
 
 	time_t elapsed = firstTime - history.GetTail().first + 1;
 
-	return (float)bytes / (float)elapsed;
+	return (int)(bytes / elapsed);
 }
 
 // calling function locks!

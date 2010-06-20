@@ -3,6 +3,10 @@
 #include <fcntl.h>
 #include <io.h>
 
+#ifdef _DEBUG
+#define new DEBUG_CLIENTBLOCK
+#endif
+
 namespace Util
 {
 	void CreateConsole()
@@ -33,13 +37,6 @@ namespace Util
 
 	void print(const char* s)
 	{
-/*
-		GUITHREADINFO gui;
-		ZeroMemory(&gui, sizeof(gui));
-		gui.cbSize = sizeof(gui);
-		GetGUIThreadInfo(_Module.m_dwMainThreadID, &gui);
-		::PostMessage(gui.hwndActive, WM_USER, (WPARAM)new CString(s), (LPARAM)::GetCurrentThreadId());
-*/
 		CString str;
 		str.Format(_T("[%4x] %s\n"), GetCurrentThreadId(), CString(s));
 		OutputDebugString(str);
@@ -47,7 +44,7 @@ namespace Util
 
 	CString FormatSize(__int64 size)
 	{
-		static TCHAR prefix[] = _T("KMGT");
+		static TCHAR prefix[] = _T("kMGT");
 		CString s;
 		if(size < 1024)
 			s.Format(_T("%I64d B"), size);
@@ -67,4 +64,71 @@ namespace Util
 		}
 		return s;
 	}
+	CString FormatSpeed(__int64 speed)
+	{
+		return FormatSize(speed) + _T("/s");
+	}
 };
+
+// CToolBarImageList
+//////////////////////////////////////////////////////////////////////////
+
+CToolBarImageList::~CToolBarImageList()
+{
+	ilNormal.Destroy();
+	ilDisabled.Destroy();
+}
+
+bool CToolBarImageList::Load(const CString& path, int cx, int cy)
+{
+	CImage image;
+	if(!SUCCEEDED(image.Load(path)))
+		return false;
+	return Load(image, cx, cy);
+}
+
+bool CToolBarImageList::LoadFromResource(ATL::_U_STRINGorID bitmap, int cx, int cy)
+{
+	CImage image;
+	image.LoadFromResource(ModuleHelper::GetResourceInstance(), bitmap.m_lpstr);
+	return Load(image, cx, cy);
+}
+
+bool CToolBarImageList::Load(CImage &image, int cx, int cy)
+{
+	if(image.GetBPP() != 32)
+		return false;
+
+	ilNormal.Create(cx, cy, ILC_COLOR32, 0, 100);
+	ilNormal.Add((HBITMAP)image, (HBITMAP)NULL);
+
+	// generate disabled image by applying 50% alpha and 75% desaturation
+	unsigned char* bits = (unsigned char*)image.GetBits();
+	int pitch = image.GetPitch();
+	for(int y = 0; y < image.GetHeight(); y++) {
+		for(int x = 0; x < image.GetWidth(); x++) {
+			unsigned char* pp = &bits[x*4];
+			int grey = ((unsigned)pp[0] + (unsigned)pp[1] + (unsigned)pp[2]) / 3;
+			int r = pp[0] + ((grey - pp[0]) * 3 >> 2);
+			int g = pp[1] + ((grey - pp[1]) * 3 >> 2);
+			int b = pp[2] + ((grey - pp[2]) * 3 >> 2);
+			pp[0] = r;
+			pp[1] = g;
+			pp[2] = b;
+			pp[3] >>= 1;
+		}
+		bits += pitch;
+	}
+	ilDisabled.Create(24, 24, ILC_COLOR32, 0, 100);
+	ilDisabled.Add((HBITMAP)image, (HBITMAP)NULL);
+
+	return true;
+}
+
+void CToolBarImageList::Set(HWND hwndToolBar)
+{
+	CToolBarCtrl toolBar(hwndToolBar);
+
+	toolBar.SetImageList(ilNormal);
+	toolBar.SetDisabledImageList(ilDisabled);
+}

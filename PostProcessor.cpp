@@ -5,6 +5,10 @@
 #include "Newzflow.h"
 #include "sock.h"
 
+#ifdef _DEBUG
+#define new DEBUG_CLIENTBLOCK
+#endif
+
 // CPostProcessor
 //////////////////////////////////////////////////////////////////////////
 
@@ -32,17 +36,13 @@ LRESULT CPostProcessor::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 	}
 	nzb->status = kVerifying;
 	Par2Verify(par2file);
+	nzb->status = kFinished;
 
 	return 0;
 }
 
 void CPostProcessor::Par2Verify(CNzbFile* par2file)
 {
-	HANDLE g_hChildStd_IN_Rd = NULL;
-	HANDLE g_hChildStd_IN_Wr = NULL;
-	HANDLE g_hChildStd_OUT_Rd = NULL;
-	HANDLE g_hChildStd_OUT_Wr = NULL;
-
 	SECURITY_ATTRIBUTES saAttr; 
 
 	// Set the bInheritHandle flag so pipe handles are inherited. 
@@ -50,17 +50,13 @@ void CPostProcessor::Par2Verify(CNzbFile* par2file)
 	saAttr.bInheritHandle = TRUE; 
 	saAttr.lpSecurityDescriptor = NULL; 
 
+	CHandle hStdOutRd, hStdOutWr;
+
 	// Create a pipe for the child process's STDOUT. 
-	VERIFY(CreatePipe(&g_hChildStd_OUT_Rd, &g_hChildStd_OUT_Wr, &saAttr, 0));
+	VERIFY(CreatePipe(&hStdOutRd.m_h, &hStdOutWr.m_h, &saAttr, 0));
 
 	// Ensure the read handle to the pipe for STDOUT is not inherited.
-	VERIFY(SetHandleInformation(g_hChildStd_OUT_Rd, HANDLE_FLAG_INHERIT, 0));
-
-	// Create a pipe for the child process's STDIN. 
-	VERIFY(CreatePipe(&g_hChildStd_IN_Rd, &g_hChildStd_IN_Wr, &saAttr, 0));
-
-	// Ensure the write handle to the pipe for STDIN is not inherited. 
-	VERIFY(SetHandleInformation(g_hChildStd_IN_Wr, HANDLE_FLAG_INHERIT, 0));
+	VERIFY(SetHandleInformation(hStdOutRd, HANDLE_FLAG_INHERIT, 0));
 
 	// Create the child process. 
 	CString szCmdline;
@@ -70,16 +66,14 @@ void CPostProcessor::Par2Verify(CNzbFile* par2file)
 	BOOL bSuccess = FALSE; 
 
 	// Set up members of the PROCESS_INFORMATION structure. 
-	ZeroMemory( &piProcInfo, sizeof(PROCESS_INFORMATION) );
+	ZeroMemory(&piProcInfo, sizeof(PROCESS_INFORMATION));
 
 	// Set up members of the STARTUPINFO structure. 
 	// This structure specifies the STDIN and STDOUT handles for redirection.
-
-	ZeroMemory( &siStartInfo, sizeof(STARTUPINFO) );
+	ZeroMemory(&siStartInfo, sizeof(STARTUPINFO));
 	siStartInfo.cb = sizeof(STARTUPINFO); 
-	siStartInfo.hStdError = g_hChildStd_OUT_Wr;
-	siStartInfo.hStdOutput = g_hChildStd_OUT_Wr;
-	siStartInfo.hStdInput = g_hChildStd_IN_Rd;
+	siStartInfo.hStdError = hStdOutWr;
+	siStartInfo.hStdOutput = hStdOutWr;
 	siStartInfo.dwFlags |= STARTF_USESTDHANDLES;
 
 	// Create the child process. 
@@ -96,7 +90,8 @@ void CPostProcessor::Par2Verify(CNzbFile* par2file)
 	szCmdline.ReleaseBuffer();
 
 	// If an error occurs, exit the application. 
-	ASSERT(bSuccess);
+	if(!bSuccess)
+		return;
 
 	// Close handles to the child process and its primary thread.
 	// Some applications might keep these handles to monitor the status
@@ -113,7 +108,7 @@ void CPostProcessor::Par2Verify(CNzbFile* par2file)
 	// read end of the pipe, to control child process execution.
 	// The pipe is assumed to have enough buffer space to hold the
 	// data the child process has already written to it.
-	VERIFY(CloseHandle(g_hChildStd_OUT_Wr));
+	hStdOutWr.Close();
 
 	CFile f;
 	f.Open(_T("par2.dmp"), GENERIC_WRITE, 0, CREATE_ALWAYS);
@@ -131,8 +126,8 @@ void CPostProcessor::Par2Verify(CNzbFile* par2file)
 
 	for (;;) 
 	{ 
-		bSuccess = ReadFile(g_hChildStd_OUT_Rd, buffer.GetFillPtr(), buffer.GetFillSize(), &dwRead, NULL);
-		if( ! bSuccess || dwRead == 0 ) break; 
+		bSuccess = ReadFile(hStdOutRd, buffer.GetFillPtr(), buffer.GetFillSize(), &dwRead, NULL);
+		if(! bSuccess || dwRead == 0) break; 
 
 		buffer.Fill(NULL, dwRead);
 		CString line;

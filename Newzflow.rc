@@ -13,6 +13,27 @@
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
+// Neutral resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_NEU)
+#ifdef _WIN32
+LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
+#pragma code_page(1252)
+#endif //_WIN32
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Bitmap
+//
+
+IDB_STATUS              BITMAP                  "res\\tstatus.bmp"
+IDB_STATUS_OWN          BITMAP                  "res\\tstatus_own.bmp"
+IDB_TOOLBAR             BITMAP                  "res\\toolbar.bmp"
+#endif    // Neutral resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
 // English (U.S.) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
@@ -51,18 +72,24 @@ END
 // Toolbar
 //
 
-IDR_MAINFRAME TOOLBAR  16, 15
+IDR_MAINFRAME TOOLBAR  24, 24
 BEGIN
-    BUTTON      ID_FILE_NEW
-    BUTTON      ID_FILE_OPEN
-    BUTTON      ID_FILE_SAVE
+    BUTTON      ID_FILE_ADD
+    BUTTON      ID_FILE_ADD_URL
+    BUTTON      ID_CREATE
     SEPARATOR
-    BUTTON      ID_EDIT_CUT
-    BUTTON      ID_EDIT_COPY
-    BUTTON      ID_EDIT_PASTE
+    BUTTON      ID_NZB_REMOVE
     SEPARATOR
-    BUTTON      ID_FILE_PRINT
-    BUTTON      ID_APP_ABOUT
+    BUTTON      ID_NZB_START
+    BUTTON      ID_NZB_PAUSE
+    BUTTON      ID_NZB_STOP
+    SEPARATOR
+    BUTTON      ID_NZB_MOVE_UP
+    BUTTON      ID_NZB_MOVE_DOWN
+    SEPARATOR
+    BUTTON      ID_SEARCH
+    BUTTON      ID_RSS
+    BUTTON      ID_SETTINGS
 END
 
 
@@ -71,7 +98,7 @@ END
 // Bitmap
 //
 
-IDR_MAINFRAME           BITMAP                  "res\\Toolbar.bmp"
+IDR_MAINFRAME           BITMAP                  "res\\toolbar16.bmp"
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -108,9 +135,10 @@ BEGIN
     END
     POPUP "&Help"
     BEGIN
-        MENUITEM "&About Newzflow...",              ID_APP_ABOUT
+        MENUITEM "&About Newzflow...",          ID_APP_ABOUT
     END
 END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -127,18 +155,15 @@ IDR_MAINFRAME           ICON                    "res\\Newzflow.ico"
 //
 
 IDD_ABOUTBOX DIALOG  0, 0, 187, 102
-STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "About"
 FONT 8, "MS Sans Serif"
 BEGIN
     DEFPUSHBUTTON   "OK",IDOK,130,81,50,14
-    CTEXT           "Newzflow Application v1.0\n\n(c) Copyright 2010",IDC_STATIC,25,57,78,
-                    32
+    CTEXT           "Newzflow Application v1.0\n\n(c) Copyright 2010",IDC_STATIC,25,57,78,32
     ICON            IDR_MAINFRAME,IDC_STATIC,55,26,18,20
     GROUPBOX        "",IDC_STATIC,7,7,115,88
 END
-
-
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -206,21 +231,21 @@ BEGIN
     BEGIN
         BLOCK "040904B0"
         BEGIN
-            VALUE "CompanyName", "\0"
-            VALUE "FileDescription", "Newzflow Module\0"
-            VALUE "FileVersion", "1, 0, 0, 1\0"
-            VALUE "InternalName", "Newzflow\0"
-            VALUE "LegalCopyright", "Copyright 2010\0"
-            VALUE "OriginalFilename", "Newzflow.exe\0"
-            VALUE "ProductName", "Newzflow Module\0"
-            VALUE "ProductVersion", "1, 0, 0, 1\0"
+            VALUE "FileDescription", "Newzflow Module"
+            VALUE "FileVersion", "1, 0, 0, 1"
+            VALUE "InternalName", "Newzflow"
+            VALUE "LegalCopyright", "Copyright 2010"
+            VALUE "OriginalFilename", "Newzflow.exe"
+            VALUE "ProductName", "Newzflow Module"
+            VALUE "ProductVersion", "1, 0, 0, 1"
         END
     END
     BLOCK "VarFileInfo"
     BEGIN
-        VALUE "Translation", 0x0409, 0x04B0
+        VALUE "Translation", 0x409, 1200
     END
 END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -229,7 +254,7 @@ END
 
 STRINGTABLE 
 BEGIN
-    IDR_MAINFRAME	"Newzflow"
+    IDR_MAINFRAME           "Newzflow"
 END
 
 STRINGTABLE 
@@ -309,6 +334,10 @@ END
 STRINGTABLE 
 BEGIN
     ATL_IDS_IDLEMESSAGE     "Ready"
+END
+
+STRINGTABLE 
+BEGIN
     ATL_IDS_MRU_FILE        "Open this document"
 END
 
@@ -316,5 +345,3 @@ END
 /////////////////////////////////////////////////////////////////////////////
 
 
-#ifndef APSTUDIO_INVOKED
-#endif    // not APSTUDIO_INVOKED

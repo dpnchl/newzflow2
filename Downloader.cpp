@@ -7,6 +7,10 @@
 #include "nzb.h"
 #include "Newzflow.h"
 
+#ifdef _DEBUG
+#define new DEBUG_CLIENTBLOCK
+#endif
+
 // CYDecoder
 //////////////////////////////////////////////////////////////////////////
 
@@ -165,6 +169,8 @@ DWORD CDownloader::Run()
 	}
 	sock.Request("QUIT\n");
 	sock.Close();
+
+	CNewzflow::Instance()->RemoveDownloader(this);
 
 	return 0;
 }

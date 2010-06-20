@@ -7,6 +7,11 @@
 #include "Newzflow.h"
 #include "Downloader.h"
 #include "ConnectionView.h"
+#include "Util.h"
+
+#ifdef _DEBUG
+#define new DEBUG_CLIENTBLOCK
+#endif
 
 BOOL CConnectionView::PreTranslateMessage(MSG* pMsg)
 {
@@ -40,8 +45,7 @@ LRESULT CConnectionView::OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lPar
 			if((int)i >= lvCount) {
 				AddItem(i, 0, s);
 			}
-			s.Format(_T("%.1f kB/s"), dl->sock.speed.Get() / 1024.f);
-			AddItem(i, 1, s);
+			AddItem(i, 1, Util::FormatSpeed(dl->sock.speed.Get()));
 			{ CComCritSecLock<CComAutoCriticalSection> lock(dl->sock.cs);
 				s = dl->sock.lastCommand;
 			}

@@ -1,0 +1,4 @@
+the following skins are currently used for testing purposes from www.utorrent.com:
+
+tstatus.bmp: LuxoJr Crystal Round by fractalnoise http://forum.utorrent.com/viewtopic.php?id=8425
+toolbar.bmp: Vista Revamp by savaden http://forum.utorrent.com/viewtopic.php?id=13801
