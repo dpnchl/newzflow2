@@ -16,7 +16,34 @@
 // CNewzflowThread
 //////////////////////////////////////////////////////////////////////////
 
-void CNewzflowThread::Add(const CString& nzbUrl)
+void CNewzflowThread::AddFile(const CString& nzbPath)
+{
+	if(nzbPath.IsEmpty())
+		return;
+
+	CString nzbUrl;
+	// make a full path (incl. drive and directory) for XML Parser's URL
+	if(!(nzbPath.GetLength() > 1 && nzbPath[1] == ':')) {
+		CString curDir;
+		::GetCurrentDirectory(512, curDir.GetBuffer(512)); curDir.ReleaseBuffer();
+		if(nzbPath[0] == '\\') {
+			// full directory specified, but drive omitted
+			nzbUrl = curDir.Left(2) + nzbPath;
+		} else {
+			// relative file/directory specified
+			nzbUrl = curDir + _T("\\") + nzbPath;
+		}
+	} else {
+		// full path specified
+		nzbUrl = nzbPath;
+	}
+	nzbUrl.Replace('\\', '/');
+	nzbUrl = _T("file://") + nzbUrl;
+
+	PostThreadMessage(MSG_JOB, (WPARAM)new CString(nzbUrl));
+}
+
+void CNewzflowThread::AddURL(const CString& nzbUrl)
 {
 	PostThreadMessage(MSG_JOB, (WPARAM)new CString(nzbUrl));
 }

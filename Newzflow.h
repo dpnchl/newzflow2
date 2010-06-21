@@ -19,7 +19,8 @@ class CNewzflowThread : public CGuiThreadImpl<CNewzflowThread>
 public:
 	CNewzflowThread() : CGuiThreadImpl<CNewzflowThread>(&_Module) {}
 
-	void Add(const CString& nzbUrl);
+	void AddFile(const CString& nzbUrl);
+	void AddURL(const CString& nzbUrl);
 	LRESULT OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
 };
 

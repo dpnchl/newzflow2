@@ -96,6 +96,8 @@ LRESULT CNzbView::OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, B
 			case kCompleted:	image = ilCompleted; break;
 			case kError:		image = ilError; break;
 			case kVerifying:	image = ilVerifying; break;
+			case kRepairing:	image = ilVerifying; break;
+			case kUnpacking:	image = ilVerifying; break;
 			case kFinished:		image = ilCompleted; break;
 			default:			image = ilQueued; break;
 			}
@@ -109,7 +111,7 @@ LRESULT CNzbView::OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, B
 				for(size_t k = 0; k < f->segments.GetCount(); k++) {
 					CNzbSegment* s = f->segments[k];
 					total += s->bytes;
-					if(s->status == kCompleted)
+					if(s->status == kCompleted || s->status == kError)
 						completed += s->bytes;
 				}
 			}

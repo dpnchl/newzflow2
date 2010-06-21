@@ -144,6 +144,10 @@ HRESULT STDMETHODCALLTYPE MyContent::startElement(
 		int cchSubject;
 		VERIFY(SUCCEEDED(pAttributes->getValueFromName(L"", 0, L"subject", wcslen(L"subject"), &pwchSubject, &cchSubject)));
 		curFile->subject = CString(pwchSubject, cchSubject);
+		int firstQuote = curFile->subject.Find('\"');
+		int lastQuote = curFile->subject.ReverseFind('\"');
+		if(firstQuote != -1 && lastQuote != -1 && lastQuote > firstQuote)
+			curFile->fileName = curFile->subject.Mid(firstQuote+1, lastQuote - firstQuote - 1);
 		curNzb->files.Add(curFile);
 	} else if(localName == _T("group")) {
 		ASSERT(curFile);
@@ -334,6 +338,8 @@ CString GetNzbStatusString(ENzbStatus status, float done /*= 0.f*/)
 	case kCompleted:	return _T("Completed");
 	case kError:		return _T("Error");
 	case kVerifying:	{ CString s; s.Format(_T("Verifying %.1f%%"), done); return s; }
+	case kRepairing:	{ CString s; s.Format(_T("Repairing %.1f%%"), done); return s; }
+	case kUnpacking:	{ CString s; s.Format(_T("Unpacking %.1f%%"), done); return s; }
 	case kFinished:		return _T("Finished");
 	default:			return _T("???");
 	}
