@@ -11,6 +11,8 @@ enum ENzbStatus {
 	kCompleted,
 	kError,
 	kVerifying,
+	kRepairing,
+	kUnpacking,
 	kFinished,
 };
 

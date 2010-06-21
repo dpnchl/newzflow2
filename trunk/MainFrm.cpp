@@ -176,7 +176,7 @@ LRESULT CMainFrame::OnFileExit(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCt
 
 LRESULT CMainFrame::OnFileAdd(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 {
-	CNewzflow::Instance()->controlThread->Add(_T("file://c:/Users/Barto/Documents/Visual Studio 2008/Projects/Newzflow/test/VW Sharan-Technik.par2.nzb"));
+	CNewzflow::Instance()->controlThread->AddFile(_T("test\\test.nzb"));
 
 	return 0;
 }
