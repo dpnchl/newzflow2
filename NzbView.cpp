@@ -8,6 +8,8 @@
 #include "NzbView.h"
 #include "Newzflow.h"
 #include "Util.h"
+#include "Settings.h"
+#include "sock.h"
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
@@ -43,6 +45,7 @@ enum {
 	kSize,
 	kDone,
 	kStatus,
+	kETA,
 };
 
 void CNzbView::Init(HWND hwndParent)
@@ -56,7 +59,7 @@ void CNzbView::Init(HWND hwndParent)
 	image.LoadFromResource(ModuleHelper::GetResourceInstance(), IDB_STATUS_OWN); // first add "own" image
 	m_imageList.Add(image, (HBITMAP)NULL);
 	image.Destroy();
-	if(!SUCCEEDED(image.Load(_T("tstatus.bmp")))) // then try to load µTorrent-compatible images from disk... 
+	if(!SUCCEEDED(image.Load(CNewzflow::Instance()->settings->GetAppDataDir() + _T("tstatus.bmp")))) // then try to load µTorrent-compatible images from disk... 
 		image.LoadFromResource(ModuleHelper::GetResourceInstance(), IDB_STATUS); // ...or from resource
 	m_imageList.Add(image, (HBITMAP)NULL);
 	SetImageList(m_imageList, LVSIL_SMALL);
@@ -68,19 +71,24 @@ void CNzbView::Init(HWND hwndParent)
 	AddColumn(_T("Size"), kSize, -1, LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM, LVCFMT_RIGHT);
 	AddColumn(_T("Done"), kDone, -1, LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM, LVCFMT_RIGHT);
 	AddColumn(_T("Status"), kStatus);
+	AddColumn(_T("ETA"), kETA);
 	SetColumnWidth(kSize, 80);
 	SetColumnWidth(kName, 400);
 	SetColumnWidth(kDone, 80);
 	SetColumnWidth(kStatus, 120);
+	SetColumnWidth(kETA, 80);
+	CNewzflow::Instance()->settings->GetListViewColumns(_T("NzbView"), *this);
 }
 
 LRESULT CNzbView::OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)
 {
 	int lvCount = GetItemCount();
 
+	int speed = CNntpSocket::totalSpeed.Get();
 	{ CNewzflow::CLock lock;
 		CNewzflow* theApp = CNewzflow::Instance();
 		size_t count = theApp->nzbs.GetCount();
+		__int64 eta = 0;
 		for(size_t i = 0; i < count; i++) {
 			CNzb* nzb = theApp->nzbs[i];
 			CString s;
@@ -119,6 +127,12 @@ LRESULT CNzbView::OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, B
 			s.Format(_T("%.1f%%"), 100. * (double)completed / (double)total);
 			AddItem(i, kDone, s);
 			AddItem(i, kStatus, GetNzbStatusString(nzb->status, nzb->done));
+			if(speed > 1024) {
+				eta += (total - completed) / speed;
+				AddItem(i, kETA, Util::FormatETA(eta));
+			} else {
+				AddItem(i, kETA, _T("\x221e")); // "unlimited"
+			}
 		}
 		SetRedraw(FALSE);
 		while((int)count < lvCount) {
@@ -167,4 +181,11 @@ DWORD CNzbView::OnSubItemPrePaint(int /*idCtrl*/, LPNMCUSTOMDRAW lpNMCustomDraw)
 		return CDRF_SKIPDEFAULT;
 	}
 	return CDRF_DODEFAULT;
+}
+
+LRESULT CNzbView::OnDestroy(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)
+{
+	CNewzflow::Instance()->settings->SetListViewColumns(_T("NzbView"), *this);
+
+	return 0;
 }

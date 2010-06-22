@@ -9,12 +9,15 @@
 #include "MainFrm.h"
 
 #include "Newzflow.h"
+#include "Settings.h"
 #include "Sock.h"
 #include "Util.h"
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
 #endif
+
+const UINT CMainFrame::s_msgTaskbarButtonCreated = RegisterWindowMessage(_T("TaskbarButtonCreated"));
 
 BOOL CMainFrame::PreTranslateMessage(MSG* pMsg)
 {
@@ -102,9 +105,14 @@ LRESULT CMainFrame::OnLButtonUp(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lPara
 
 LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)
 {
+	// allow TaskbarButtonCreated message to be sent to us if we run elevated
+	// we don't call this as of yet, because it only works on Windows 7, and we're not running elevated anyways
+	//CHANGEFILTERSTRUCT cfs = { sizeof(CHANGEFILTERSTRUCT) };
+	//ChangeWindowMessageFilterEx(m_hWnd, s_msgTaskbarButtonCreated, MSGFLT_ALLOW, &cfs);
+
 	HWND hWndToolBar = CreateSimpleToolBarCtrl(m_hWnd, IDR_MAINFRAME, FALSE, ATL_SIMPLE_TOOLBAR_PANE_STYLE);
 
-	if(!m_toolBarImageList.Load(_T("toolbar.bmp"), 24, 24))
+	if(!m_toolBarImageList.Load(CNewzflow::Instance()->settings->GetAppDataDir() + _T("toolbar.bmp"), 24, 24))
 		m_toolBarImageList.LoadFromResource(IDB_TOOLBAR, 24, 24);
 	m_toolBarImageList.Set(hWndToolBar);
 
@@ -113,7 +121,7 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 
 	CreateSimpleStatusBar();
 
-	m_vertSplitY = 300;
+	m_vertSplitY = CNewzflow::Instance()->settings->GetSplitPos();
 
 	m_list.Init(*this);
 
@@ -158,6 +166,13 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 
 LRESULT CMainFrame::OnDestroy(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& bHandled)
 {
+	// save window position to settings
+	WINDOWPLACEMENT wp;
+	wp.length = sizeof(WINDOWPLACEMENT);
+	GetWindowPlacement(&wp);
+	CNewzflow::Instance()->settings->SetWindowPos(wp.rcNormalPosition, wp.showCmd);
+	CNewzflow::Instance()->settings->SetSplitPos(m_vertSplitY);
+
 	// unregister message filtering and idle updates
 	CMessageLoop* pLoop = _Module.GetMessageLoop();
 	ATLASSERT(pLoop != NULL);
@@ -176,7 +191,8 @@ LRESULT CMainFrame::OnFileExit(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCt
 
 LRESULT CMainFrame::OnFileAdd(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 {
-	CNewzflow::Instance()->controlThread->AddFile(_T("test\\test.nzb"));
+//	CNewzflow::Instance()->controlThread->AddFile(_T("test\\test.nzb"));
+	CNewzflow::Instance()->controlThread->AddFile(_T("test\\ubuntu-10.04-desktop-i386(devilspeed).par2.nzb"));
 
 	return 0;
 }
@@ -208,9 +224,46 @@ LRESULT CMainFrame::OnAppAbout(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCt
 
 LRESULT CMainFrame::OnTimer(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& /*bHandled*/)
 {
-	CString s;
-	s.Format(_T("Newzflow - %s/s"), Util::FormatSize(CNntpSocket::totalSpeed.Get()));
+	int speed = CNntpSocket::totalSpeed.Get();
+	__int64 eta = 0;
+	__int64 completed = 0, total = 0, left = 0;
+	if(speed > 1024) {
+		CNewzflow::CLock lock;
+		CNewzflow* theApp = CNewzflow::Instance();
+		size_t count = theApp->nzbs.GetCount();
+		for(size_t i = 0; i < count; i++) {
+			CNzb* nzb = theApp->nzbs[i];
+			for(size_t j = 0; j < nzb->files.GetCount(); j++) {
+				CNzbFile* f = nzb->files[j];
+				for(size_t k = 0; k < f->segments.GetCount(); k++) {
+					CNzbSegment* s = f->segments[k];
+					total += s->bytes;
+					if(s->status == kCompleted || s->status == kError)
+						completed += s->bytes;
+				}
+			}
+		}
+		eta = (total - completed) / speed;
+		left = total - completed;
+	}
+
+	CString s = _T("Newzflow");
+	if(left > 0)
+		s += _T(" - ") + Util::FormatSize(left);
+	if(speed > 0)
+		s += _T(" - ") + Util::FormatSpeed(speed);
+	if(eta > 0)
+		s += _T(" - ") + Util::FormatETA(eta);
 	SetWindowText(s);
+
+	if(m_pTaskbarList) {
+		if(left > 0) {
+			m_pTaskbarList->SetProgressState(*this, TBPF_NORMAL);
+			m_pTaskbarList->SetProgressValue(*this, completed, total);
+		} else {
+			m_pTaskbarList->SetProgressState(*this, TBPF_NOPROGRESS);
+		}
+	}
 
 	SendMessageToDescendants(uMsg, wParam, lParam);
 	return 0;
@@ -241,5 +294,19 @@ LRESULT CMainFrame::OnNzbChanged(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled*
 		UIEnable(ID_NZB_MOVE_UP, enable);
 		UIEnable(ID_NZB_MOVE_DOWN, enable);
 	}
+	return 0;
+}
+
+LRESULT CMainFrame::OnTaskbarButtonCreated(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
+{
+	DWORD dwMajor = LOBYTE(LOWORD(GetVersion()));
+	DWORD dwMinor = HIBYTE(LOWORD(GetVersion()));
+
+	// Check that the OS is Win 7 or later (Win 7 is v6.1).
+	if(dwMajor > 6 || (dwMajor == 6 && dwMinor > 0)) {	
+		m_pTaskbarList.Release();
+		m_pTaskbarList.CoCreateInstance(CLSID_TaskbarList);
+	}
+
 	return 0;
 }

@@ -249,7 +249,7 @@ bool CNntpSocket::SendV(const char* fmt, va_list args)
 	CStringA line;
 	line.FormatV(fmt, args);
 	va_end(args);
-	Util::print(line);
+	Util::Print(line);
 	{ CComCritSecLock<CComAutoCriticalSection> lock(cs);
 		lastCommand = line;
 	}
@@ -266,19 +266,19 @@ again:
 	bool ret = SendV(fmt, args);
 	if(!ret)
 		return "";
-	CStringA reply = ReceiveLine(); Util::print(reply);
+	CStringA reply = ReceiveLine(); Util::Print(reply);
 	if(reply.IsEmpty())
 		return "";
 	if(reply.Left(3) == "480") {
 		if(user.IsEmpty() || passwd.IsEmpty())
 			return "";
 		Send("AUTHINFO USER %s\n", user); 
-		reply = ReceiveLine(); Util::print(reply);
+		reply = ReceiveLine(); Util::Print(reply);
 		if(reply.Left(3) == "281")
 			goto again;
 		if(reply.Left(3) == "381") {
 			Send("AUTHINFO PASS %s\n", passwd);
-			reply = ReceiveLine(); Util::print(reply);
+			reply = ReceiveLine(); Util::Print(reply);
 			if(reply.Left(3) == "281")
 				goto again;
 			return "";
@@ -295,7 +295,7 @@ void CNntpSocket::Close()
 	CString str;
 	double rate = (double)(bytesReceived + bytesSent) / (double)(timeEnd - timeStart) / 1024.;
 	str.Format(_T("%.2fkb/s (%I64d bytes sent, %I64d bytes received in %d seconds)"), rate, bytesSent, bytesReceived, timeEnd - timeStart);
-	Util::print(CStringA(str));
+	Util::Print(CStringA(str));
 
 	shutdown(s, SD_SEND);
 	closesocket(s);

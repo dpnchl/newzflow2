@@ -23,7 +23,7 @@ LRESULT CDiskWriter::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandl
 
 	CString s;
 	s.Format(_T("ObJob(%s, %I64d, %d)"), job->file, job->offset, job->size);
-	Util::print(CStringA(s));
+	Util::Print(CStringA(s));
 
 	CFile file;
 	if(file.Open(job->file, GENERIC_WRITE, 0, OPEN_ALWAYS)) {

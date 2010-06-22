@@ -234,6 +234,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\Settings.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\sock.cpp"
 				>
 			</File>
@@ -308,6 +312,10 @@
 			</File>
 			<File
 				RelativePath=".\resource.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Settings.h"
 				>
 			</File>
 			<File

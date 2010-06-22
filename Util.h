@@ -2,10 +2,11 @@
 
 namespace Util
 {
+	void CreateConsole();
+	void Print(const char* s);
 	CString FormatSize(__int64 size);
 	CString FormatSpeed(__int64 speed);
-	void CreateConsole();
-	void print(const char* s);
+	CString FormatETA(__int64 time);
 };
 
 class CToolBarImageList
