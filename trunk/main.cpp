@@ -7,6 +7,7 @@
 
 #include "MainFrm.h"
 #include "Newzflow.h"
+#include "Settings.h"
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
@@ -21,7 +22,9 @@ int Run(LPTSTR /*lpstrCmdLine*/ = NULL, int nCmdShow = SW_SHOWDEFAULT)
 
 	CMainFrame wndMain;
 
-	if(wndMain.CreateEx() == NULL)
+	CRect windowRect = CNewzflow::Instance()->settings->GetWindowPos(nCmdShow);
+
+	if(wndMain.CreateEx(NULL, !windowRect.IsRectEmpty() ? &windowRect : NULL) == NULL)
 	{
 		ATLTRACE(_T("Main window creation failed!\n"));
 		return 0;

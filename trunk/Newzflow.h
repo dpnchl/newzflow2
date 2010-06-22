@@ -5,6 +5,7 @@
 class CDownloader;
 class CDiskWriter;
 class CPostProcessor;
+class CSettings;
 
 class CNewzflowThread : public CGuiThreadImpl<CNewzflowThread>
 {
@@ -44,6 +45,7 @@ public:
 	CDiskWriter* diskWriter;
 	CPostProcessor* postProcessor;
 	CNewzflowThread* controlThread;
+	CSettings* settings;
 
 	CComAutoCriticalSection cs;
 

@@ -35,7 +35,7 @@ namespace Util
 		setvbuf( stderr, NULL, _IONBF, 0 );
 	}
 
-	void print(const char* s)
+	void Print(const char* s)
 	{
 		CString str;
 		str.Format(_T("[%4x] %s\n"), GetCurrentThreadId(), CString(s));
@@ -64,9 +64,33 @@ namespace Util
 		}
 		return s;
 	}
+
 	CString FormatSpeed(__int64 speed)
 	{
 		return FormatSize(speed) + _T("/s");
+	}
+
+	CString FormatETA(__int64 time)
+	{
+		static const __int64 minute = 60;
+		static const __int64 hour = minute * 60;
+		static const __int64 day = hour * 24;
+		static const __int64 week = day * 7;
+		CString s;
+		int weeks = time / week;
+		int days = (time / day) % 7;
+		int hours = (time / hour) % 24;
+		int minutes = (time / minute) % 60;
+		int seconds = time % 60;
+		if(weeks > 0)
+			s.Format(_T("%dw %dd"), weeks, days);
+		else if(days > 0)
+			s.Format(_T("%dd %dh"), days, hours);
+		else if(hours > 0)
+			s.Format(_T("%dh %dm"), hours, minutes);
+		else
+			s.Format(_T("%dm %ds"), minutes, seconds);
+		return s;
 	}
 };
 

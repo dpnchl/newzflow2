@@ -5,6 +5,7 @@
 #include "PostProcessor.h"
 #include "sock.h"
 #include "Util.h"
+#include "Settings.h"
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
@@ -89,18 +90,19 @@ CNewzflow::CNewzflow()
 	diskWriter = new CDiskWriter;
 	postProcessor = new CPostProcessor;
 	controlThread = new CNewzflowThread;
+	settings = new CSettings;
 }
 
 CNewzflow::~CNewzflow()
 {
 	shuttingDown = true;
 
-	Util::print("waiting for control thread to finish...\n");
+	Util::Print("waiting for control thread to finish...\n");
 	controlThread->PostQuitMessage();
 	controlThread->Join();
 	delete controlThread;
 
-	Util::print("waiting for downloaders to finish...\n");
+	Util::Print("waiting for downloaders to finish...\n");
 	for(size_t i = 0; i < downloaders.GetCount(); i++) {
 		downloaders[i]->Join();
 		delete downloaders[i];
@@ -112,12 +114,12 @@ CNewzflow::~CNewzflow()
 	}
 	finishedDownloaders.RemoveAll();
 
-	Util::print("waiting for disk writer to finish...\n");
+	Util::Print("waiting for disk writer to finish...\n");
 	diskWriter->PostQuitMessage();
 	diskWriter->Join();
 	delete diskWriter;
 
-	Util::print("waiting for post processor to finish...\n");
+	Util::Print("waiting for post processor to finish...\n");
 	postProcessor->PostQuitMessage();
 	postProcessor->Join();
 	delete postProcessor;
@@ -127,10 +129,12 @@ CNewzflow::~CNewzflow()
 	}
 	nzbs.RemoveAll();
 
+	delete settings;
+
 	CNntpSocket::CloseWinsock();
 
 	s_pInstance = NULL;
-	Util::print("~CNewzflow finished\n");
+	Util::Print("~CNewzflow finished\n");
 }
 
 CNewzflow* CNewzflow::Instance()
