@@ -65,23 +65,33 @@ namespace Util
 		return s;
 	}
 
+	__int64 ParseSize(const CString& s)
+	{
+		double f1 = _tstof(s);
+		if(s.Find('k') >= 0) f1 *= 1024.;
+		else if(s.Find('M') >= 0) f1 *= 1024. * 1024.;
+		else if(s.Find('G') >= 0) f1 *= 1024. * 1024. * 1024.;
+		else if(s.Find('T') >= 0) f1 *= 1024. * 1024. * 1024. * 1024.;
+		return (__int64)f1;
+	}
+
 	CString FormatSpeed(__int64 speed)
 	{
 		return FormatSize(speed) + _T("/s");
 	}
 
-	CString FormatETA(__int64 time)
+	CString FormatTimeSpan(__int64 span) // span is in seconds
 	{
 		static const __int64 minute = 60;
 		static const __int64 hour = minute * 60;
 		static const __int64 day = hour * 24;
 		static const __int64 week = day * 7;
 		CString s;
-		int weeks = time / week;
-		int days = (time / day) % 7;
-		int hours = (time / hour) % 24;
-		int minutes = (time / minute) % 60;
-		int seconds = time % 60;
+		int weeks = (int)(span / week);
+		int days = (span / day) % 7;
+		int hours = (span / hour) % 24;
+		int minutes = (span / minute) % 60;
+		int seconds = span % 60;
 		if(weeks > 0)
 			s.Format(_T("%dw %dd"), weeks, days);
 		else if(days > 0)
@@ -91,6 +101,37 @@ namespace Util
 		else
 			s.Format(_T("%dm %ds"), minutes, seconds);
 		return s;
+	}
+
+	__int64 ParseTimeSpan(const CString& s)
+	{
+		static const __int64 minute = 60;
+		static const __int64 hour = minute * 60;
+		static const __int64 day = hour * 24;
+		static const __int64 week = day * 7;
+
+		if(s == _T("\x221e"))
+			return LLONG_MAX;
+
+		TCHAR* end = NULL;
+		__int64 v1 = _tcstoul(s, &end, 10);
+		if(end && *end) {
+			if(*end == 'm') v1 *= minute;
+			else if(*end == 'h') v1 *= hour;
+			else if(*end == 'd') v1 *= day;
+			else if(*end == 'w') v1 *= week;
+
+			end++;
+			__int64 v2 = _tcstoul(end, &end, 10);
+			if(*end == 'm') v2 *= minute;
+			else if(*end == 'h') v2 *= hour;
+			else if(*end == 'd') v2 *= day;
+			else if(*end == 'w') v2 *= week;
+
+			return v1 + v2;
+		}
+
+		return v1;
 	}
 };
 

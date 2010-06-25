@@ -6,7 +6,9 @@ namespace Util
 	void Print(const char* s);
 	CString FormatSize(__int64 size);
 	CString FormatSpeed(__int64 speed);
-	CString FormatETA(__int64 time);
+	CString FormatTimeSpan(__int64 time);
+	__int64 ParseSize(const CString& s);
+	__int64 ParseTimeSpan(const CString& s);
 };
 
 class CToolBarImageList
