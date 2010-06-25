@@ -69,11 +69,13 @@ public:
 	CNzb() {
 		status = kQueued;
 		done = 0.f;
+		refCount = 0;
 	}
 	~CNzb() {
 		for(size_t i = 0; i < files.GetCount(); i++) delete files[i];
 	}
 
+	static CNzb* Create(const CString& path);
 	CNzbFile* FindByName(const CString& name);
 
 	ENzbStatus status;
@@ -82,5 +84,5 @@ public:
 	CString name;
 	CAtlArray<CNzbFile*> files;
 
-	static CNzb* Create(const CString& path);
+	int refCount;
 };

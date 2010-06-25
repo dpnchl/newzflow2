@@ -161,6 +161,7 @@ CNzbSegment* CNewzflow::GetSegment()
 				if(segment->status != kQueued)
 					continue;
 				segment->status = file->status = nzb->status = kDownloading;
+				nzb->refCount++;
 				return segment;
 			}
 		}
@@ -177,6 +178,7 @@ void CNewzflow::UpdateSegment(CNzbSegment* s, ENzbStatus newStatus)
 	TRACE(_T("UpdateSegment(%s, %s)\n"), s->msgId, GetNzbStatusString(newStatus));
 	CNzbFile* file = s->parent;
 	CNzb* nzb = file->parent;
+	nzb->refCount--;
 	for(size_t i = 0; i < file->segments.GetCount(); i++) {
 		CNzbSegment* segment = file->segments[i];
 		if(segment->status != kCompleted && segment->status != kError) {
@@ -191,7 +193,7 @@ void CNewzflow::UpdateSegment(CNzbSegment* s, ENzbStatus newStatus)
 			return;
 	}
 	nzb->status = kCompleted;
-
+	nzb->refCount++;
 	postProcessor->Add(nzb);
 }
 

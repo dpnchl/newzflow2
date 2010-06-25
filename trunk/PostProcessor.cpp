@@ -131,11 +131,13 @@ LRESULT CPostProcessor::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 			break;
 		}
 	}
-	if(!par2file) {
+	if(par2file) {
+		Par2Repair(par2file);
+	} else {
 		nzb->status = kFinished;
-		return 0;
 	}
-	Par2Repair(par2file);
+	CNewzflow::CLock lock;
+	nzb->refCount--;
 
 	return 0;
 }

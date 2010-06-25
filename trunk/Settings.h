@@ -12,8 +12,8 @@ public:
 	int GetSplitPos();
 	void SetSplitPos(int split);
 
-	void GetListViewColumns(const CString& name, CListViewCtrl lv);
-	void SetListViewColumns(const CString& name, CListViewCtrl lv);
+	void GetListViewColumns(const CString& name, CListViewCtrl lv, int* columnVisibility, int maxColumns);
+	void SetListViewColumns(const CString& name, CListViewCtrl lv, int* columnsVisibility, int maxColumns);
 
 	const CString& GetAppDataDir();
 

@@ -40,7 +40,7 @@ public:
 	CNzbSegment* GetSegment();
 	void UpdateSegment(CNzbSegment* s, ENzbStatus newStatus);
 	void RemoveDownloader(CDownloader* dl);
-	CAtlArray<CNzb*> nzbs;
+	CAtlArray<CNzb*> nzbs, deletedNzbs;
 	CAtlArray<CDownloader*> downloaders, finishedDownloaders;
 	CDiskWriter* diskWriter;
 	CPostProcessor* postProcessor;

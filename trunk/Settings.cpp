@@ -63,11 +63,14 @@ void CSettings::SetSplitPos(int split)
 	WritePrivateProfileString(_T("Window"), _T("Split"), s, m_ini);
 }
 
-void CSettings::GetListViewColumns(const CString& name, CListViewCtrl lv)
+void CSettings::GetListViewColumns(const CString& name, CListViewCtrl lv, int* columnVisibility, int maxColumns)
 {
 	// ignore stored settings if column count doesn't match
 	int numColumns = GetPrivateProfileInt(name, _T("NumColumns"), 0, m_ini);
-	if(numColumns == 0 || numColumns != lv.GetHeader().GetItemCount())
+	if(numColumns == 0 || numColumns > maxColumns)
+		return;
+
+	if(!GetPrivateProfileStruct(name, _T("ColumnVisibility"), columnVisibility, maxColumns * sizeof(int), m_ini))
 		return;
 
 	CTempBuffer<int, _WTL_STACK_ALLOC_THRESHOLD> buffOrder;
@@ -79,13 +82,19 @@ void CSettings::GetListViewColumns(const CString& name, CListViewCtrl lv)
 	if(!GetPrivateProfileStruct(name, _T("ColumnWidths"), columnWidths, numColumns * sizeof(int), m_ini))
 		return;
 
+	for(int i = maxColumns-1; i >= 0; i--) {
+		if(columnVisibility[i] < 0)
+			lv.DeleteColumn(i);
+	}
+
 	lv.SetColumnOrderArray(numColumns, columnOrder);
 	for(int i = 0; i < numColumns; i++)
 		lv.SetColumnWidth(i, columnWidths[i]);
 }
 
-void CSettings::SetListViewColumns(const CString& name, CListViewCtrl lv)
+void CSettings::SetListViewColumns(const CString& name, CListViewCtrl lv, int* columnVisibility, int maxColumns)
 {
+	// numColumns can be lower than maxColumns if some columns are hidden
 	int numColumns = lv.GetHeader().GetItemCount();
 	CTempBuffer<int, _WTL_STACK_ALLOC_THRESHOLD> buffOrder;
 	int* columnOrder = buffOrder.Allocate(numColumns);
@@ -100,6 +109,7 @@ void CSettings::SetListViewColumns(const CString& name, CListViewCtrl lv)
 	WritePrivateProfileString(name, _T("NumColumns"), s, m_ini);
 	WritePrivateProfileStruct(name, _T("ColumnOrder"), columnOrder, numColumns * sizeof(int), m_ini);
 	WritePrivateProfileStruct(name, _T("ColumnWidths"), columnWidths, numColumns * sizeof(int), m_ini);
+	WritePrivateProfileStruct(name, _T("ColumnVisibility"), columnVisibility, maxColumns * sizeof(int), m_ini);
 }
 
 const CString& CSettings::GetAppDataDir()
