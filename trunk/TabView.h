@@ -1,11 +1,11 @@
 #pragma once
 
-class CTabView : public CWindowImpl<::CTabView, CTabCtrl>
+class CTabViewEx : public CWindowImpl<CTabViewEx, CTabCtrl>
 {
 public:
-	DECLARE_WND_SUPERCLASS(NULL, CTabCtrl::GetWndClassName())
+	DECLARE_WND_SUPERCLASS(_T("CTabView"), CTabCtrl::GetWndClassName())
 
-	BEGIN_MSG_MAP(CTabView)
+	BEGIN_MSG_MAP(CTabViewEx)
 		MESSAGE_HANDLER(WM_SIZE, OnSize)
 		REFLECTED_NOTIFY_CODE_HANDLER(TCN_SELCHANGE, OnSelChange)
 		//MESSAGE_HANDLER(WM_ERASEBKGND, OnEraseBackground)
@@ -14,7 +14,7 @@ public:
 
 	int m_nActivePage;
 
-	CTabView() : m_nActivePage(-1)
+	CTabViewEx() : m_nActivePage(-1)
 	{
 	}
 

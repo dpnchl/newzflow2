@@ -8,21 +8,11 @@
 #include "FileView.h"
 #include "Newzflow.h"
 #include "Util.h"
+#include "Settings.h"
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
 #endif
-
-CFileView::CFileView()
-{
-	nzb = NULL;
-}
-
-BOOL CFileView::PreTranslateMessage(MSG* pMsg)
-{
-	pMsg;
-	return FALSE;
-}
 
 // columns
 enum {
@@ -35,6 +25,28 @@ enum {
 	kParStatus,
 };
 
+/*static*/ const CFileView::ColumnInfo CFileView::s_columnInfo[] = { 
+	{ _T("Name"),		_T("Name"),			CFileView::typeString,	LVCFMT_LEFT,	400,	true },
+	{ _T("Size"),		_T("Size"),			CFileView::typeSize,	LVCFMT_RIGHT,	80,		true },
+	{ _T("Done"),		_T("Done"),			CFileView::typeNumber,	LVCFMT_RIGHT,	80,		true },
+	{ _T("Progress"),	_T("Progress"),		CFileView::typeNumber,	LVCFMT_RIGHT,	150,	true },
+	{ _T("# Segments"),	_T("# Seg"),		CFileView::typeNumber,	LVCFMT_RIGHT,	50,		true },
+	{ _T("Status"),		_T("Status"),		CFileView::typeString,	LVCFMT_LEFT,	120,	true },
+	{ _T("PAR Status"),	_T("PAR Status"),	CFileView::typeString,	LVCFMT_LEFT,	120,	true },
+	{ NULL }
+};
+
+CFileView::CFileView()
+{
+	nzb = NULL;
+}
+
+BOOL CFileView::PreTranslateMessage(MSG* pMsg)
+{
+	pMsg;
+	return FALSE;
+}
+
 void CFileView::Init(HWND hwndParent)
 {
 	Create(hwndParent, rcDefault, NULL, WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | LVS_REPORT | LVS_SHOWSELALWAYS, 0);
@@ -43,39 +55,22 @@ void CFileView::Init(HWND hwndParent)
 
 	SetExtendedListViewStyle(LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
 	SetWindowTheme(*this, L"explorer", NULL);
-	AddColumn(_T("Name"), kName);
-	AddColumn(_T("Size"), kSize, -1, LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM, LVCFMT_RIGHT);
-	AddColumn(_T("Done"), kDone, -1, LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM, LVCFMT_RIGHT);
-	AddColumn(_T("%"), kProgress, -1, LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM, LVCFMT_RIGHT);
-	AddColumn(_T("# Seg"), kSegments, -1, LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM, LVCFMT_RIGHT);
-	AddColumn(_T("Status"), kStatus);
-	AddColumn(_T("PAR Status"), kParStatus);
-	SetColumnWidth(kName, 400);
-	SetColumnWidth(kSize, 80);
-	SetColumnWidth(kDone, 80);
-	SetColumnWidth(kProgress, 150);
-	SetColumnWidth(kStatus, 120);
-	SetColumnWidth(kParStatus, 120);
+
+	InitDynamicColumns(_T("FileView"));
 }
 
 void CFileView::SetNzb(CNzb* _nzb)
 {
 	if(_nzb != nzb) {
 		nzb = _nzb;
-		BOOL b;
-		OnTimer(0, 0, 0, b);
+		Refresh();
 	}
 }
 
-LRESULT CFileView::OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)
+int CFileView::OnRefresh()
 {
-	if(!nzb) {
-		if(GetItemCount() > 0)
-			DeleteAllItems();
+	if(!nzb)
 		return 0;
-	}
-
-	int lvCount = GetItemCount();
 
 	{ CNewzflow::CLock lock;
 		CNewzflow* theApp = CNewzflow::Instance();
@@ -83,34 +78,35 @@ LRESULT CFileView::OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, 
 		for(size_t i = 0; i < count; i++) {
 			CNzbFile* file = nzb->files[i];
 			CString s = file->subject;
-			if((int)i >= lvCount) {
-				AddItem(i, kName, s);
-			} else {
-				SetItemText(i, kName, s);
-			}
+			AddItemEx(i, (DWORD_PTR)file);
+			SetItemTextEx(i, kName, s);
 			__int64 size = 0, done = 0;
 			for(size_t j = 0; j < file->segments.GetCount(); j++) {
 				size += file->segments[j]->bytes;
 				if(file->segments[j]->status == kCompleted)
 					done += file->segments[j]->bytes;
 			}
-			AddItem(i, kSize, Util::FormatSize(size));
-			AddItem(i, kDone, Util::FormatSize(done));
+			SetItemTextEx(i, kSize, Util::FormatSize(size));
+			SetItemTextEx(i, kDone, Util::FormatSize(done));
 			s.Format(_T("%.1f %%"), 100.f * (float)done / (float)size);
-			AddItem(i, kProgress, s);
+			SetItemTextEx(i, kProgress, s);
 			s.Format(_T("%d"), file->segments.GetCount());
-			AddItem(i, kSegments, s);
-			AddItem(i, kStatus, GetNzbStatusString(file->status));
-			AddItem(i, kParStatus, GetParStatusString(file->parStatus, file->parDone));
-			SetItemData(i, (DWORD_PTR)file);
+			SetItemTextEx(i, kSegments, s);
+			SetItemTextEx(i, kStatus, GetNzbStatusString(file->status));
+			SetItemTextEx(i, kParStatus, GetParStatusString(file->parStatus, file->parDone));
 		}
-		SetRedraw(FALSE);
-		while((int)count < lvCount) {
-			DeleteItem(count);
-			lvCount--;
-		}
-		SetRedraw(TRUE);
+		return count;
 	}
+}
+
+const CFileView::ColumnInfo* CFileView::GetColumnInfoArray()
+{
+	return s_columnInfo;
+}
+
+LRESULT CFileView::OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)
+{
+	Refresh();
 
 	return 0;
 }
@@ -156,7 +152,7 @@ public:
 DWORD CFileView::OnSubItemPrePaint(int /*idCtrl*/, LPNMCUSTOMDRAW lpNMCustomDraw)
 {
 	LPNMLVCUSTOMDRAW cd = (LPNMLVCUSTOMDRAW)lpNMCustomDraw;
-	if(cd->iSubItem == kProgress) {
+	if(cd->iSubItem == SubItemFromColumn(kProgress)) {
 		CRect rc;
 		GetSubItemRect(cd->nmcd.dwItemSpec, cd->iSubItem, LVIR_BOUNDS, rc);
 		if(rc.Width() <= 10)

@@ -291,6 +291,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\ListViewEx.h"
+				>
+			</File>
+			<File
 				RelativePath=".\MainFrm.h"
 				>
 			</File>

@@ -7,7 +7,7 @@
 class CConnectionView : public CWindowImpl<CConnectionView, CListViewCtrl>
 {
 public:
-	DECLARE_WND_SUPERCLASS(NULL, CListViewCtrl::GetWndClassName())
+	DECLARE_WND_SUPERCLASS(_T("CConnectionView"), CListViewCtrl::GetWndClassName())
 
 	BOOL PreTranslateMessage(MSG* pMsg);
 

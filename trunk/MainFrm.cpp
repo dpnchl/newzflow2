@@ -316,26 +316,28 @@ LRESULT CMainFrame::OnNzbChanged(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled*
 {
 	LPNMLISTVIEW lvn = (LPNMLISTVIEW)pnmh;
 	if(lvn->hdr.hwndFrom == m_list && (lvn->uChanged & LVIF_STATE) && ((lvn->uOldState & LVIS_SELECTED) != (lvn->uNewState & LVIS_SELECTED))) {
-		m_files.SetNzb((CNzb*)m_list.GetItemData(m_list.GetNextItem(-1, LVNI_SELECTED)));
-		bool enable = m_list.GetSelectedCount() > 0;
-/*
-		bool allStopped = true;
-		bool allStarted = true;
-		int item = -1;
-		for(;;) {
-			item = m_list.GetNextItem(item, LVNI_SELECTED);
-			if(item == -1)
-				break;
-			CNzb* nzb = (CNzb*)m_list.GetItemData(item);
-			if(nzb->status != kDownloading) allStarted = FALSE;
+		/*if(!m_list.IsLockUpdate())*/ {
+			m_files.SetNzb((CNzb*)m_list.GetItemData(m_list.GetNextItem(-1, LVNI_SELECTED)));
+			bool enable = m_list.GetSelectedCount() > 0;
+	/*
+			bool allStopped = true;
+			bool allStarted = true;
+			int item = -1;
+			for(;;) {
+				item = m_list.GetNextItem(item, LVNI_SELECTED);
+				if(item == -1)
+					break;
+				CNzb* nzb = (CNzb*)m_list.GetItemData(item);
+				if(nzb->status != kDownloading) allStarted = FALSE;
+			}
+	*/
+			UIEnable(ID_NZB_START, enable);
+			UIEnable(ID_NZB_PAUSE, enable);
+			UIEnable(ID_NZB_STOP, enable);
+			UIEnable(ID_NZB_REMOVE, enable);
+			UIEnable(ID_NZB_MOVE_UP, enable);
+			UIEnable(ID_NZB_MOVE_DOWN, enable);
 		}
-*/
-		UIEnable(ID_NZB_START, enable);
-		UIEnable(ID_NZB_PAUSE, enable);
-		UIEnable(ID_NZB_STOP, enable);
-		UIEnable(ID_NZB_REMOVE, enable);
-		UIEnable(ID_NZB_MOVE_UP, enable);
-		UIEnable(ID_NZB_MOVE_DOWN, enable);
 	}
 	return 0;
 }

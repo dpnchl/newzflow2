@@ -17,7 +17,7 @@ public:
 	DECLARE_FRAME_WND_CLASS_EX(NULL, IDR_MAINFRAME, 0, COLOR_BTNFACE)
 
 	CNzbView m_list;
-	::CTabView m_tab;
+	::CTabViewEx m_tab;
 	CConnectionView m_connections;
 	CFileView m_files;
 	CFont m_font;
