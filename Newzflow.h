@@ -10,11 +10,13 @@ class CSettings;
 class CNewzflowThread : public CGuiThreadImpl<CNewzflowThread>
 {
 	enum {
-		MSG_JOB = WM_USER+1,
+		MSG_ADD_NZB = WM_USER+1,
+		MSG_WRITE_QUEUE,
 	};
 
 	BEGIN_MSG_MAP(CNewzflowThread)
-		MESSAGE_HANDLER(MSG_JOB, OnJob)
+		MESSAGE_HANDLER(MSG_ADD_NZB, OnAddNzb)
+		MESSAGE_HANDLER(MSG_WRITE_QUEUE, OnWriteQueue)
 	END_MSG_MAP()
 
 public:
@@ -22,7 +24,12 @@ public:
 
 	void AddFile(const CString& nzbUrl);
 	void AddURL(const CString& nzbUrl);
-	LRESULT OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
+	void WriteQueue();
+
+protected:
+	LRESULT OnAddNzb(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
+
+	LRESULT OnWriteQueue(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
 };
 
 class CNewzflow
@@ -40,6 +47,11 @@ public:
 	CNzbSegment* GetSegment();
 	void UpdateSegment(CNzbSegment* s, ENzbStatus newStatus);
 	void RemoveDownloader(CDownloader* dl);
+	void CreateDownloaders();
+	void WriteQueue();
+	void ReadQueue();
+	void RemoveNzb(CNzb* nzb);
+	void FreeDeletedNzbs();
 	CAtlArray<CNzb*> nzbs, deletedNzbs;
 	CAtlArray<CDownloader*> downloaders, finishedDownloaders;
 	CDiskWriter* diskWriter;

@@ -161,6 +161,10 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 	pLoop->AddMessageFilter(this);
 	pLoop->AddIdleHandler(this);
 
+	CNewzflow::Instance()->ReadQueue(); // TODO: move somewhere else?!
+	CNewzflow::Instance()->CreateDownloaders();
+	SendMessage(WM_TIMER);
+
 	return 0;
 }
 
@@ -202,22 +206,7 @@ LRESULT CMainFrame::OnNzbRemove(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndC
 	{ CNewzflow::CLock lock;
 		for(int item = m_list.GetNextItem(-1, LVNI_SELECTED); item != -1; item = m_list.GetNextItem(item, LVNI_SELECTED)) {
 			CNzb* nzb = (CNzb*)m_list.GetItemData(item);
-			CNewzflow* theApp = CNewzflow::Instance();
-			for(size_t i = 0; i < theApp->nzbs.GetCount(); i++) {
-				if(theApp->nzbs[i] == nzb) {
-					// if NZB's refCount is 0, we can delete it immediately
-					// otherwise there are still downloaders or the post processor active,
-					// so just move it to a different array where we will periodically check whether we can delete it for good
-					if(nzb->refCount == 0)
-						delete nzb;
-					else {
-						TRACE(_T("Can't remove %s yet. refCount=%d\n"), nzb->name, nzb->refCount);
-						theApp->deletedNzbs.Add(nzb);
-					}
-					theApp->nzbs.RemoveAt(i);
-					break;
-				}
-			}
+			CNewzflow::Instance()->RemoveNzb(nzb);
 		}
 	}
 	SendMessage(WM_TIMER);
@@ -253,17 +242,7 @@ LRESULT CMainFrame::OnAppAbout(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCt
 LRESULT CMainFrame::OnTimer(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& /*bHandled*/)
 {
 	CNewzflow* theApp = CNewzflow::Instance();
-	// check if we can remove some of the deleted NZBs
-	{ CNewzflow::CLock lock;
-		for(size_t i = 0; i < theApp->deletedNzbs.GetCount(); i++) {
-			if(theApp->deletedNzbs[i]->refCount == 0) {
-				TRACE(_T("Finally can remove %s.\n"), theApp->deletedNzbs[i]->name);
-				delete theApp->deletedNzbs[i];
-				theApp->deletedNzbs.RemoveAt(i);
-				i--;
-			}
-		}
-	}
+	theApp->FreeDeletedNzbs();
 
 	// calculate bytes left, current download speed and ETA
 	int speed = CNntpSocket::totalSpeed.Get();
