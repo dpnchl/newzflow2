@@ -21,6 +21,8 @@
 // Beware of bugs.
 //
 
+// newzflow: changed some functions to support 64-bit file sizes
+
 
 #ifndef __cplusplus
 #error ATL requires C++ compilation (use a .cpp suffix)

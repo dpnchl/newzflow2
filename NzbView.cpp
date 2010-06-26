@@ -35,7 +35,6 @@ enum {
 	kDone,
 	kStatus,
 	kETA,
-	kMax,
 };
 
 /*static*/ const CNzbView::ColumnInfo CNzbView::s_columnInfo[] = { 
@@ -45,19 +44,15 @@ enum {
 	{ _T("Done"),		_T("Done"),		CNzbView::typeNumber,	LVCFMT_RIGHT,	80,		true },
 	{ _T("Status"),		_T("Status"),	CNzbView::typeString,	LVCFMT_LEFT,	120,	true },
 	{ _T("ETA"),		_T("ETA"),		CNzbView::typeTimeSpan,	LVCFMT_LEFT,	80,		true },
+	{ NULL }
 };
 
 CNzbView::CNzbView()
 {
-	m_columns = NULL;
-	m_lockUpdate = false;
-	m_sortColumn = kOrder;
-	m_sortAsc = true;
 }
 
 CNzbView::~CNzbView()
 {
-	delete m_columns;
 	m_imageList.Destroy();
 }
 
@@ -83,104 +78,26 @@ void CNzbView::Init(HWND hwndParent)
 	m_imageList.Add(image, (HBITMAP)NULL);
 	SetImageList(m_imageList, LVSIL_SMALL);
 
-	SetExtendedListViewStyle(LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER | LVS_EX_HEADERDRAGDROP);
+	SetExtendedListViewStyle(LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
 	SetWindowTheme(*this, L"explorer", NULL);
-	for(int i = 0; i < kMax; i++) {
-		AddColumn(s_columnInfo[i].nameShort, i, -1, LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM, s_columnInfo[i].format);
-		SetColumnWidth(i, s_columnInfo[i].width);
-	}
 
-	m_columns = new int[kMax];
-	for(int i = 0; i < kMax; i++)
-		m_columns[i] = i;
-
-	CNewzflow::Instance()->settings->GetListViewColumns(_T("NzbView"), *this, m_columns, kMax);
+	InitDynamicColumns(_T("NzbView"));
 }
 
-struct CompareData
+int CNzbView::OnRefresh()
 {
-	CListViewCtrl lv;
-	int column;
-	bool asc;
-	CNzbView::EColumnType type;
-
-	static int CALLBACK CompareFunc(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)
-	{
-		CompareData* compareData = (CompareData*)lParamSort;
-
-		CString s1, s2;
-		compareData->lv.GetItemText(lParam1, compareData->column, s1);
-		compareData->lv.GetItemText(lParam2, compareData->column, s2);
-
-		int ret = 0;
-
-		switch(compareData->type) {
-		case CNzbView::typeString: {
-			ret = s1.CompareNoCase(s2); 
-			break;
-		}
-		case CNzbView::typeNumber: {
-			double f1 = _tstof(s1);
-			double f2 = _tstof(s2);
-			if(f1 < f2) ret = -1;
-			else if(f1 == f2) ret = 0;
-			else ret = 1;
-			break;
-		}
-		case CNzbView::typeSize: {
-			__int64 size1 = Util::ParseSize(s1);
-			__int64 size2 = Util::ParseSize(s2);
-			if(size1 < size2) ret = -1;
-			else if(size1 == size2) ret = 0;
-			else ret = 1;
-		}
-		case CNzbView::typeTimeSpan: {
-			__int64 span1 = Util::ParseTimeSpan(s1);
-			__int64 span2 = Util::ParseTimeSpan(s2);
-			if(span1 < span2) ret = -1;
-			else if(span1 == span2) ret = 0;
-			else ret = 1;
-		}
-		}
-
-		if(!compareData->asc) ret = -ret;
-
-		return ret;
-	}
-};
-
-LRESULT CNzbView::OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)
-{
-	if(m_lockUpdate)
-		return 0;
-
-
 	int speed = CNntpSocket::totalSpeed.Get();
 	{ CNewzflow::CLock lock;
 		CNewzflow* theApp = CNewzflow::Instance();
 		size_t count = theApp->nzbs.GetCount();
 		__int64 eta = 0;
-		SetRedraw(FALSE);
 
-		// save state (focus/selection/hot) for list
-		CAtlMap<CNzb*, int> stateMap;
-		int lvCount = GetItemCount();
-		for(int i = 0; i < lvCount; i++) {
-			stateMap[(CNzb*)GetItemData(i)] = GetItemState(i, LVIS_FOCUSED | LVIS_SELECTED);
-		}
-		int hot = GetHotItem();
-		// delete all items
-		DeleteAllItems();
 		// insert everything again, restoring state if available
-		SetItemCount(count);
+		//SetItemCount(count);
 		for(size_t i = 0; i < count; i++) {
 			CString s;
 			CNzb* nzb = theApp->nzbs[i];
-			AddItem(i, 0, _T(""));
-			int state;
-			if(stateMap.Lookup(nzb, state))
-				SetItemState(i, state, LVIS_FOCUSED | LVIS_SELECTED);
-			SetItemData(i, (DWORD_PTR)nzb);
+			AddItemEx(i, (DWORD_PTR)nzb);
 			SetItemTextEx(i, kName, nzb->name);
 			int image;
 			switch(nzb->status) {
@@ -218,12 +135,13 @@ LRESULT CNzbView::OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, B
 				SetItemTextEx(i, kETA, _T("\x221e")); // "unlimited"
 			}
 		}
-		SetHotItem(hot);
-
-		CompareData compareData = { *this, m_sortColumn, m_sortAsc, s_columnInfo[m_sortColumn].type };
-		SortItemsEx(CompareData::CompareFunc, (LPARAM)&compareData);
-		SetRedraw(TRUE);
+		return count;
 	}
+}
+
+LRESULT CNzbView::OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)
+{
+	Refresh();
 
 	return 0;
 }
@@ -241,7 +159,7 @@ DWORD CNzbView::OnItemPrePaint(int /*idCtrl*/, LPNMCUSTOMDRAW /*lpNMCustomDraw*/
 DWORD CNzbView::OnSubItemPrePaint(int /*idCtrl*/, LPNMCUSTOMDRAW lpNMCustomDraw)
 {
 	LPNMLVCUSTOMDRAW cd = (LPNMLVCUSTOMDRAW)lpNMCustomDraw;
-	if(cd->iSubItem == m_columns[kDone]) {
+	if(cd->iSubItem == SubItemFromColumn(kDone)) {
 		CDCHandle dcPaint(cd->nmcd.hdc);
 		CRect rc;
 		GetSubItemRect(cd->nmcd.dwItemSpec, cd->iSubItem, LVIR_BOUNDS, rc);
@@ -266,116 +184,14 @@ DWORD CNzbView::OnSubItemPrePaint(int /*idCtrl*/, LPNMCUSTOMDRAW lpNMCustomDraw)
 	return CDRF_DODEFAULT;
 }
 
-LRESULT CNzbView::OnDestroy(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)
+const CDynamicColumns<CNzbView>::ColumnInfo* CNzbView::GetColumnInfoArray()
 {
-	CNewzflow::Instance()->settings->SetListViewColumns(_T("NzbView"), *this, m_columns, kMax);
-
-	return 0;
+	return s_columnInfo;
 }
 
-LRESULT CNzbView::OnHdnItemClick(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled*/)
-{
-	LPNMHEADER lpnm = (LPNMHEADER)pnmh;
-
-	for(int i = 0; i < GetHeader().GetItemCount(); i++) {
-		HDITEM hditem = {0};
-		hditem.mask = HDI_FORMAT;
-		GetHeader().GetItem(i, &hditem);
-		if (i == lpnm->iItem) {
-			if(hditem.fmt & HDF_SORTDOWN)
-				hditem.fmt = (hditem.fmt & ~HDF_SORTDOWN) | HDF_SORTUP;
-			else
-				hditem.fmt = (hditem.fmt & ~HDF_SORTUP) | HDF_SORTDOWN;
-		} else {
-			hditem.fmt &= ~(HDF_SORTDOWN | HDF_SORTUP);
-		}
-		GetHeader().SetItem(i, &hditem);
-	}
-	SetSelectedColumn(lpnm->iItem);
-	if(m_sortColumn == lpnm->iItem)
-		m_sortAsc = !m_sortAsc;
-	else {
-		m_sortColumn = lpnm->iItem;
-		m_sortAsc = true;
-	}
-
-	CompareData compareData = { *this, m_sortColumn, m_sortAsc, s_columnInfo[m_sortColumn].type };
-	SortItemsEx(CompareData::CompareFunc, (LPARAM)&compareData);
-
-	return 0;
-}
-
-BOOL CNzbView::SetItemEx(int nItem, int nSubItem, UINT nMask, LPCTSTR lpszItem, int nImage, UINT nState, UINT nStateMask, LPARAM lParam)
-{
-	if(m_columns[nSubItem] < 0)
-		return TRUE;
-	return SetItem(nItem, m_columns[nSubItem], nMask, lpszItem, nImage, nState, nStateMask, lParam);
-}
-
-BOOL CNzbView::SetItemTextEx(int nItem, int nSubItem, LPCTSTR lpszText)
-{
-	if(m_columns[nSubItem] < 0)
-		return TRUE;
-	return SetItemText(nItem, m_columns[nSubItem], lpszText);
-}
-
-LRESULT CNzbView::OnHdnRClick(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled*/)
-{
-	const DWORD pos = GetMessagePos();
-	CPoint pt(GET_X_LPARAM(pos), GET_Y_LPARAM(pos));
-
-	CMenu menu;
-	menu.CreatePopupMenu();
-	for(int i = 0; i < kMax; i++) {
-		menu.AppendMenu((m_columns[i] >= 0 ? MF_CHECKED : 0) | MF_STRING, i+1, s_columnInfo[i].nameLong);
-	}
-	menu.AppendMenu(MF_SEPARATOR);
-	menu.AppendMenu(MF_STRING, 10000, _T("Reset"));
-
-	int ret = (int)menu.TrackPopupMenu(TPM_RIGHTBUTTON | TPM_RETURNCMD, pt.x, pt.y, *this);
-	if(ret == 0) // cancelled
-		return 0;
-
-	m_lockUpdate = true;
-	SetRedraw(FALSE);
-
-	if(ret < kMax+1) {
-		int column = ret - 1;
-		if(m_columns[column] >= 0) {
-			// hide column
-			int col = m_columns[column];
-			m_columns[column] = -1;
-			for(int i = 0; i < kMax; i++) {
-				if(m_columns[i] >= column)
-					m_columns[i]--;
-			}
-			DeleteColumn(col);
-		} else {
-			// show column
-			for(int i = 0; i < kMax; i++) {
-				if(m_columns[i] >= column)
-					m_columns[i]++;
-			}
-			m_columns[column] = column;
-			InsertColumn(column, s_columnInfo[column].nameShort, s_columnInfo[column].format, -1);
-			SetColumnWidth(column, s_columnInfo[column].width);
-		}
-	} else if(ret == 10000) {
-		// reset
-		int numCols = GetHeader().GetItemCount();
-		for(int i = 0; i < numCols; i++)
-			DeleteColumn(0);
-		for(int i = 0; i < kMax; i++) {
-			m_columns[i] = i;
-			AddColumn(s_columnInfo[i].nameShort, i, -1, LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM, s_columnInfo[i].format);
-			SetColumnWidth(i, s_columnInfo[i].width);
-		}
-	}
-
-	m_lockUpdate = false;
-	SetRedraw(TRUE);
+#if 0
 	BOOL b;
 	OnTimer(WM_TIMER, 0, 0, b);
 
 	return 0;
-}
+#endif

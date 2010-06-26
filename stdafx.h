@@ -79,6 +79,7 @@ namespace std {
    #define DEBUG_CLIENTBLOCK
 #endif // _DEBUG
 
+#define countof(x) (sizeof(x) / sizeof(x[0]))
 
 // for SSL
 /*
