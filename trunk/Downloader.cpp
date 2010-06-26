@@ -41,7 +41,7 @@ CYDecoder::~CYDecoder()
 	delete buffer;
 }
 
-// TODO: safety checks :)
+// TODO: safety checks!! :)
 void CYDecoder::ProcessLine(const char* line)
 {
 	//=ybegin part=10 line=128 size=5120000 name=VW Sharan-Technik.part1.rar
@@ -58,18 +58,19 @@ void CYDecoder::ProcessLine(const char* line)
 		size = (unsigned int)(_strtoi64(endStr, NULL, 10) - 1 - offset + 1);
 		buffer = ptr = new char [size];
 	} else if(!strncmp(line, "=yend ", strlen("=yend "))) {
-		CNewzflow::Instance()->diskWriter->Add(CString("temp\\") + fileName, offset, buffer, size);
-		buffer = NULL; // buffer is now managed by disk writer
+		ptr = NULL;
 	} else {
-		unsigned char lineBuf[1024], *out = lineBuf;
-		while(*line != '\r' && *line != '\n') {
-			unsigned char c = *line++;
-			if(c == '=') {
-				c = *line++;
-				c = (unsigned char)(c-64);
+		if(ptr) {
+			unsigned char lineBuf[1024], *out = lineBuf;
+			while(*line != '\r' && *line != '\n') {
+				unsigned char c = *line++;
+				if(c == '=') {
+					c = *line++;
+					c = (unsigned char)(c-64);
+				}
+				c = (unsigned char)(c-42);
+				*ptr++ = c;
 			}
-			c = (unsigned char)(c-42);
-			*ptr++ = c;
 		}
 	}
 }
@@ -102,6 +103,7 @@ DWORD CDownloader::Run()
 	while(CNzbSegment* s = CNewzflow::Instance()->GetSegment()) {
 		CNzbFile* f = s->parent;
 		ENzbStatus status = kError;
+		CYDecoder yd;
 		for(size_t i = 0; i < f->groups.GetCount(); i++) {
 			const CString& group = f->groups[i];
 			if(group != curGroup) {
@@ -139,7 +141,6 @@ DWORD CDownloader::Run()
 			if(noBody) {
 				status = kError;
 			} else {
-				CYDecoder yd;
 				while(1) {
 					reply = sock.ReceiveLine(); 
 					if(reply.IsEmpty()) {
@@ -150,7 +151,7 @@ DWORD CDownloader::Run()
 						if(reply[1] == '.')
 							reply = reply.Mid(1); // special case: '.' at beginning of line is duplicated
 						else {
-							status = kCompleted;
+							status = kCached;
 							break; // special case: '.' at begining of line: end of article
 						}
 					}
@@ -165,7 +166,14 @@ DWORD CDownloader::Run()
 			}
 			//fout.Close();
 		}
-		CNewzflow::Instance()->UpdateSegment(s, status);
+		{ CNewzflow::CLock lock; // lock, so UpdateSegment and DiskWriter->Add aren't interrupted (refCount may be zero between the 2 calls)
+			CNewzflow::Instance()->UpdateSegment(s, status);
+			// TODO: move this somewhere else
+			if(status == kCached) {
+				CNewzflow::Instance()->diskWriter->Add(s, CString("temp\\") + yd.fileName, yd.offset, yd.buffer, yd.size);
+				yd.buffer = NULL; // buffer is now managed by disk writer
+			}
+		}
 	}
 	sock.Request("QUIT\n");
 	sock.Close();

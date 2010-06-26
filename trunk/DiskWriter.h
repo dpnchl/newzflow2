@@ -1,5 +1,7 @@
 #pragma once
 
+class CNzbSegment;
+
 class CDiskWriter : public CGuiThreadImpl<CDiskWriter>
 {
 	enum {
@@ -13,12 +15,13 @@ class CDiskWriter : public CGuiThreadImpl<CDiskWriter>
 public:
 	CDiskWriter() : CGuiThreadImpl<CDiskWriter>(&_Module) {}
 
-	void Add(const CString& file, __int64 offset, void* buffer, unsigned int size);
+	void Add(CNzbSegment* seg, const CString& file, __int64 offset, void* buffer, unsigned int size);
 	LRESULT OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
 
 protected:
 	class CJob {
 	public:
+		CNzbSegment* segment;
 		CString file;
 		__int64 offset;
 		void* buffer;

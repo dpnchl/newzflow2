@@ -5,15 +5,16 @@ class CNzbFile;
 class CNzb;
 
 enum ENzbStatus {
-	kQueued,
-	kPaused,
-	kDownloading,
-	kCompleted,
-	kError,
-	kVerifying,
-	kRepairing,
-	kUnpacking,
-	kFinished,
+	kQueued = 'Q',
+	kPaused = 'P',
+	kDownloading = 'D',
+	kCached = 'c',
+	kCompleted = 'C',
+	kError = 'E',
+	kVerifying = 'V',
+	kRepairing = 'R',
+	kUnpacking = 'U',
+	kFinished = 'F',
 };
 
 enum EParStatus {
@@ -70,17 +71,25 @@ public:
 		status = kQueued;
 		done = 0.f;
 		refCount = 0;
+		ZeroMemory(&guid, sizeof(GUID));
 	}
 	~CNzb() {
 		for(size_t i = 0; i < files.GetCount(); i++) delete files[i];
 	}
 
-	static CNzb* Create(const CString& path);
+public:
 	CNzbFile* FindByName(const CString& name);
 
+	static CNzb* Create(const CString& path); // add new NZB to queue
+	static CNzb* Create(REFGUID guid, const CString& name); // restore from queue
+protected:
+	static CNzb* ParseNZB(const CString& path);
+
+public:
 	ENzbStatus status;
 	float done; // percentage completed; used for status = [kVerifying]
 
+	GUID guid;
 	CString name;
 	CAtlArray<CNzbFile*> files;
 

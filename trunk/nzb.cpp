@@ -2,6 +2,9 @@
 
 #include "stdafx.h"
 #include "nzb.h"
+#include "Newzflow.h"
+#include "Settings.h"
+
 #include <msxml2.h>
 #include <algorithm>
 #pragma comment(lib, "msxml2.lib")
@@ -169,23 +172,6 @@ HRESULT STDMETHODCALLTYPE MyContent::startElement(
 
 		curFile->segments.Add(curSegment);
 	}
-/*
-	prt(L"<%s", pwchLocalName, cchLocalName);
-	int lAttr;
-	pAttributes->getLength(&lAttr);
-	for(int i=0; i<lAttr; i++)
-	{
-		const wchar_t * ln;
-		const wchar_t * vl;
-		int lnl, vll;
-
-		pAttributes->getLocalName(i,&ln,&lnl); 
-		prt(L" %s=", ln, lnl);
-		pAttributes->getValue(i,&vl,&vll);
-		prt(L"\"%s\"", vl, vll);
-	}
-	printf(">"); 
-*/
 	return S_OK;
 }
 
@@ -200,7 +186,6 @@ HRESULT STDMETHODCALLTYPE MyContent::characters(
 		curSegment->msgId = chars;
 	}
 
-//	prt(L"%s", pwchChars, cchChars); 
 	return S_OK;
 }
 
@@ -229,7 +214,6 @@ HRESULT STDMETHODCALLTYPE MyContent::endElement(
 		// caller wants to get final nzb with GetNzb() { return curNzb; }
 	}
 
-//	prt(L"</%s>",pwchLocalName,cchLocalName); 
 	return S_OK;
 }
 
@@ -335,6 +319,7 @@ CString GetNzbStatusString(ENzbStatus status, float done /*= 0.f*/)
 	case kQueued:		return _T("Queued");
 	case kPaused:		return _T("Paused");
 	case kDownloading:	return _T("Downloading");
+	case kCached:		return _T("Cached");
 	case kCompleted:	return _T("Completed");
 	case kError:		return _T("Error");
 	case kVerifying:	{ CString s; s.Format(_T("Verifying %.1f%%"), done); return s; }
@@ -357,25 +342,72 @@ CString GetParStatusString(EParStatus status, float done)
 	}
 }
 
+CNzb* CNzb::ParseNZB(const CString& path)
+{
+	CNzb* nzb = NULL;
+	// parse NZB file
+	{
+		CComPtr<ISAXXMLReader> pRdr;
+		CoInitialize(NULL);
+		HRESULT hr = pRdr.CoCreateInstance(__uuidof(SAXXMLReader30));
+		if(SUCCEEDED(hr)) {
+			CComObject<MyContent>* content;
+			CComObject<MyContent>::CreateInstance(&content);
+			hr = pRdr->putContentHandler(content);
+			if(SUCCEEDED(hr)) {
+				CComObject<SAXErrorHandlerImpl>* error;
+				CComObject<SAXErrorHandlerImpl>::CreateInstance(&error);
+				hr = pRdr->putErrorHandler(error);
+				if(SUCCEEDED(hr)) {
+					hr = pRdr->parseURL(path);
+					if(SUCCEEDED(hr)) {
+						nzb = content->GetNzb();
+					}
+				}
+			}
+		}
+		CoUninitialize();
+	}
+
+	return nzb;
+}
+
 CNzb* CNzb::Create(const CString& path)
 {
-	CComPtr<ISAXXMLReader> pRdr;
-	CoInitialize(NULL);
-	HRESULT hr = pRdr.CoCreateInstance(__uuidof(SAXXMLReader30));
-	ASSERT(!FAILED(hr));
-	CComObject<MyContent>* content;
-	CComObject<MyContent>::CreateInstance(&content);
-	hr = pRdr->putContentHandler(content);
-	ASSERT(!FAILED(hr));
-	CComObject<SAXErrorHandlerImpl>* error;
-	CComObject<SAXErrorHandlerImpl>::CreateInstance(&error);
-	hr = pRdr->putErrorHandler(error);
-	ASSERT(!FAILED(hr));
-	hr = pRdr->parseURL(path);
-	ASSERT(!FAILED(hr));
-	CoUninitialize();
-	content->GetNzb()->name = path; // TODO
-	return content->GetNzb();
+	CNzb* nzb = ParseNZB(path);
+
+	if(!nzb)
+		return NULL;
+
+	// set NZB name
+	int slash = path.ReverseFind('\\');
+	if(slash >= 0)
+		nzb->name = path.Mid(slash+1);
+	else
+		nzb->name = path;
+
+	// create GUID so we can later store the queue and just reference the GUID
+	// and copy file to %appdata%
+	CoCreateGuid(&nzb->guid);
+
+	CString dstFile = CNewzflow::Instance()->settings->GetAppDataDir() + CComBSTR(nzb->guid) + _T(".nzb");
+	CopyFile(path, dstFile, FALSE);
+
+	return nzb;
+}
+
+CNzb* CNzb::Create(REFGUID guid, const CString& name)
+{
+	CString path = CNewzflow::Instance()->settings->GetAppDataDir() + CComBSTR(guid) + _T(".nzb");
+	CNzb* nzb = ParseNZB(path);
+
+	if(!nzb)
+		return NULL;
+
+	nzb->name = name;
+	nzb->guid = guid;
+
+	return nzb;
 }
 
 CNzbFile* CNzb::FindByName(const CString& name)

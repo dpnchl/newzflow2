@@ -1,14 +1,20 @@
 #include "stdafx.h"
 #include "util.h"
 #include "DiskWriter.h"
+#include "Newzflow.h"
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
 #endif
 
-void CDiskWriter::Add(const CString& file, __int64 offset, void* buffer, unsigned int size)
+void CDiskWriter::Add(CNzbSegment* seg, const CString& file, __int64 offset, void* buffer, unsigned int size)
 {
+	{ CNewzflow::CLock lock;
+		seg->parent->parent->refCount++;
+	}
+
 	CJob* job = new CJob;
+	job->segment = seg;
 	job->file = file;
 	job->offset = offset;
 	job->buffer = buffer;
@@ -32,6 +38,9 @@ LRESULT CDiskWriter::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandl
 		file.Close();
 	}
 	delete job->buffer;
+
+	CNewzflow::Instance()->UpdateSegment(job->segment, kCompleted);
+
 	delete job;
 
 	return 0;
