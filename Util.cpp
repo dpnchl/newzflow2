@@ -133,6 +133,18 @@ namespace Util
 
 		return v1;
 	}
+
+	CString SanitizeFilename(const CString& fn)
+	{
+		CString out;
+		static const TCHAR* reserved = _T("<>:/\\|?*");
+		for(int i = 0; i < fn.GetLength(); i++) {
+			TCHAR c = fn[i];
+			if(c > 31 && !_tcschr(reserved, c))
+				out += c;
+		}
+		return out;
+	}
 };
 
 // CToolBarImageList

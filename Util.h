@@ -9,6 +9,7 @@ namespace Util
 	CString FormatTimeSpan(__int64 time);
 	__int64 ParseSize(const CString& s);
 	__int64 ParseTimeSpan(const CString& s);
+	CString SanitizeFilename(const CString& fn);
 };
 
 class CToolBarImageList

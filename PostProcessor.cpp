@@ -158,24 +158,26 @@ void CPostProcessor::Par2Repair(CNzbFile* par2file)
 	int needBlocks = 0;
 	int numFiles = 0, numFilesDone = 0;
 
-	std::tr1::tregex reNumFiles(_T("There are (\\d+) recoverable files"));
-	std::tr1::tregex reNeedMore(_T("You need (\\d+) more recovery blocks"));
-	std::tr1::tregex reScanning(_T("Scanning: \"([^\"]+)\": ([0-9]+(\\.[0-9]+)?)%"));
-	std::tr1::tregex reMatrix(_T("Computing Reed Solomon matrix"));
-	std::tr1::tregex reRepairing(_T("Repairing: ([0-9]+(\\.[0-9]+)?)%"));
-	std::tr1::tregex reTarget(_T("Target: \"([^\"]+)\" - (.*)+$"));
-	std::tr1::tcmatch match;
+	using std::tr1::tregex; using std::tr1::tcmatch; using std::tr1::regex_search; using std::tr1::regex_match;
+
+	tregex reNumFiles(_T("There are (\\d+) recoverable files"));
+	tregex reNeedMore(_T("You need (\\d+) more recovery blocks"));
+	tregex reScanning(_T("Scanning: \"([^\"]+)\": ([0-9]+(\\.[0-9]+)?)%"));
+	tregex reMatrix(_T("Computing Reed Solomon matrix"));
+	tregex reRepairing(_T("Repairing: ([0-9]+(\\.[0-9]+)?)%"));
+	tregex reTarget(_T("Target: \"([^\"]+)\" - (.*)+$"));
+	tcmatch match;
 
 	while(tool.Process()) {
 		CString line;
 		while(!(line = tool.GetLine()).IsEmpty()) {
 			//TRACE(_T(">%s<\n"), line);
-			if(std::tr1::regex_search((const TCHAR*)line, match, reNumFiles)) {
+			if(regex_search((const TCHAR*)line, match, reNumFiles)) {
 				numFiles = _ttoi(match[1].first);
 				//TRACE(_T("***%d files***\n"), numFiles);
-			} else if(std::tr1::regex_search((const TCHAR*)line, match, reNeedMore)) {
+			} else if(regex_search((const TCHAR*)line, match, reNeedMore)) {
 				needBlocks = _ttoi(match[1].first);
-			} else if(std::tr1::regex_match((const TCHAR*)line, match, reScanning)) {
+			} else if(regex_match((const TCHAR*)line, match, reScanning)) {
 				CString fn(match[1].first, match[1].length());
 				float percent = (float)_tstof(match[2].first);
 				//TRACE(_T("***%s*** %f\n"), fn, percent);
@@ -187,7 +189,7 @@ void CPostProcessor::Par2Repair(CNzbFile* par2file)
 				if(numFiles > 0) {
 					nzb->done = 100.f * (float)numFilesDone / (float)numFiles + percent / (float)numFiles;
 				}
-			} else if(std::tr1::regex_match((const TCHAR*)line, match, reTarget)) {
+			} else if(regex_match((const TCHAR*)line, match, reTarget)) {
 				CString fn(match[1].first, match[1].length());
 				CString status(match[2].first, match[2].length());
 				//TRACE(_T("***%s*** %s\n"), fn, status);
@@ -205,11 +207,11 @@ void CPostProcessor::Par2Repair(CNzbFile* par2file)
 				if(numFiles > 0) {
 					nzb->done = 100.f * (float)numFilesDone / (float)numFiles;
 				}
-			} else if(std::tr1::regex_search((const TCHAR*)line, match, reMatrix)) {
+			} else if(regex_search((const TCHAR*)line, match, reMatrix)) {
 				nzb->status = kRepairing;
 				nzb->done = 0.f;
 				repairing = true;
-			} else if(std::tr1::regex_match((const TCHAR*)line, match, reRepairing)) {
+			} else if(regex_match((const TCHAR*)line, match, reRepairing)) {
 				float percent = (float)_tstof(match[1].first);
 				nzb->status = kRepairing;
 				nzb->done = percent;
