@@ -28,6 +28,21 @@ enum EParStatus {
 CString GetNzbStatusString(ENzbStatus status, float done = 0.f);
 CString GetParStatusString(EParStatus status, float done);
 
+class CParFile {
+public:
+	CNzbFile* file;
+	int numBlocks;
+};
+
+class CParSet {
+public:
+	~CParSet() {
+		for(size_t i = 0; i < pars.GetCount(); i++) delete pars[i];
+	}
+	CString baseName;
+	CAtlArray<CParFile*> pars;
+};
+
 class CNzbSegment {
 public:
 	CNzbSegment(CNzbFile* _parent) {
@@ -37,9 +52,10 @@ public:
 
 	ENzbStatus status;
 
-	unsigned __int64 bytes;
-	int number;
-	CString msgId;
+	unsigned __int64 offset;
+	unsigned __int64 bytes; // from nzb
+	int number; // from nzb
+	CString msgId; // from nzb
 	CNzbFile* parent;
 };
 
@@ -53,15 +69,17 @@ public:
 	~CNzbFile() {
 		for(size_t i = 0; i < segments.GetCount(); i++) delete segments[i];
 	}
+	void Init(); // parses subject into filename and calculates segments' offsets and filesize;
 
 	ENzbStatus status;
 	EParStatus parStatus;
 	float parDone;
 
-	CString subject; // from .nzb-file
-	CString fileName; // yEnc decoder fills in fileName here
-	CAtlArray<CString> groups;
-	CAtlArray<CNzbSegment*> segments;
+	CString subject; // from nzb
+	CString fileName;
+	unsigned __int64 size;
+	CAtlArray<CString> groups; // from nzb
+	CAtlArray<CNzbSegment*> segments; // from nzb
 	CNzb* parent;
 };
 
@@ -71,11 +89,15 @@ public:
 		status = kQueued;
 		done = 0.f;
 		refCount = 0;
+		doRepair = doUnpack = doDelete = true;
+		path = _T("temp\\");
 		ZeroMemory(&guid, sizeof(GUID));
 	}
 	~CNzb() {
 		for(size_t i = 0; i < files.GetCount(); i++) delete files[i];
+		for(size_t i = 0; i < parSets.GetCount(); i++) delete parSets[i];
 	}
+	void Init();
 
 public:
 	CNzbFile* FindByName(const CString& name);
@@ -91,7 +113,10 @@ public:
 
 	GUID guid;
 	CString name;
-	CAtlArray<CNzbFile*> files;
+	CString path;
+	bool doRepair, doUnpack, doDelete;
+	CAtlArray<CNzbFile*> files; // from nzb
+	CAtlArray<CParSet*> parSets;
 
 	int refCount;
 };

@@ -170,7 +170,7 @@ DWORD CDownloader::Run()
 			CNewzflow::Instance()->UpdateSegment(s, status);
 			// TODO: move this somewhere else
 			if(status == kCached) {
-				CNewzflow::Instance()->diskWriter->Add(s, CString("temp\\") + yd.fileName, yd.offset, yd.buffer, yd.size);
+				CNewzflow::Instance()->diskWriter->Add(s, yd.buffer, yd.size);
 				yd.buffer = NULL; // buffer is now managed by disk writer
 			}
 		}

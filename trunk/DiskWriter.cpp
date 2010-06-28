@@ -7,7 +7,7 @@
 #define new DEBUG_CLIENTBLOCK
 #endif
 
-void CDiskWriter::Add(CNzbSegment* seg, const CString& file, __int64 offset, void* buffer, unsigned int size)
+void CDiskWriter::Add(CNzbSegment* seg, void* buffer, unsigned int size)
 {
 	{ CNewzflow::CLock lock;
 		seg->parent->parent->refCount++;
@@ -15,8 +15,6 @@ void CDiskWriter::Add(CNzbSegment* seg, const CString& file, __int64 offset, voi
 
 	CJob* job = new CJob;
 	job->segment = seg;
-	job->file = file;
-	job->offset = offset;
 	job->buffer = buffer;
 	job->size = size;
 
@@ -28,12 +26,12 @@ LRESULT CDiskWriter::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandl
 	CJob* job = (CJob*)wParam;
 
 	CString s;
-	s.Format(_T("ObJob(%s, %I64d, %d)"), job->file, job->offset, job->size);
+	s.Format(_T("CDiskWriter::OnJob(%s, %I64d, %d)"), job->segment->parent->fileName, job->segment->offset, job->size);
 	Util::Print(CStringA(s));
 
 	CFile file;
-	if(file.Open(job->file, GENERIC_WRITE, 0, OPEN_ALWAYS)) {
-		file.Seek(job->offset, FILE_BEGIN);
+	if(file.Open(job->segment->parent->parent->path + job->segment->parent->fileName, GENERIC_WRITE, 0, OPEN_ALWAYS)) {
+		file.Seek(job->segment->offset, FILE_BEGIN);
 		file.Write(job->buffer, job->size);
 		file.Close();
 	}

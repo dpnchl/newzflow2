@@ -366,6 +366,10 @@ void CNewzflow::WriteQueue()
 			CNzb* nzb = nzbs[i];
 			mf.Write<GUID>(nzb->guid);
 			mf.WriteString(nzb->name);
+			mf.WriteString(nzb->path);
+			mf.Write<char>(nzb->doRepair);
+			mf.Write<char>(nzb->doUnpack);
+			mf.Write<char>(nzb->doDelete);
 			size_t fileCount = nzb->files.GetCount();
 			mf.Write<size_t>(fileCount);
 			for(size_t j = 0; j < fileCount; j++) {
@@ -412,6 +416,10 @@ void CNewzflow::ReadQueue()
 			CString name = mf.ReadString();
 			CNzb* nzb = CNzb::Create(guid, name);
 			if(nzb) {
+				nzb->path = mf.ReadString();
+				nzb->doRepair = !!mf.Read<char>();
+				nzb->doUnpack = !!mf.Read<char>();
+				nzb->doDelete = !!mf.Read<char>();
 				size_t fileCount = mf.Read<size_t>();
 				ASSERT(fileCount == nzb->files.GetCount());
 				for(size_t j = 0; j < fileCount; j++) {
@@ -429,6 +437,10 @@ void CNewzflow::ReadQueue()
 				}
 				newNzbs.Add(nzb);
 			} else { // NZB-file in %appdir% doesn't exist, so we need to skip all the data for this NZB in the queue file
+				mf.ReadString(); // path
+				mf.Read<char>(); // doRepair
+				mf.Read<char>(); // doUnpack
+				mf.Read<char>(); // doDelete
 				size_t fileCount = mf.Read<size_t>();
 				for(size_t j = 0; j < fileCount; j++) {
 					mf.Read<char>(); // file->status
