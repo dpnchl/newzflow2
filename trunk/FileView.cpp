@@ -83,7 +83,7 @@ int CFileView::OnRefresh()
 			__int64 size = 0, done = 0;
 			for(size_t j = 0; j < file->segments.GetCount(); j++) {
 				size += file->segments[j]->bytes;
-				if(file->segments[j]->status == kCompleted)
+				if(file->segments[j]->status == kCompleted || file->segments[j]->status == kCached)
 					done += file->segments[j]->bytes;
 			}
 			SetItemTextEx(i, kSize, Util::FormatSize(size));
@@ -206,7 +206,7 @@ bytesInStartSlice =
 			__int64 offset = 0;
 			for(size_t i = 0; i < file->segments.GetCount(); i++) {
 				CNzbSegment* seg = file->segments[i];
-				if(seg->status == kCompleted) {
+				if(seg->status == kCompleted || seg->status == kCached) {
 					float internalOffset = (float)offset;
 					float internalBytes = (float)seg->bytes;
 					int sliceStartIndex = (int)((float)internalOffset / bytesPerSlice);

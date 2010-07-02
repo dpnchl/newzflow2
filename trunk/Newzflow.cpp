@@ -291,25 +291,42 @@ void CNewzflow::UpdateSegment(CNzbSegment* s, ENzbStatus newStatus)
 
 	CLock lock;
 	s->status = newStatus;
-	TRACE(_T("UpdateSegment(%s, %s)\n"), s->msgId, GetNzbStatusString(newStatus));
 	CNzbFile* file = s->parent;
 	CNzb* nzb = file->parent;
 	nzb->refCount--;
+	TRACE(_T("UpdateSegment(%s, %s): refCount=%d\n"), s->msgId, GetNzbStatusString(newStatus), nzb->refCount);
+	// check if all segments of the file are cached or error / completed or error
+	bool bCached = true;
+	bool bCompleted = true;
 	for(size_t i = 0; i < file->segments.GetCount(); i++) {
 		CNzbSegment* segment = file->segments[i];
-		if(segment->status != kCompleted && segment->status != kError) {
-			return;
-		}
+		if(segment->status != kCached && segment->status != kError)
+			bCached = false;
+		if(segment->status != kCompleted && segment->status != kError)
+			bCompleted = false;
 	}
-	file->status = kCompleted;
+	if(bCached) {
+		file->status = kCached;
+		CNewzflow::Instance()->diskWriter->Add(file);
+		return;
+	}
+}
 
+void CNewzflow::UpdateFile(CNzbFile* file, ENzbStatus newStatus)
+{
+	ASSERT(newStatus == kCompleted);
+
+	CLock lock;
+	CNzb* nzb = file->parent;
+	nzb->refCount--;
+	TRACE(_T("UpdateFile(%s, %s): refCount=%d\n"), file->fileName, GetNzbStatusString(newStatus), nzb->refCount);
+	file->status = newStatus;
 	for(size_t i = 0; i < nzb->files.GetCount(); i++) {
 		CNzbFile* f = nzb->files[i];
-		if(f->status != kCompleted && f->status != kError)
+		if(f->status != kCompleted && f->status != kError && f->status != kPaused)
 			return;
 	}
 	nzb->status = kCompleted;
-	nzb->refCount++;
 	postProcessor->Add(nzb);
 }
 
@@ -382,6 +399,12 @@ void CNewzflow::WriteQueue()
 					mf.Write<char>(seg->status);
 				}
 			}
+			size_t parCount = nzb->parSets.GetCount();
+			mf.Write<size_t>(parCount);
+			for(size_t j = 0; j < parCount; j++) {
+				CParSet* parSet = nzb->parSets[j];
+				mf.Write<char>(parSet->completed);
+			}
 		}
 	}
 	CFile f;
@@ -435,6 +458,12 @@ void CNewzflow::ReadQueue()
 							seg->status = kQueued;
 					}
 				}
+				size_t parCount = mf.Read<size_t>();
+				ASSERT(parCount == nzb->parSets.GetCount());
+				for(size_t j = 0; j < parCount; j++) {
+					CParSet* parSet = nzb->parSets[j];
+					parSet->completed = !!mf.Read<char>();
+				}
 				newNzbs.Add(nzb);
 			} else { // NZB-file in %appdir% doesn't exist, so we need to skip all the data for this NZB in the queue file
 				mf.ReadString(); // path
@@ -448,6 +477,10 @@ void CNewzflow::ReadQueue()
 					for(size_t k = 0; k < segCount; k++) {
 						mf.Read<char>();
 					}
+				}
+				size_t parCount = mf.Read<size_t>();
+				for(size_t j = 0; j < parCount; j++) {
+					mf.Read<char>();
 				}
 			}
 		}

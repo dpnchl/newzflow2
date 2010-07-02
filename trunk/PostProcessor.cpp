@@ -84,7 +84,16 @@ bool CExternalTool::Run(const CString& cmdLine)
 	hStdOutWr.Close();
 
 	buffer = new CLineBuffer(4096);
+/*
+	CFile f;
+	f.Open(_T("externalTool.txt"), GENERIC_WRITE, 0, CREATE_ALWAYS);
+	f.SetEOF();
 
+#ifdef _UNICODE
+	unsigned char bom[] = { 0xff, 0xfe };
+	f.Write(bom, 2);
+#endif
+*/
 	return true;
 }
 
@@ -106,8 +115,16 @@ bool CExternalTool::Process()
 CString CExternalTool::GetLine()
 {
 	ASSERT(buffer);
-
-	return buffer->GetLine();
+/*
+	CFile f;
+	f.Open(_T("externalTool.txt"), GENERIC_WRITE, OPEN_EXISTING);
+	f.Seek(0, FILE_END);*/
+	CString s = buffer->GetLine();
+/*	f.Write(s, s.GetLength() * sizeof(TCHAR));
+	TCHAR cr = '\n';
+	f.Write(&cr, sizeof(TCHAR));
+*/
+	return s;
 }
 
 // CPostProcessor
@@ -115,6 +132,10 @@ CString CExternalTool::GetLine()
 
 void CPostProcessor::Add(CNzb* nzb)
 {
+	{ CNewzflow::CLock lock;
+		nzb->refCount++;
+	}
+
 	PostThreadMessage(MSG_JOB, (WPARAM)nzb);
 }
 
@@ -123,34 +144,84 @@ LRESULT CPostProcessor::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 	CNzb* nzb = (CNzb*)wParam;
 
 	CNzbFile* par2file = NULL;
-	for(size_t i = 0; i < nzb->files.GetCount(); i++) {
-		CNzbFile* file = nzb->files[i];
-		CString fn(file->fileName); fn.MakeLower();
-		if(file->fileName.Find(_T(".par2")) >= 0) {
-			par2file = file;
-			break;
+	// process all par sets
+	for(size_t i = 0; i < nzb->parSets.GetCount(); i++) {
+		CParSet* parSet = nzb->parSets[i];
+		if(parSet->completed)
+			continue;
+		// only process this par set if at least 1 par file has been downloaded
+		CParFile* parFile = NULL;
+		for(size_t j = 0; j < parSet->pars.GetCount(); j++) {
+			CParFile* pf = parSet->pars[j];
+			if(pf->file->status == kCompleted) {
+				parFile = pf;
+				break;
+			}
+		}
+		if(parFile) {
+			Par2Repair(parFile);
 		}
 	}
-	if(par2file) {
-		Par2Repair(par2file);
-	} else {
-		nzb->status = kFinished;
-	}
+
 	CNewzflow::CLock lock;
 	nzb->refCount--;
+
+	// now unpause needed par files
+	bool finished = true;
+	for(size_t i = 0; i < nzb->parSets.GetCount(); i++) {
+		CParSet* parSet = nzb->parSets[i];
+		if(!parSet->completed) {
+			if(parSet->needBlocks > 0) {
+				// first check if paused available blocks would suffice
+				int couldBlocks = 0;
+				for(size_t j = 0; j < parSet->pars.GetCount(); j++) {
+					CParFile* pf = parSet->pars[j];
+					if(pf->file->status == kPaused)
+						couldBlocks += pf->numBlocks;
+				}
+				// if there are enough left, unpause as needed
+				if(couldBlocks >= parSet->needBlocks) {
+					for(int j = (int)parSet->pars.GetCount() - 1; j >= 0 && parSet->needBlocks > 0; j--) {
+						CParFile* parFile = parSet->pars[j];
+						if(parFile->file->status == kPaused && parSet->needBlocks >= parFile->numBlocks) {
+							parFile->file->status = kQueued;
+							parSet->needBlocks = max(0, parSet->needBlocks - parFile->numBlocks);
+						}
+					}
+					finished = false; // requeue nzb
+				} else {
+					// not enough available, so we might just skip requeuing at all
+					parSet->completed = true;
+				}
+			} else {
+				parSet->completed = true;
+			}
+		}
+	}
+
+	if(finished)
+		nzb->status = kFinished;
+	else
+		nzb->status = kQueued;
+
+	CNewzflow::Instance()->WriteQueue();
+	if(!finished)
+		CNewzflow::Instance()->CreateDownloaders();
 
 	return 0;
 }
 
-void CPostProcessor::Par2Repair(CNzbFile* par2file)
+void CPostProcessor::Par2Repair(CParFile* par2file)
 {
-	CNzb* nzb = par2file->parent;
+	CNzb* nzb = par2file->parent->parent;
 
 	CExternalTool tool;
 	CString cmdline;
-	cmdline.Format(_T("test\\par2\\par2.exe r \"temp\\%s\""), par2file->fileName);
+	cmdline.Format(_T("test\\par2\\par2.exe r \"%s%s\""), nzb->path, par2file->file->fileName);
 	if(!tool.Run(cmdline))
 		return;
+
+	par2file->parent->files.RemoveAll();
 
 	bool repairRequired = false;
 	bool repairPossible = false;
@@ -176,7 +247,7 @@ void CPostProcessor::Par2Repair(CNzbFile* par2file)
 				numFiles = _ttoi(match[1].first);
 				//TRACE(_T("***%d files***\n"), numFiles);
 			} else if(regex_search((const TCHAR*)line, match, reNeedMore)) {
-				needBlocks = _ttoi(match[1].first);
+				par2file->parent->needBlocks = _ttoi(match[1].first);
 			} else if(regex_match((const TCHAR*)line, match, reScanning)) {
 				CString fn(match[1].first, match[1].length());
 				float percent = (float)_tstof(match[2].first);
@@ -195,6 +266,7 @@ void CPostProcessor::Par2Repair(CNzbFile* par2file)
 				//TRACE(_T("***%s*** %s\n"), fn, status);
 				CNzbFile* file = nzb->FindByName(fn);
 				if(file) {
+					par2file->parent->files.Add(file); // add target file to par2 set
 					file->parDone = 100.f;
 					if(status.Find(_T("missing")) >= 0)
 						file->parStatus = kMissing;
@@ -230,8 +302,24 @@ void CPostProcessor::Par2Repair(CNzbFile* par2file)
 				else if(line.Find(_T("Repair is possible")) >= 0) repairPossible = true;
 				else if(line.Find(_T("Repair complete")) >= 0) {
 					nzb->done = 100.f;
+					Par2Cleanup(par2file->parent);
 				}
 			}
 		}
 	} 
+	TRACE(_T("PostProcessing finished\n"));
+}
+
+void CPostProcessor::Par2Cleanup(CParSet* parSet)
+{
+	// delete all par2 files
+	for(size_t i = 0; i < parSet->pars.GetCount(); i++) {
+		CNzbFile* file = parSet->pars[i]->file;
+		CFile::Delete(file->parent->path + file->fileName);
+	}
+	// delete all backups of repaired target files (.1 ending)
+	for(size_t i = 0; i < parSet->files.GetCount(); i++) {
+		CNzbFile* file = parSet->files[i];
+		CFile::Delete(file->parent->path + file->fileName + _T(".1"));
+	}
 }

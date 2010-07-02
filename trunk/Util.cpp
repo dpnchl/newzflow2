@@ -145,6 +145,22 @@ namespace Util
 		}
 		return out;
 	}
+
+	void DeleteDirectory(const CString& _path)
+	{
+		CString path(_path);
+		if(path.Right(1) != _T("\\")) path += '\\';
+		WIN32_FIND_DATA fdata;
+		HANDLE h = FindFirstFile(path + _T("*"), &fdata);
+		if(h != INVALID_HANDLE_VALUE) {
+			do {
+				if(!(fdata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+					CFile::Delete(path + fdata.cFileName);
+			} while(FindNextFile(h, &fdata));
+		}
+		FindClose(h);
+		RemoveDirectory(_path);
+	}
 };
 
 // CToolBarImageList

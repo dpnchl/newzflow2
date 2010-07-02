@@ -2,6 +2,8 @@
 
 class CNzb;
 class CNzbFile;
+class CParSet;
+class CParFile;
 class CLineBuffer;
 
 // run external tool and capture tool's stdout. Get output one line at a time
@@ -13,6 +15,7 @@ class CLineBuffer;
 //     }
 //   }
 // }
+
 class CExternalTool
 {
 public:
@@ -44,5 +47,6 @@ public:
 	void Add(CNzb* nzb);
 	LRESULT OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
 
-	void Par2Repair(CNzbFile* par2file);
+	void Par2Repair(CParFile* par2file);
+	void Par2Cleanup(CParSet* parSet);
 };

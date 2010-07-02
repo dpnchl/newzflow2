@@ -437,14 +437,7 @@ void CNzb::Init()
 		fn.MakeLower();
 		// check if file is a par2 file
 		if(regex_match((const TCHAR*)fn, match, rePar2)) {
-			CParFile* parFile = new CParFile;
 			CString parName(match[1].first, match[1].length());
-			parFile->file = file;
-			parFile->numBlocks = 0;
-			if(match[3].matched) {
-				CString blocks(match[3].first, match[3].length());
-				parFile->numBlocks = _ttoi(blocks);
-			}
 			// find corresponding CParSet
 			CParSet* parSet = NULL;
 			for(size_t j = 0; j < parSets.GetCount(); j++) {
@@ -454,9 +447,16 @@ void CNzb::Init()
 			}
 			// create new ParSet if not found
 			if(!parSet) {
-				parSet = new CParSet;
+				parSet = new CParSet(this);
 				parSet->baseName = parName;
 				parSets.Add(parSet);
+			}
+			CParFile* parFile = new CParFile(parSet);
+			parFile->file = file;
+			parFile->numBlocks = 0;
+			if(match[3].matched) {
+				CString blocks(match[3].first, match[3].length());
+				parFile->numBlocks = _ttoi(blocks);
 			}
 			// add par2 file to ParSet
 			parSet->pars.Add(parFile);
@@ -476,6 +476,14 @@ void CNzb::Init()
 	// don't pause par files here, thie method might also be called when queue is restored, and we don't want to pause files then
 }
 
+void CNzb::Cleanup()
+{
+	Util::DeleteDirectory(CNewzflow::Instance()->settings->GetAppDataDir() + CComBSTR(guid));
+}
+
+// CNzbFile
+//////////////////////////////////////////////////////////////////////////
+
 void CNzbFile::Init()
 {
 	// parse subject for filename
@@ -494,12 +502,11 @@ void CNzbFile::Init()
 
 	// sort segments by number
 	std::sort(segments.GetData(), segments.GetData() + segments.GetCount(), SortSegments());
-	// calculate offsets for segments
-	unsigned __int64 offset = 0;
+
+	// calc filesize (encoded file)
+	size = 0;
 	for(size_t j = 0; j < segments.GetCount(); j++) {
 		CNzbSegment* seg = segments[j];
-		seg->offset = offset;
-		offset += seg->bytes;
+		size += seg->bytes;
 	}
-	size = offset;
 }
