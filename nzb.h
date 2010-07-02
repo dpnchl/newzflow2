@@ -1,6 +1,7 @@
 #pragma once
 
 // forwards
+class CParSet;
 class CNzbFile;
 class CNzb;
 
@@ -30,17 +31,32 @@ CString GetParStatusString(EParStatus status, float done);
 
 class CParFile {
 public:
+	CParFile(CParSet* _parent) {
+		parent = _parent;
+	}
+
 	CNzbFile* file;
 	int numBlocks;
+	CParSet* parent;
 };
 
 class CParSet {
 public:
+	CParSet(CNzb* _parent) {
+		parent = _parent;
+		needBlocks = 0;
+		completed = false;
+	}
 	~CParSet() {
 		for(size_t i = 0; i < pars.GetCount(); i++) delete pars[i];
 	}
 	CString baseName;
 	CAtlArray<CParFile*> pars;
+	CAtlArray<CNzbFile*> files; // just a reference to target files of par set (information retrieved from par2 tool)
+	CNzb* parent;
+
+	int needBlocks;
+	bool completed;
 };
 
 class CNzbSegment {
@@ -52,7 +68,6 @@ public:
 
 	ENzbStatus status;
 
-	unsigned __int64 offset;
 	unsigned __int64 bytes; // from nzb
 	int number; // from nzb
 	CString msgId; // from nzb
@@ -94,10 +109,12 @@ public:
 		ZeroMemory(&guid, sizeof(GUID));
 	}
 	~CNzb() {
+		Cleanup();
 		for(size_t i = 0; i < files.GetCount(); i++) delete files[i];
 		for(size_t i = 0; i < parSets.GetCount(); i++) delete parSets[i];
 	}
 	void Init();
+	void Cleanup();
 
 public:
 	CNzbFile* FindByName(const CString& name);

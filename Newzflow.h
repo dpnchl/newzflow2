@@ -46,6 +46,7 @@ public:
 
 	CNzbSegment* GetSegment();
 	void UpdateSegment(CNzbSegment* s, ENzbStatus newStatus);
+	void UpdateFile(CNzbFile* f, ENzbStatus newStatus);
 	void RemoveDownloader(CDownloader* dl);
 	void CreateDownloaders();
 	void WriteQueue();

@@ -117,10 +117,14 @@ int CNzbView::OnRefresh()
 			__int64 completed = 0, total = 0;
 			for(size_t j = 0; j < nzb->files.GetCount(); j++) {
 				CNzbFile* f = nzb->files[j];
+				if(f->status == kPaused)
+					continue;
 				for(size_t k = 0; k < f->segments.GetCount(); k++) {
 					CNzbSegment* s = f->segments[k];
+					if(s->status == kPaused)
+						continue;
 					total += s->bytes;
-					if(s->status == kCompleted || s->status == kError)
+					if(s->status == kCompleted || s->status == kCached || s->status == kError)
 						completed += s->bytes;
 				}
 			}
@@ -128,11 +132,15 @@ int CNzbView::OnRefresh()
 			s.Format(_T("%.1f%%"), 100. * (double)completed / (double)total);
 			SetItemTextEx(i, kDone, s);
 			SetItemTextEx(i, kStatus, GetNzbStatusString(nzb->status, nzb->done));
-			if(speed > 1024) {
-				eta += (total - completed) / speed;
-				SetItemTextEx(i, kETA, Util::FormatTimeSpan(eta));
+			if(nzb->status == kDownloading) {
+				if(speed > 1024) {
+					eta += (total - completed) / speed;
+					SetItemTextEx(i, kETA, Util::FormatTimeSpan(eta));
+				} else {
+					SetItemTextEx(i, kETA, _T("\x221e")); // "unlimited"
+				}
 			} else {
-				SetItemTextEx(i, kETA, _T("\x221e")); // "unlimited"
+				SetItemTextEx(i, kETA, _T(""));
 			}
 		}
 		return count;

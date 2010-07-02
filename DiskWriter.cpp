@@ -2,44 +2,49 @@
 #include "util.h"
 #include "DiskWriter.h"
 #include "Newzflow.h"
+#include "Settings.h"
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
 #endif
 
-void CDiskWriter::Add(CNzbSegment* seg, void* buffer, unsigned int size)
+void CDiskWriter::Add(CNzbFile* file)
 {
 	{ CNewzflow::CLock lock;
-		seg->parent->parent->refCount++;
+		file->parent->refCount++;
 	}
 
-	CJob* job = new CJob;
-	job->segment = seg;
-	job->buffer = buffer;
-	job->size = size;
-
-	PostThreadMessage(MSG_JOB, (WPARAM)job);
+	PostThreadMessage(MSG_JOB, (WPARAM)file);
 }
 
 LRESULT CDiskWriter::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
 {
-	CJob* job = (CJob*)wParam;
+	CNzbFile* file = (CNzbFile*)wParam;
 
-	CString s;
-	s.Format(_T("CDiskWriter::OnJob(%s, %I64d, %d)"), job->segment->parent->fileName, job->segment->offset, job->size);
-	Util::Print(CStringA(s));
+	CString nzbDir;
+	nzbDir.Format(_T("%s%s"), CNewzflow::Instance()->settings->GetAppDataDir(), CComBSTR(file->parent->guid));
 
-	CFile file;
-	if(file.Open(job->segment->parent->parent->path + job->segment->parent->fileName, GENERIC_WRITE, 0, OPEN_ALWAYS)) {
-		file.Seek(job->segment->offset, FILE_BEGIN);
-		file.Write(job->buffer, job->size);
-		file.Close();
+	CFile fout;
+	fout.Open(file->parent->path + file->fileName, GENERIC_WRITE, 0, CREATE_ALWAYS);
+
+	// join all segments from temp dir to final file
+	for(size_t i = 0; i < file->segments.GetCount(); i++) {
+		CNzbSegment* s = file->segments[i];
+		CString segFileName;
+		segFileName.Format(_T("%s\\%s_part%05d"), nzbDir, file->fileName, s->number);
+		CFile fin;
+		fin.Open(segFileName, GENERIC_READ, 0, OPEN_ALWAYS);
+		int size = (int)fin.GetSize();
+		char* buffer = new char [size];
+		fin.Read(buffer, size);
+		fin.Close();
+		CFile::Delete(segFileName); // TODO: do only if writing everything succeeded
+		fout.Write(buffer, size);
+		delete buffer;
 	}
-	delete job->buffer;
 
-	CNewzflow::Instance()->UpdateSegment(job->segment, kCompleted);
-
-	delete job;
+	fout.Close();
+	CNewzflow::Instance()->UpdateFile(file, kCompleted);
 
 	return 0;
 }

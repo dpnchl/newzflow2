@@ -196,7 +196,8 @@ LRESULT CMainFrame::OnFileExit(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCt
 LRESULT CMainFrame::OnFileAdd(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 {
 //	CNewzflow::Instance()->controlThread->AddFile(_T("test\\test.nzb"));
-	CNewzflow::Instance()->controlThread->AddFile(_T("test\\ubuntu-10.04-desktop-i386(devilspeed).par2.nzb"));
+//	CNewzflow::Instance()->controlThread->AddFile(_T("test\\ubuntu-10.04-desktop-i386(devilspeed).par2.nzb"));
+	CNewzflow::Instance()->controlThread->AddFile(_T("test\\VW Sharan-Technik.par2.corrupt.nzb"));
 
 	return 0;
 }
@@ -257,8 +258,10 @@ LRESULT CMainFrame::OnTimer(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& /*bHa
 				CNzbFile* f = nzb->files[j];
 				for(size_t k = 0; k < f->segments.GetCount(); k++) {
 					CNzbSegment* s = f->segments[k];
+					if(s->status == kPaused)
+						continue;
 					total += s->bytes;
-					if(s->status == kCompleted || s->status == kError)
+					if(s->status == kCached || s->status == kCompleted || s->status == kError)
 						completed += s->bytes;
 				}
 			}

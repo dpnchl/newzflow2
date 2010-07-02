@@ -6,6 +6,7 @@
 #include "sock.h"
 #include "nzb.h"
 #include "Newzflow.h"
+#include "Settings.h"
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
@@ -166,14 +167,24 @@ DWORD CDownloader::Run()
 			}
 			//fout.Close();
 		}
-		{ CNewzflow::CLock lock; // lock, so UpdateSegment and DiskWriter->Add aren't interrupted (refCount may be zero between the 2 calls)
-			CNewzflow::Instance()->UpdateSegment(s, status);
-			// TODO: move this somewhere else
-			if(status == kCached) {
-				CNewzflow::Instance()->diskWriter->Add(s, yd.buffer, yd.size);
-				yd.buffer = NULL; // buffer is now managed by disk writer
-			}
+		// write out segment to temp dir
+		if(status == kCached) {
+			CString nzbDir;
+			nzbDir.Format(_T("%s%s"), CNewzflow::Instance()->settings->GetAppDataDir(), CComBSTR(s->parent->parent->guid));
+			CreateDirectory(nzbDir, NULL);
+			CString segFileName;
+			segFileName.Format(_T("%s\\%s_part%05d"), nzbDir, s->parent->fileName, s->number);
+			CFile fout;
+			fout.Open(segFileName, GENERIC_WRITE, 0, CREATE_ALWAYS);
+			fout.Write(yd.buffer, yd.size);
+			fout.Close();
 		}
+		CNewzflow::Instance()->UpdateSegment(s, status);
+/*		// TODO: move this somewhere else
+		if(status == kCached) {
+			CNewzflow::Instance()->diskWriter->Add(s, yd.buffer, yd.size);
+			yd.buffer = NULL; // buffer is now managed by disk writer
+		}*/
 	}
 	sock.Request("QUIT\n");
 	sock.Close();

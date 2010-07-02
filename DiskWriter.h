@@ -1,6 +1,6 @@
 #pragma once
 
-class CNzbSegment;
+class CNzbFile;
 
 class CDiskWriter : public CGuiThreadImpl<CDiskWriter>
 {
@@ -15,14 +15,6 @@ class CDiskWriter : public CGuiThreadImpl<CDiskWriter>
 public:
 	CDiskWriter() : CGuiThreadImpl<CDiskWriter>(&_Module) {}
 
-	void Add(CNzbSegment* seg, void* buffer, unsigned int size);
+	void Add(CNzbFile* file);
 	LRESULT OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
-
-protected:
-	class CJob {
-	public:
-		CNzbSegment* segment;
-		void* buffer;
-		unsigned int size;
-	};
 };
