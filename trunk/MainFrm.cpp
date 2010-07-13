@@ -197,7 +197,25 @@ LRESULT CMainFrame::OnFileAdd(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl
 {
 //	CNewzflow::Instance()->controlThread->AddFile(_T("test\\test.nzb"));
 //	CNewzflow::Instance()->controlThread->AddFile(_T("test\\ubuntu-10.04-desktop-i386(devilspeed).par2.nzb"));
-	CNewzflow::Instance()->controlThread->AddFile(_T("test\\VW Sharan-Technik.par2.corrupt.nzb"));
+	CNewzflow::Instance()->controlThread->AddFile(_T("test\\VW Sharan-Technik.par2.nzb"));
+
+	// Test UnRAR
+/*
+	CNzb* nzb = new CNzb;
+	for(int i = 1; i <= 42; i++) {
+		CNzbFile* file = new CNzbFile(nzb);
+		file->fileName.Format(_T("test.part%02d.rar"), i);
+		file->subject = file->fileName;
+		file->status = kCompleted;
+		CNzbSegment* seg = new CNzbSegment(file);
+		seg->status = kCompleted;
+		file->segments.Add(seg);
+		nzb->files.Add(file);
+	}
+	nzb->refCount = 10;
+	CNewzflow::Instance()->nzbs.Add(nzb);
+	CNewzflow::Instance()->UpdateFile(nzb->files[0], kCompleted);
+*/
 
 	return 0;
 }

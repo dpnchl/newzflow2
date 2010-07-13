@@ -49,4 +49,6 @@ public:
 
 	void Par2Repair(CParFile* par2file);
 	void Par2Cleanup(CParSet* parSet);
+	bool Unrar(CNzbFile* file);
+	__int64 GetRarTotalSize(const CString& rarfile);
 };

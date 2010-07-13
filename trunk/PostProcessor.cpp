@@ -4,6 +4,8 @@
 #include "nzb.h"
 #include "Newzflow.h"
 #include "sock.h"
+#include "unrar.h"
+#pragma comment(lib, "unrar.lib")
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
@@ -158,55 +160,103 @@ LRESULT CPostProcessor::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 				break;
 			}
 		}
+		// try to repair
 		if(parFile) {
 			Par2Repair(parFile);
 		}
 	}
 
-	CNewzflow::CLock lock;
-	nzb->refCount--;
-
-	// now unpause needed par files
 	bool finished = true;
-	for(size_t i = 0; i < nzb->parSets.GetCount(); i++) {
-		CParSet* parSet = nzb->parSets[i];
-		if(!parSet->completed) {
-			if(parSet->needBlocks > 0) {
-				// first check if paused available blocks would suffice
-				int couldBlocks = 0;
-				for(size_t j = 0; j < parSet->pars.GetCount(); j++) {
-					CParFile* pf = parSet->pars[j];
-					if(pf->file->status == kPaused)
-						couldBlocks += pf->numBlocks;
-				}
-				// if there are enough left, unpause as needed
-				if(couldBlocks >= parSet->needBlocks) {
-					for(int j = (int)parSet->pars.GetCount() - 1; j >= 0 && parSet->needBlocks > 0; j--) {
-						CParFile* parFile = parSet->pars[j];
-						if(parFile->file->status == kPaused && parSet->needBlocks >= parFile->numBlocks) {
-							parFile->file->status = kQueued;
-							parSet->needBlocks = max(0, parSet->needBlocks - parFile->numBlocks);
-						}
+	{
+		CNewzflow::CLock lock;
+		nzb->refCount--;
+
+		// now unpause needed par files
+		for(size_t i = 0; i < nzb->parSets.GetCount(); i++) {
+			CParSet* parSet = nzb->parSets[i];
+			if(!parSet->completed) {
+				if(parSet->needBlocks > 0) {
+					// first check if paused available blocks would suffice
+					int couldBlocks = 0;
+					for(size_t j = 0; j < parSet->pars.GetCount(); j++) {
+						CParFile* pf = parSet->pars[j];
+						if(pf->file->status == kPaused)
+							couldBlocks += pf->numBlocks;
 					}
-					finished = false; // requeue nzb
+					// if there are enough left, unpause as needed
+					// TODO: how can we handle when unpaused PAR2s are corrupted and don't have as many blocks as we expected?
+					if(couldBlocks >= parSet->needBlocks) {
+						for(int j = (int)parSet->pars.GetCount() - 1; j >= 0 && parSet->needBlocks > 0; j--) {
+							CParFile* parFile = parSet->pars[j];
+							if(parFile->file->status == kPaused && parSet->needBlocks >= parFile->numBlocks) {
+								parFile->file->status = kQueued;
+								parSet->needBlocks = max(0, parSet->needBlocks - parFile->numBlocks);
+							}
+						}
+						finished = false; // requeue nzb
+					} else {
+						// not enough available, so we might just skip requeuing at all
+						// TODO: or should we get all available anyway?
+						parSet->completed = true;
+					}
 				} else {
-					// not enough available, so we might just skip requeuing at all
 					parSet->completed = true;
 				}
-			} else {
-				parSet->completed = true;
 			}
 		}
+
+		if(finished) {
+			nzb->status = kUnpacking;
+			nzb->refCount++;
+		} else
+			nzb->status = kQueued;
+
+		CNewzflow::Instance()->WriteQueue();
+		if(!finished)
+			CNewzflow::Instance()->CreateDownloaders();
 	}
+	// TODO: don't unpack if PAR repair failed; need to get relation between par2 and rar-files
+	if(finished) {
+		// get RarSets
+		//   can be either filename.rar->filename.r00->filename.r01->...
+		//   or filename.part0001.rar->filename.part0002.rar->...
+		using std::tr1::tregex; using std::tr1::tcmatch; using std::tr1::regex_search; using std::tr1::regex_match;
+		tregex rePart(_T("\\.part(\\d+)$"));
+		tcmatch match;
 
-	if(finished)
+		for(size_t i = 0; i < nzb->files.GetCount(); i++) {
+			CNzbFile* file = nzb->files[i];
+			CString fn(file->fileName);
+			fn.MakeLower();
+			// check if file is the first in a set of rar files
+			if(fn.Right(4) != _T(".rar"))
+				continue;
+			fn = fn.Left(fn.GetLength() - 4);
+			bool hasPart = regex_search((const TCHAR*)fn, match, rePart);
+			// it's the first part if name contains ".part[0]*1.rar" or just ".rar" (without "part")
+			if(hasPart && _ttoi(CString(match[1].first, match[1].length())) != 1)
+				continue;
+			if(Unrar(file)) {
+				// unrar succeeded, so delete all rar files of thie rar set
+				CString sBase;
+				if(hasPart)
+					sBase = fn.Left(fn.GetLength() - match[1].length());
+				else
+					sBase = fn;
+				for(size_t j = 0; j < nzb->files.GetCount(); j++) {
+					CNzbFile* file2 = nzb->files[j];
+					if(!sBase.CompareNoCase(file2->fileName.Left(sBase.GetLength()))) {
+						CFile::Delete(nzb->path + file2->fileName);
+						//TRACE(_T("Delete(%s)\n"), nzb->path + file2->fileName);
+					}
+				}
+			}
+		}
+		CNewzflow::CLock lock;
 		nzb->status = kFinished;
-	else
-		nzb->status = kQueued;
-
-	CNewzflow::Instance()->WriteQueue();
-	if(!finished)
-		CNewzflow::Instance()->CreateDownloaders();
+		nzb->refCount--;
+		CNewzflow::Instance()->WriteQueue();
+	}
 
 	return 0;
 }
@@ -303,6 +353,9 @@ void CPostProcessor::Par2Repair(CParFile* par2file)
 				else if(line.Find(_T("Repair complete")) >= 0) {
 					nzb->done = 100.f;
 					Par2Cleanup(par2file->parent);
+				} else if(line.Find(_T("repair is not required")) >= 0) {
+					nzb->done = 100.f;
+					Par2Cleanup(par2file->parent);
 				}
 			}
 		}
@@ -322,4 +375,116 @@ void CPostProcessor::Par2Cleanup(CParSet* parSet)
 		CNzbFile* file = parSet->files[i];
 		CFile::Delete(file->parent->path + file->fileName + _T(".1"));
 	}
+}
+
+struct RarProgress {
+	__int64 totalSize;
+	__int64 done;
+	float* percentage;
+};
+
+static int CALLBACK RarCallbackProc(UINT msg, LPARAM UserData, LPARAM P1, LPARAM P2);
+
+bool CPostProcessor::Unrar(CNzbFile* file)
+{
+	CNzb* nzb = file->parent;
+	nzb->done = 0;
+	CString rarfile(nzb->path + file->fileName);
+
+	__int64 totalSize = GetRarTotalSize(rarfile);
+
+	HANDLE hArcData;
+	int RHCode, PFCode;
+	struct RARHeaderDataEx HeaderData;
+	struct RAROpenArchiveDataEx OpenArchiveData;
+
+	memset(&OpenArchiveData, 0, sizeof(OpenArchiveData));
+	memset(&HeaderData, 0, sizeof(HeaderData));
+	OpenArchiveData.ArcNameW = (wchar_t*)(const wchar_t*)rarfile;
+	OpenArchiveData.OpenMode = RAR_OM_EXTRACT;
+	hArcData = RAROpenArchiveEx(&OpenArchiveData);
+
+	if(OpenArchiveData.OpenResult != 0)
+		return false;
+
+	RarProgress progress;
+	progress.totalSize = totalSize;
+	progress.done = 0;
+	progress.percentage = &nzb->done;
+
+	RARSetCallback(hArcData, RarCallbackProc, (LPARAM)&progress);
+
+	bool ret = true;
+
+	while((RHCode = RARReadHeaderEx(hArcData, &HeaderData)) == 0) {
+		if ((PFCode = RARProcessFileW(hArcData, RAR_EXTRACT, (wchar_t*)(const wchar_t*)nzb->path, NULL)) != 0) {
+			ret = false;
+			break;
+		}
+	}
+
+	if (RHCode == ERAR_BAD_DATA)
+		ret = false;
+
+	RARCloseArchive(hArcData);
+
+	return ret;
+}
+
+__int64 CPostProcessor::GetRarTotalSize(const CString& rarfile)
+{
+	__int64 totalSize = 0;
+
+	HANDLE hArcData;
+	int RHCode, PFCode;
+	struct RARHeaderDataEx HeaderData;
+	struct RAROpenArchiveDataEx OpenArchiveData;
+
+	memset(&OpenArchiveData, 0, sizeof(OpenArchiveData));
+	memset(&HeaderData, 0, sizeof(HeaderData));
+	OpenArchiveData.ArcNameW = (wchar_t*)(const wchar_t*)rarfile;
+	OpenArchiveData.OpenMode = RAR_OM_LIST;
+	hArcData = RAROpenArchiveEx(&OpenArchiveData);
+
+	if(OpenArchiveData.OpenResult != 0) {
+		//OutOpenArchiveError(OpenArchiveData.OpenResult,ArcName);
+		return 0;
+	}
+
+	RARSetCallback(hArcData, RarCallbackProc, 0);
+
+	while((RHCode = RARReadHeaderEx(hArcData, &HeaderData)) == 0) {
+		__int64 UnpSize = HeaderData.UnpSize + (((__int64)HeaderData.UnpSizeHigh) << 32);
+		totalSize += UnpSize;
+		if ((PFCode = RARProcessFile(hArcData, RAR_SKIP, NULL, NULL)) != 0) {
+			//OutProcessFileError(PFCode);
+			break;
+		}
+	}
+
+	RARCloseArchive(hArcData);
+
+	return totalSize;
+}
+
+static int CALLBACK RarCallbackProc(UINT msg, LPARAM UserData, LPARAM P1, LPARAM P2)
+{
+	switch(msg) {
+	case UCM_CHANGEVOLUME:
+		if (P2==RAR_VOL_ASK) {
+			// we don't have any other volumes
+			return -1;
+		}
+		return 0;
+	case UCM_PROCESSDATA: {
+		RarProgress* progress = (RarProgress*)UserData;
+		progress->done += P2;
+		*progress->percentage = 100.f * (float)progress->done / (float)progress->totalSize;
+		return 0;
+	}
+	case UCM_NEEDPASSWORD:
+		strcpy((char*)P1, "xxxxx"); // we don't have a password
+		return 0;
+	}
+	return 0;
 }
