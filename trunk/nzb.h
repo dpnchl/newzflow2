@@ -5,6 +5,7 @@ class CParSet;
 class CNzbFile;
 class CNzb;
 
+// 'char' consts for better readability of queue.dat and to make sure that enums don't change when new consts are added
 enum ENzbStatus {
 	kQueued = 'Q',
 	kPaused = 'P',
@@ -72,6 +73,25 @@ public:
 	int number; // from nzb
 	CString msgId; // from nzb
 	CNzbFile* parent;
+
+/*	Segment Status flow chart:
+
+		kQueued: default state
+		||
+		|| @CNewzflow::GetSegment()
+		\/
+		kDownloading: a downloader is assigned to download this segment
+	.===||
+	|	||
+	|	\/
+	|	kCached: all segments of this file have either been downloaded or errored
+	|	||
+	|	|| [write segment to TEMP dir]
+	|	\/
+	|
+	`==>kError: Error downloading or decoding this segment
+
+*/
 };
 
 class CNzbFile {
@@ -96,6 +116,23 @@ public:
 	CAtlArray<CString> groups; // from nzb
 	CAtlArray<CNzbSegment*> segments; // from nzb
 	CNzb* parent;
+
+/*	File Status flow chart:
+
+	kQueued: default state
+	||
+	|| @CNewzflow::GetSegment()
+	\/
+	kDownloading: busy downloading segments from this file
+	||
+	||
+	\/
+	kCached: all segments of this file have either been downloaded or errored
+	||
+	|| @CDiskWriter::OnJob() [Diskwriter assembles segments of this file and writes it to the destination directory]
+	\/
+	kCompleted: file has been assembled on disk
+*/
 };
 
 class CNzb {
@@ -136,4 +173,28 @@ public:
 	CAtlArray<CParSet*> parSets;
 
 	int refCount;
+
+/*
+	NZB Status flow chart:
+
+				.==>kQueued: NZB has just been created/added
+				|	||
+				|	|| [downloading in progress]
+				|	\/
+	[need more	|	kDownloading: Files are currently being downloaded
+	 PAR files]	|	||
+				|	||
+				|	\/
+				|	kCompleted: All Files of the NZB are either completed, paused (PAR files), or errored
+				|	||
+				`===|| [postprocessor: PAR2 verify/repair]
+					\/
+					kUnpacking: All PAR2 files have been processed (either repaired or not)
+					||
+					|| [postprocessor: RAR unpacking]
+					\/
+					kFinished: Processing completed
+
+*/
+
 };

@@ -258,6 +258,7 @@ CNewzflow* CNewzflow::Instance()
 	return s_pInstance;
 }
 
+// Downloaders get next segment to download
 CNzbSegment* CNewzflow::GetSegment()
 {
 	CLock lock;
@@ -285,6 +286,7 @@ CNzbSegment* CNewzflow::GetSegment()
 	return NULL;
 }
 
+// Downloader/DiskWriter is finished with a segment
 void CNewzflow::UpdateSegment(CNzbSegment* s, ENzbStatus newStatus)
 {
 	ASSERT(newStatus == kError || newStatus == kCompleted || newStatus == kCached);
@@ -305,6 +307,7 @@ void CNewzflow::UpdateSegment(CNzbSegment* s, ENzbStatus newStatus)
 		if(segment->status != kCompleted && segment->status != kError)
 			bCompleted = false;
 	}
+	// if all segments of a file are either cached or errored, tell the disk writer to join them together
 	if(bCached) {
 		file->status = kCached;
 		CNewzflow::Instance()->diskWriter->Add(file);
@@ -312,6 +315,7 @@ void CNewzflow::UpdateSegment(CNzbSegment* s, ENzbStatus newStatus)
 	}
 }
 
+// DiskWriter is finished joining a file
 void CNewzflow::UpdateFile(CNzbFile* file, ENzbStatus newStatus)
 {
 	ASSERT(newStatus == kCompleted);
@@ -326,6 +330,7 @@ void CNewzflow::UpdateFile(CNzbFile* file, ENzbStatus newStatus)
 		if(f->status != kCompleted && f->status != kError && f->status != kPaused)
 			return;
 	}
+	// if all files of the NZB are either completed, paused (PAR files), or errored, tell the post processor to start validating/repairing/unpacking
 	nzb->status = kCompleted;
 	postProcessor->Add(nzb);
 }
@@ -387,6 +392,7 @@ void CNewzflow::WriteQueue()
 			mf.Write<char>(nzb->doRepair);
 			mf.Write<char>(nzb->doUnpack);
 			mf.Write<char>(nzb->doDelete);
+			mf.Write<char>(nzb->status);
 			size_t fileCount = nzb->files.GetCount();
 			mf.Write<size_t>(fileCount);
 			for(size_t j = 0; j < fileCount; j++) {
@@ -443,6 +449,7 @@ void CNewzflow::ReadQueue()
 				nzb->doRepair = !!mf.Read<char>();
 				nzb->doUnpack = !!mf.Read<char>();
 				nzb->doDelete = !!mf.Read<char>();
+				nzb->status = (ENzbStatus)mf.Read<char>();
 				size_t fileCount = mf.Read<size_t>();
 				ASSERT(fileCount == nzb->files.GetCount());
 				for(size_t j = 0; j < fileCount; j++) {
@@ -470,6 +477,7 @@ void CNewzflow::ReadQueue()
 				mf.Read<char>(); // doRepair
 				mf.Read<char>(); // doUnpack
 				mf.Read<char>(); // doDelete
+				mf.Read<char>(); // status
 				size_t fileCount = mf.Read<size_t>();
 				for(size_t j = 0; j < fileCount; j++) {
 					mf.Read<char>(); // file->status

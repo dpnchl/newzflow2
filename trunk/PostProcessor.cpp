@@ -416,8 +416,12 @@ bool CPostProcessor::Unrar(CNzbFile* file)
 
 	bool ret = true;
 
+	{ CString s; s.Format(_T("CPostProcessor::Unrar(%s)\n"), rarfile); Util::Print(s); }
+
 	while((RHCode = RARReadHeaderEx(hArcData, &HeaderData)) == 0) {
+		{ CString s; s.Format(_T("  %s\n"), HeaderData.FileNameW); Util::Print(s); }
 		if ((PFCode = RARProcessFileW(hArcData, RAR_EXTRACT, (wchar_t*)(const wchar_t*)nzb->path, NULL)) != 0) {
+			Util::Print("   failed\n");
 			ret = false;
 			break;
 		}
@@ -471,7 +475,7 @@ static int CALLBACK RarCallbackProc(UINT msg, LPARAM UserData, LPARAM P1, LPARAM
 {
 	switch(msg) {
 	case UCM_CHANGEVOLUME:
-		if (P2==RAR_VOL_ASK) {
+		if (P2 == RAR_VOL_ASK) {
 			// we don't have any other volumes
 			return -1;
 		}

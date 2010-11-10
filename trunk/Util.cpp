@@ -37,8 +37,13 @@ namespace Util
 
 	void Print(const char* s)
 	{
+		Print(CString(s));
+	}
+
+	void Print(const wchar_t* s)
+	{
 		CString str;
-		str.Format(_T("[%4x] %s\n"), GetCurrentThreadId(), CString(s));
+		str.Format(L"[%4x] %s%s", GetCurrentThreadId(), s, wcschr(s, '\n') ? L"" : L"\n");
 		OutputDebugString(str);
 	}
 
