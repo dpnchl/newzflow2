@@ -4,6 +4,7 @@ namespace Util
 {
 	void CreateConsole();
 	void Print(const char* s);
+	void Print(const wchar_t* s);
 	CString FormatSize(__int64 size);
 	CString FormatSpeed(__int64 speed);
 	CString FormatTimeSpan(__int64 time);
