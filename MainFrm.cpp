@@ -161,9 +161,9 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 	pLoop->AddMessageFilter(this);
 	pLoop->AddIdleHandler(this);
 
-	CNewzflow::Instance()->ReadQueue(); // TODO: move somewhere else?!
-	CNewzflow::Instance()->CreateDownloaders();
-	SendMessage(WM_TIMER);
+	if(CNewzflow::Instance()->ReadQueue()) // TODO: move somewhere else?!
+		CNewzflow::Instance()->CreateDownloaders();
+	SendMessage(WM_TIMER); // to update views
 
 	return 0;
 }

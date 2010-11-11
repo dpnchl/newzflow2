@@ -289,7 +289,10 @@ CNzbSegment* CNewzflow::GetSegment()
 // Downloader/DiskWriter is finished with a segment
 void CNewzflow::UpdateSegment(CNzbSegment* s, ENzbStatus newStatus)
 {
-	ASSERT(newStatus == kError || newStatus == kCompleted || newStatus == kCached);
+	// kError: a permanent error has occured (article not found)
+	// kCached: segment has been successfully downloaded
+	// kQueued: a temporary error has occured in the downloader. Segment needs to be tried again later
+	ASSERT(newStatus == kError || newStatus == kCached || newStatus == kQueued);
 
 	CLock lock;
 	s->status = newStatus;
@@ -368,7 +371,7 @@ void CNewzflow::CreateDownloaders()
 		return;
 
 	// create enough downloaders
-	int numDownloaders = max(0, 5 - downloaders.GetCount());
+	int numDownloaders = max(0, 1 - downloaders.GetCount()); // Number of max. simultaneous downloaders here!
 	for(int i = 0; i < numDownloaders; i++) {
 		downloaders.Add(new CDownloader);
 	}
@@ -421,8 +424,11 @@ void CNewzflow::WriteQueue()
 	}
 }
 
-void CNewzflow::ReadQueue()
+// returns true if the queue contains any NZBs that are queued/downloading
+bool CNewzflow::ReadQueue()
 {
+	bool ret = false;
+
 	CFile f;
 	if(f.Open(settings->GetAppDataDir() + _T("queue.dat"), GENERIC_READ, 0, OPEN_EXISTING)) {
 		size_t size = (size_t)f.GetSize();
@@ -432,11 +438,11 @@ void CNewzflow::ReadQueue()
 		
 		CMemFile mf(buffer, size);
 		if(mf.Read<unsigned>() != 'NFQ!') {
-			return;
+			return false;
 		}
 		unsigned version = mf.Read<unsigned>();
 		if(version != 1) {
-			return;
+			return false;
 		}
 		CAtlArray<CNzb*> newNzbs;
 		size_t nzbCount = mf.Read<size_t>();
@@ -450,6 +456,8 @@ void CNewzflow::ReadQueue()
 				nzb->doUnpack = !!mf.Read<char>();
 				nzb->doDelete = !!mf.Read<char>();
 				nzb->status = (ENzbStatus)mf.Read<char>();
+				if(nzb->status == kDownloading)
+					nzb->status = kQueued;
 				size_t fileCount = mf.Read<size_t>();
 				ASSERT(fileCount == nzb->files.GetCount());
 				for(size_t j = 0; j < fileCount; j++) {
@@ -460,8 +468,8 @@ void CNewzflow::ReadQueue()
 					for(size_t k = 0; k < segCount; k++) {
 						CNzbSegment* seg = file->segments[k];
 						seg->status = (ENzbStatus)mf.Read<char>();
-						// we can't continue from cached or downloading status, so need to requeue segment
-						if(seg->status == kCached || seg->status == kDownloading)
+						// we can't continue from downloading status, so need to requeue segment
+						if(seg->status == kDownloading)
 							seg->status = kQueued;
 					}
 				}
@@ -472,6 +480,8 @@ void CNewzflow::ReadQueue()
 					parSet->completed = !!mf.Read<char>();
 				}
 				newNzbs.Add(nzb);
+				if(nzb->status == kQueued) // if NZB hasn't finished downloading, downloaders need to be created
+					ret = true;
 			} else { // NZB-file in %appdir% doesn't exist, so we need to skip all the data for this NZB in the queue file
 				mf.ReadString(); // path
 				mf.Read<char>(); // doRepair
@@ -496,6 +506,7 @@ void CNewzflow::ReadQueue()
 			nzbs.Append(newNzbs);
 		}
 	}
+	return ret;
 }
 
 // called from main thread (CMainFrame::OnNzbRemove)
