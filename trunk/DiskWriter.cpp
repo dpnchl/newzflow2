@@ -33,14 +33,15 @@ LRESULT CDiskWriter::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandl
 		CString segFileName;
 		segFileName.Format(_T("%s\\%s_part%05d"), nzbDir, file->fileName, s->number);
 		CFile fin;
-		fin.Open(segFileName, GENERIC_READ, 0, OPEN_ALWAYS);
-		int size = (int)fin.GetSize();
-		char* buffer = new char [size];
-		fin.Read(buffer, size);
-		fin.Close();
-		CFile::Delete(segFileName); // TODO: do only if writing everything succeeded
-		fout.Write(buffer, size);
-		delete buffer;
+		if(fin.Open(segFileName, GENERIC_READ, 0, OPEN_ALWAYS)) {
+			int size = (int)fin.GetSize();
+			char* buffer = new char [size];
+			fin.Read(buffer, size);
+			fin.Close();
+			CFile::Delete(segFileName); // TODO: do only if writing everything succeeded
+			fout.Write(buffer, size);
+			delete buffer;
+		}
 	}
 
 	fout.Close();

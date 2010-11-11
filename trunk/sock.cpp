@@ -286,7 +286,6 @@ again:
 			return "";
 	}
 	return reply;
-	va_end(args);
 }
 
 void CNntpSocket::Close()

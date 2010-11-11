@@ -50,7 +50,7 @@ public:
 	void RemoveDownloader(CDownloader* dl);
 	void CreateDownloaders();
 	void WriteQueue();
-	void ReadQueue();
+	bool ReadQueue();
 	void RemoveNzb(CNzb* nzb);
 	void FreeDeletedNzbs();
 	CAtlArray<CNzb*> nzbs, deletedNzbs;

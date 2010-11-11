@@ -109,17 +109,26 @@ DWORD CDownloader::Run()
 			const CString& group = f->groups[i];
 			if(group != curGroup) {
 				reply = sock.Request("GROUP %s\n", CStringA(group));
+				if(reply.IsEmpty()) {
+					CNewzflow::Instance()->UpdateSegment(s, kQueued);
+					goto finish;
+				}
 				if(reply.Left(3) != "211") {
 					continue;
 				}
 				curGroup = group;
 			}
 			reply = sock.Request("ARTICLE <%s>\n", CStringA(s->msgId));
+			if(reply.IsEmpty()) {
+				CNewzflow::Instance()->UpdateSegment(s, kQueued);
+				goto finish;
+			}
 			if(reply.Left(3) == "220") {
 				status = kDownloading;
 				break;
 			}
 		}
+		// if status is still kError here, it means that none of the specified groups exist or the article does not exist
 		if(status == kDownloading) {
 			//CFile fout;
 			//fout.Open(CString("temp\\") + f->segments[j]->msgId, GENERIC_WRITE, 0, CREATE_ALWAYS);
@@ -128,8 +137,8 @@ DWORD CDownloader::Run()
 			while(1) {
 				reply = sock.ReceiveLine(); 
 				if(reply.IsEmpty()) {
-					status = kError;
-					break;
+					CNewzflow::Instance()->UpdateSegment(s, kQueued);
+					goto finish;
 				}
 				if(reply.GetLength() > 0 && (reply[0] == '\n' || reply[0] == '\r'))
 					break;
@@ -145,8 +154,8 @@ DWORD CDownloader::Run()
 				while(1) {
 					reply = sock.ReceiveLine(); 
 					if(reply.IsEmpty()) {
-						status = kError;
-						break;
+						CNewzflow::Instance()->UpdateSegment(s, kQueued);
+						goto finish;
 					}
 					if(reply.GetLength() >= 2 && reply[0] == '.') {
 						if(reply[1] == '.')
@@ -186,6 +195,7 @@ DWORD CDownloader::Run()
 			yd.buffer = NULL; // buffer is now managed by disk writer
 		}*/
 	}
+finish:
 	sock.Request("QUIT\n");
 	sock.Close();
 
