@@ -274,6 +274,8 @@ LRESULT CMainFrame::OnTimer(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& /*bHa
 			CNzb* nzb = theApp->nzbs[i];
 			for(size_t j = 0; j < nzb->files.GetCount(); j++) {
 				CNzbFile* f = nzb->files[j];
+				if(f->status == kPaused)
+					continue;
 				for(size_t k = 0; k < f->segments.GetCount(); k++) {
 					CNzbSegment* s = f->segments[k];
 					if(s->status == kPaused)

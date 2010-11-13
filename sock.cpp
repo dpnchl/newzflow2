@@ -292,8 +292,7 @@ void CNntpSocket::Close()
 {
 	timeEnd = time(NULL);
 	CString str;
-	double rate = (double)(bytesReceived + bytesSent) / (double)(timeEnd - timeStart) / 1024.;
-	str.Format(_T("%.2fkb/s (%I64d bytes sent, %I64d bytes received in %d seconds)"), rate, bytesSent, bytesReceived, timeEnd - timeStart);
+	str.Format(_T("rate: %s (%s sent, %s received in %s)"), Util::FormatSpeed(__int64(bytesReceived + bytesSent) / __int64(timeEnd - timeStart)), Util::FormatSize(bytesSent), Util::FormatSize(bytesReceived), Util::FormatTimeSpan(timeEnd - timeStart));
 	Util::Print(CStringA(str));
 
 	shutdown(s, SD_SEND);
