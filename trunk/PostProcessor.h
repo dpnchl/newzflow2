@@ -42,7 +42,9 @@ class CPostProcessor : public CGuiThreadImpl<CPostProcessor>
 	END_MSG_MAP()
 
 public:
-	CPostProcessor() : CGuiThreadImpl<CPostProcessor>(&_Module) {}
+	CPostProcessor() : CGuiThreadImpl<CPostProcessor>(&_Module) { currentNzb = NULL; }
+
+	volatile CNzb* currentNzb;
 
 	void Add(CNzb* nzb);
 	LRESULT OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled);

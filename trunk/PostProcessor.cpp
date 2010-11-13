@@ -144,6 +144,7 @@ void CPostProcessor::Add(CNzb* nzb)
 LRESULT CPostProcessor::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
 {
 	CNzb* nzb = (CNzb*)wParam;
+	currentNzb = nzb;
 
 	CNzbFile* par2file = NULL;
 	// process all par sets
@@ -257,6 +258,7 @@ LRESULT CPostProcessor::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 		nzb->refCount--;
 		CNewzflow::Instance()->WriteQueue();
 	}
+	currentNzb = NULL;
 
 	return 0;
 }

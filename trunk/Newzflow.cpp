@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "resource.h"
 #include "Newzflow.h"
 #include "DiskWriter.h"
 #include "Downloader.h"
@@ -185,6 +186,29 @@ LRESULT CNewzflowThread::OnWriteQueue(UINT uMsg, WPARAM wParam, LPARAM lParam, B
 	return 0;	
 }
 
+class CShutdownDialog : public CDialogImpl<CShutdownDialog>
+{
+public:
+	enum { IDD = IDD_SHUTDOWN };
+
+	BEGIN_MSG_MAP(CShutdownDialog)
+		MESSAGE_HANDLER(WM_INITDIALOG, OnInitDialog)
+	END_MSG_MAP()
+
+	LRESULT OnInitDialog(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)
+	{
+		text = GetDlgItem(IDC_TEXT);
+		progress = GetDlgItem(IDC_PROGRESS);
+		progress.SetWindowLong(GWL_STYLE, progress.GetWindowLong(GWL_STYLE) | PBS_MARQUEE); // doesn't work when set directly from resource editor
+		progress.SetMarquee(TRUE);
+		return TRUE;
+	}
+
+public:
+	CStatic text;
+	CProgressBarCtrl progress;
+};
+
 /*static*/ CNewzflow* CNewzflow::s_pInstance = NULL;
 
 // CNewzflow
@@ -208,14 +232,19 @@ CNewzflow::~CNewzflow()
 {
 	shuttingDown = true;
 
+	CShutdownDialog dlg;
+	dlg.Create(NULL);
+
+	dlg.text.SetWindowText(_T("Waiting for control thread..."));
 	Util::Print("waiting for control thread to finish...\n");
 	controlThread->PostQuitMessage();
-	controlThread->Join();
+	controlThread->JoinWithMessageLoop();
 	delete controlThread;
 
+	dlg.text.SetWindowText(_T("Waiting for downloads..."));
 	Util::Print("waiting for downloaders to finish...\n");
 	for(size_t i = 0; i < downloaders.GetCount(); i++) {
-		downloaders[i]->Join();
+		downloaders[i]->JoinWithMessageLoop();
 		delete downloaders[i];
 	}
 	downloaders.RemoveAll();
@@ -225,14 +254,23 @@ CNewzflow::~CNewzflow()
 	}
 	finishedDownloaders.RemoveAll();
 
+	dlg.text.SetWindowText(_T("Waiting for disk writer..."));
 	Util::Print("waiting for disk writer to finish...\n");
 	diskWriter->PostQuitMessage();
-	diskWriter->Join();
+	diskWriter->JoinWithMessageLoop();
 	delete diskWriter;
 
+	dlg.text.SetWindowText(_T("Waiting for post processor..."));
 	Util::Print("waiting for post processor to finish...\n");
 	postProcessor->PostQuitMessage();
-	postProcessor->Join();
+	while(postProcessor->JoinWithMessageLoop(500) != WAIT_OBJECT_0) {
+		CNzb* postProcNzb = (CNzb*)postProcessor->currentNzb;
+		if(postProcNzb) {
+			CString s;
+			s.Format(_T("Waiting for post processor: %s..."), GetNzbStatusString(postProcNzb->status, postProcNzb->done));
+			dlg.text.SetWindowText(s);
+		}
+	}
 	delete postProcessor;
 
 	WriteQueue();
@@ -248,6 +286,8 @@ CNewzflow::~CNewzflow()
 	delete settings;
 
 	CNntpSocket::CloseWinsock();
+
+	dlg.DestroyWindow();
 
 	s_pInstance = NULL;
 	Util::Print("~CNewzflow finished\n");

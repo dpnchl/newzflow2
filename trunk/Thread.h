@@ -177,6 +177,48 @@ public:
 		ATLASSERT( m_hThread != NULL );
         return WaitForSingleObject(m_hThread, dwWaitMilliseconds);
 	}
+
+	DWORD JoinWithMessageLoop(DWORD dwWaitMilliseconds = INFINITE) const{
+		ATLASSERT( m_hThread != NULL );
+
+		// newzflow: code copied from AtlWaitWithMessageLoop and modified to include a timeout
+		// see also http://blogs.msdn.com/b/oldnewthing/archive/2006/01/26/517849.aspx
+		DWORD dwStart = GetTickCount();
+		DWORD dwElapsed;
+
+		while((dwElapsed = GetTickCount() - dwStart) < dwWaitMilliseconds) {
+			DWORD dwRet = MsgWaitForMultipleObjects(1, &m_hThread, FALSE, dwWaitMilliseconds - dwElapsed, QS_ALLINPUT);
+
+			if(dwRet != WAIT_OBJECT_0 + 1) // timeout or thread is signaled
+				return dwRet;
+
+			// There is one or more window message available. Dispatch them
+			MSG msg;
+			while(PeekMessage(&msg,0,0,0,PM_NOREMOVE)) {
+				// check for unicode window so we call the appropriate functions
+				BOOL bUnicode = ::IsWindowUnicode(msg.hwnd);
+				BOOL bRet;
+
+				if (bUnicode)
+					bRet = ::GetMessageW(&msg, NULL, 0, 0);
+				else
+					bRet = ::GetMessageA(&msg, NULL, 0, 0);
+
+				if (bRet > 0) {
+					::TranslateMessage(&msg);
+
+					if (bUnicode)
+						::DispatchMessageW(&msg);
+					else
+						::DispatchMessageA(&msg);
+				}
+
+				if (WaitForSingleObject(m_hThread, 0) == WAIT_OBJECT_0)
+					return WAIT_OBJECT_0; // thread is now signaled.
+			}
+		}
+		return WAIT_FAILED;
+	}
 };
 
 

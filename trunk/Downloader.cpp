@@ -88,118 +88,168 @@ static CString GetIni(LPCTSTR section, LPCTSTR key, LPCTSTR def)
 	return val;
 }
 
+CDownloader::CDownloader()
+{
+	connected = false;
+}
+
 DWORD CDownloader::Run()
 {
-	sock.Connect(
-		GetIni(_T("Server"), _T("Host"), _T("localhost")), 
-		GetIni(_T("Server"), _T("Port"), _T("119")),
-		GetIni(_T("Server"), _T("User"), NULL),
-		GetIni(_T("Server"), _T("Password"), NULL)
-	);
-	CStringA reply = sock.ReceiveLine();
-	if(reply.Left(3) != "200")
-		return 1;
+	int penalty = 0; // in seconds
+	CNzbSegment* segment = NULL;
 
-	CString curGroup;
-	while(CNzbSegment* s = CNewzflow::Instance()->GetSegment()) {
-		CNzbFile* f = s->parent;
-		ENzbStatus status = kError;
-		CYDecoder yd;
-		for(size_t i = 0; i < f->groups.GetCount(); i++) {
-			const CString& group = f->groups[i];
-			if(group != curGroup) {
-				reply = sock.Request("GROUP %s\n", CStringA(group));
-				if(reply.IsEmpty()) {
-					CNewzflow::Instance()->UpdateSegment(s, kQueued);
-					goto finish;
-				}
-				if(reply.Left(3) != "211") {
-					continue;
-				}
-				curGroup = group;
-			}
-			reply = sock.Request("ARTICLE <%s>\n", CStringA(s->msgId));
-			if(reply.IsEmpty()) {
-				CNewzflow::Instance()->UpdateSegment(s, kQueued);
-				goto finish;
-			}
-			if(reply.Left(3) == "220") {
-				status = kDownloading;
+	for(;;) {
+		if(penalty > 0)
+			Sleep(penalty * 1000);
+
+		// get a segment to download
+		if(!segment) {
+			segment = CNewzflow::Instance()->GetSegment();
+			if(!segment) break;
+		}
+
+		if(!connected) {
+			EStatus status = Connect();
+			if(status == kTemporaryError) {
+				penalty = 10; // can't connect; wait 10 seconds before trying again
+				continue;
+			} else if(status == kPermanentError) {
 				break;
 			}
 		}
-		// if status is still kError here, it means that none of the specified groups exist or the article does not exist
-		if(status == kDownloading) {
-			//CFile fout;
-			//fout.Open(CString("temp\\") + f->segments[j]->msgId, GENERIC_WRITE, 0, CREATE_ALWAYS);
-			bool noBody = false;
-			// skip headers
-			while(1) {
-				reply = sock.ReceiveLine(); 
-				if(reply.IsEmpty()) {
-					CNewzflow::Instance()->UpdateSegment(s, kQueued);
-					goto finish;
-				}
-				if(reply.GetLength() > 0 && (reply[0] == '\n' || reply[0] == '\r'))
-					break;
-				if(reply.GetLength() >= 2 && reply[0] == '.' && reply[1] != '.') {
-					noBody = true;
-					break;
-				}
-			};
-			// process body
-			if(noBody) {
-				status = kError;
-			} else {
-				while(1) {
-					reply = sock.ReceiveLine(); 
-					if(reply.IsEmpty()) {
-						CNewzflow::Instance()->UpdateSegment(s, kQueued);
-						goto finish;
-					}
-					if(reply.GetLength() >= 2 && reply[0] == '.') {
-						if(reply[1] == '.')
-							reply = reply.Mid(1); // special case: '.' at beginning of line is duplicated
-						else {
-							status = kCached;
-							break; // special case: '.' at begining of line: end of article
-						}
-					}
-					//fout.Write(reply, reply.GetLength());
-					yd.ProcessLine(reply);
-				}
-				if(f->fileName.IsEmpty())
-					f->fileName = yd.fileName;
-				else if(f->fileName != yd.fileName) {
-					TRACE(_T("segment has different filename than file! %s != %s\n"), f->fileName, yd.fileName);
-				}
-			}
-			//fout.Close();
+
+		EStatus status = DownloadSegment(segment);
+		if(status == kTemporaryError) {
+			penalty = 10; // error during download process; wait 10 seconds before trying again
+			// reconnect here???
+			continue;
 		}
-		// write out segment to temp dir
-		if(status == kCached) {
-			CString nzbDir;
-			nzbDir.Format(_T("%s%s"), CNewzflow::Instance()->settings->GetAppDataDir(), CComBSTR(s->parent->parent->guid));
-			CreateDirectory(nzbDir, NULL);
-			CString segFileName;
-			segFileName.Format(_T("%s\\%s_part%05d"), nzbDir, s->parent->fileName, s->number);
-			CFile fout;
-			fout.Open(segFileName, GENERIC_WRITE, 0, CREATE_ALWAYS);
-			fout.Write(yd.buffer, yd.size);
-			fout.Close();
-		}
-		CNewzflow::Instance()->UpdateSegment(s, status);
-/*		// TODO: move this somewhere else
-		if(status == kCached) {
-			CNewzflow::Instance()->diskWriter->Add(s, yd.buffer, yd.size);
-			yd.buffer = NULL; // buffer is now managed by disk writer
-		}*/
+		// kSuccess and kPermanentError are already handled in DownloadSegment, so we don't need to do anything here
+		segment = NULL;
 	}
-finish:
-	sock.Request("QUIT\n");
-	sock.Close();
+	// permanent error; return segment to queue
+	if(segment)
+		CNewzflow::Instance()->UpdateSegment(segment, kQueued);
+
+	Disconnect();
 
 	CNewzflow::Instance()->RemoveDownloader(this);
-
 	return 0;
+}
+
+CDownloader::EStatus CDownloader::Connect()
+{
+	curGroup.Empty();
+	connected = false;
+	if(!sock.Connect(GetIni(_T("Server"), _T("Host"), _T("localhost")), GetIni(_T("Server"), _T("Port"), _T("119")), GetIni(_T("Server"), _T("User"), NULL), GetIni(_T("Server"), _T("Password"), NULL))) {
+		return kTemporaryError;
+	}
+	CStringA reply = sock.ReceiveLine();
+	// error has occured
+	if(reply.Left(3) != "200") {
+		// try to disconnect if we received any reply at all
+		if(!reply.IsEmpty())
+			Disconnect();
+		return kTemporaryError;
+	}
+	connected = true;
+	return kSuccess;
+}
+
+void CDownloader::Disconnect()
+{
+	sock.Request("QUIT\n");
+	sock.Close();
+	connected = false;
+}
+
+CDownloader::EStatus CDownloader::DownloadSegment(CNzbSegment* segment)
+{
+	CStringA reply;
+	CNzbFile* file = segment->parent;
+	ENzbStatus status = kError;
+	CYDecoder yd;
+	for(size_t i = 0; i < file->groups.GetCount(); i++) {
+		const CString& group = file->groups[i];
+		if(group != curGroup) {
+			reply = sock.Request("GROUP %s\n", CStringA(group));
+			if(reply.IsEmpty())
+				return kTemporaryError;
+			if(reply.Left(3) != "211") // group doesn't exist, try next
+				continue;
+			curGroup = group;
+		}
+		reply = sock.Request("ARTICLE <%s>\n", CStringA(segment->msgId));
+		if(reply.IsEmpty())
+			return kTemporaryError;
+		if(reply.Left(3) == "220") {
+			status = kDownloading;
+			break;
+		}
+	}
+	// if status is still kError here, it means that none of the specified groups exist or the article does not exist
+	if(status == kDownloading) {
+		//CFile fout;
+		//fout.Open(CString("temp\\") + f->segments[j]->msgId, GENERIC_WRITE, 0, CREATE_ALWAYS);
+		bool noBody = false;
+		// skip headers
+		while(1) {
+			reply = sock.ReceiveLine(); 
+			if(reply.IsEmpty())
+				return kTemporaryError;
+			if(reply.GetLength() > 0 && (reply[0] == '\n' || reply[0] == '\r'))
+				break;
+			if(reply.GetLength() >= 2 && reply[0] == '.' && reply[1] != '.') {
+				noBody = true;
+				break;
+			}
+		};
+		// process body
+		if(noBody) {
+			status = kError;
+		} else {
+			while(1) {
+				reply = sock.ReceiveLine(); 
+				if(reply.IsEmpty())
+					return kTemporaryError;
+				if(reply.GetLength() >= 2 && reply[0] == '.') {
+					if(reply[1] == '.')
+						reply = reply.Mid(1); // special case: '.' at beginning of line is duplicated
+					else {
+						status = kCached;
+						break; // special case: '.' at begining of line: end of article
+					}
+				}
+				//fout.Write(reply, reply.GetLength());
+				yd.ProcessLine(reply);
+			}
+			if(file->fileName.IsEmpty())
+				file->fileName = yd.fileName;
+			else if(file->fileName != yd.fileName) {
+				TRACE(_T("segment has different filename than file! %s != %s\n"), file->fileName, yd.fileName);
+			}
+		}
+		//fout.Close();
+	}
+	// write out segment to temp dir
+	if(status == kCached) {
+		CString nzbDir;
+		nzbDir.Format(_T("%s%s"), CNewzflow::Instance()->settings->GetAppDataDir(), CComBSTR(segment->parent->parent->guid));
+		CreateDirectory(nzbDir, NULL);
+		CString segFileName;
+		segFileName.Format(_T("%s\\%s_part%05d"), nzbDir, segment->parent->fileName, segment->number);
+		CFile fout;
+		fout.Open(segFileName, GENERIC_WRITE, 0, CREATE_ALWAYS);
+		fout.Write(yd.buffer, yd.size);
+		fout.Close();
+	}
+	CNewzflow::Instance()->UpdateSegment(segment, status);
+	ASSERT(status == kCached || status == kError);
+	if(status == kCached)
+		return kSuccess;
+	if(status == kError)
+		return kPermanentError;
+
+	// never reaches here
+	return kPermanentError;
 }
