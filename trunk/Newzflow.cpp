@@ -584,3 +584,8 @@ void CNewzflow::FreeDeletedNzbs()
 		}
 	}
 }
+
+bool CNewzflow::IsShuttingDown()
+{
+	return shuttingDown;
+}

@@ -99,8 +99,15 @@ DWORD CDownloader::Run()
 	CNzbSegment* segment = NULL;
 
 	for(;;) {
-		if(penalty > 0)
-			Sleep(penalty * 1000);
+		if(CNewzflow::Instance()->IsShuttingDown())
+			break;
+
+		if(penalty > 0) {
+			sock.SetLastCommand(_T("Waiting %s..."), Util::FormatTimeSpan(penalty));
+			Sleep(1000);
+			penalty--;
+			continue;
+		}
 
 		// get a segment to download
 		if(!segment) {
@@ -121,7 +128,7 @@ DWORD CDownloader::Run()
 		EStatus status = DownloadSegment(segment);
 		if(status == kTemporaryError) {
 			penalty = 10; // error during download process; wait 10 seconds before trying again
-			// reconnect here???
+			Disconnect();
 			continue;
 		}
 		// kSuccess and kPermanentError are already handled in DownloadSegment, so we don't need to do anything here

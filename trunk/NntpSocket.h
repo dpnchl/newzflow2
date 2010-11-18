@@ -74,9 +74,16 @@ public:
 	bool SendV(const char* fmt, va_list va);
 	CStringA ReceiveLine();
 
+	void SetLastCommand(LPCTSTR fmt, ...);
+	void SetLastReply(LPCTSTR fmt, ...);
+
+	CString GetLastCommand();
+	CString GetLastReply();
 
 protected:
-	SOCKET s;
+	CString GetLastError();
+
+	SOCKET sock;
 
 	CStringA user, passwd;
 
@@ -86,9 +93,11 @@ protected:
 	__int64 bytesReceived, bytesSent;
 
 public:
-	CComAutoCriticalSection cs;
 	CSpeedMonitor speed;
-	CStringA lastCommand;
-
 	static CSpeedMonitor totalSpeed;
+
+protected:
+	CComAutoCriticalSection cs; // protects lastCommand and lastReply
+	CString lastCommand, lastReply;
+
 };

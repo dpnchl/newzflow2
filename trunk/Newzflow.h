@@ -45,6 +45,7 @@ public:
 	static CNewzflow* Instance();
 
 	CNzbSegment* GetSegment();
+	bool IsShuttingDown();
 	void UpdateSegment(CNzbSegment* s, ENzbStatus newStatus);
 	void UpdateFile(CNzbFile* f, ENzbStatus newStatus);
 	void RemoveDownloader(CDownloader* dl);
@@ -65,5 +66,5 @@ public:
 protected:
 	static CNewzflow* s_pInstance;
 
-	bool shuttingDown;
+	volatile bool shuttingDown;
 };
