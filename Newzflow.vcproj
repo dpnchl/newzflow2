@@ -222,6 +222,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\NntpSocket.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\nzb.cpp"
 				>
 			</File>
@@ -235,10 +239,6 @@
 			</File>
 			<File
 				RelativePath=".\Settings.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\sock.cpp"
 				>
 			</File>
 			<File
@@ -303,6 +303,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\NntpSocket.h"
+				>
+			</File>
+			<File
 				RelativePath=".\nzb.h"
 				>
 			</File>
@@ -320,10 +324,6 @@
 			</File>
 			<File
 				RelativePath=".\Settings.h"
-				>
-			</File>
-			<File
-				RelativePath=".\sock.h"
 				>
 			</File>
 			<File
