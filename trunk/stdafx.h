@@ -63,6 +63,9 @@ extern CAppModule _Module;
 #include "atlwfile.h"
 #include "Thread.h"
 
+#include <Winhttp.h>
+#pragma comment(lib, "Winhttp.lib")
+
 // STL
 #include <utility>
 #include <regex>

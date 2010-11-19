@@ -3,7 +3,7 @@
 #include "PostProcessor.h"
 #include "nzb.h"
 #include "Newzflow.h"
-#include "sock.h"
+#include "NntpSocket.h"
 #include "unrar.h"
 #pragma comment(lib, "unrar.lib")
 
