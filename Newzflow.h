@@ -6,6 +6,7 @@ class CDownloader;
 class CDiskWriter;
 class CPostProcessor;
 class CSettings;
+class CHttpDownloader;
 
 class CNewzflowThread : public CGuiThreadImpl<CNewzflowThread>
 {
@@ -60,6 +61,7 @@ public:
 	CPostProcessor* postProcessor;
 	CNewzflowThread* controlThread;
 	CSettings* settings;
+	CHttpDownloader* httpDownloader;
 
 	CComAutoCriticalSection cs;
 

@@ -4,9 +4,10 @@
 #include "DiskWriter.h"
 #include "Downloader.h"
 #include "PostProcessor.h"
-#include "sock.h"
+#include "NntpSocket.h"
 #include "Util.h"
 #include "Settings.h"
+#include "HttpDownloader.h"
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
@@ -47,7 +48,7 @@ void CNewzflowThread::AddURL(const CString& nzbUrl)
 {
 // currently not supported until HTTP(S) downloader is complete
 // we want to avoid passing http:// urls to ISAXXMLReader, because it uses WinInet to receive the files. WinInet is known to cache files locally that shouldn't be
-//	PostThreadMessage(MSG_JOB, (WPARAM)new CString(nzbUrl));
+	PostThreadMessage(MSG_ADD_NZB, (WPARAM)new CString(nzbUrl));
 }
 
 void CNewzflowThread::WriteQueue()
@@ -58,6 +59,12 @@ void CNewzflowThread::WriteQueue()
 LRESULT CNewzflowThread::OnAddNzb(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
 {
 	CString* nzbUrl = (CString*)wParam;
+
+	if(nzbUrl->Left(5) == _T("http:")) {
+		CNewzflow::Instance()->httpDownloader->Download(*nzbUrl, _T("downloaded.nzb"));
+		delete nzbUrl;
+		return 0;
+	}
 
 	CNzb* nzb = CNzb::Create(*nzbUrl);
 	if(nzb) {
@@ -226,6 +233,11 @@ CNewzflow::CNewzflow()
 	postProcessor = new CPostProcessor;
 	controlThread = new CNewzflowThread;
 	settings = new CSettings;
+	httpDownloader = new CHttpDownloader;
+	if(!httpDownloader->Init()) {
+		delete httpDownloader;
+		httpDownloader = NULL;
+	}
 }
 
 CNewzflow::~CNewzflow()
@@ -240,6 +252,7 @@ CNewzflow::~CNewzflow()
 	controlThread->PostQuitMessage();
 	controlThread->JoinWithMessageLoop();
 	delete controlThread;
+	delete httpDownloader; // httpDownloader is only used from controlThread, so we can delete it after controlThread has been deleted
 
 	dlg.text.SetWindowText(_T("Waiting for downloads..."));
 	Util::Print("waiting for downloaders to finish...\n");

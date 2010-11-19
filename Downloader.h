@@ -1,5 +1,6 @@
 #pragma once
-#include "sock.h"
+
+#include "NntpSocket.h"
 
 class CDownloader : public CThreadImpl<CDownloader>
 {

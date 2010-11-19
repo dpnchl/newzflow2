@@ -3,7 +3,7 @@
 #include "DownloadQueue.h"
 #include "Downloader.h"
 #include "DiskWriter.h"
-#include "sock.h"
+#include "NntpSocket.h"
 #include "nzb.h"
 #include "Newzflow.h"
 #include "Settings.h"

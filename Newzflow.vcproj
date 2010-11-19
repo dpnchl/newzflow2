@@ -210,6 +210,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\HttpDownloader.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\main.cpp"
 				>
 			</File>
@@ -288,6 +292,10 @@
 			</File>
 			<File
 				RelativePath=".\FileView.h"
+				>
+			</File>
+			<File
+				RelativePath=".\HttpDownloader.h"
 				>
 			</File>
 			<File

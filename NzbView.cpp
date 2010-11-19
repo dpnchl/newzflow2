@@ -9,7 +9,7 @@
 #include "Newzflow.h"
 #include "Util.h"
 #include "Settings.h"
-#include "sock.h"
+#include "NntpSocket.h"
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK

@@ -374,6 +374,7 @@ CNzb* CNzb::Create(const CString& path)
 	// pause all PARs except for the smallest in each ParSet
 	for(size_t i = 0; i < nzb->parSets.GetCount(); i++) {
 		CParSet* parSet = nzb->parSets[i];
+		// PARs are sorted by size, that's why we start at 1, and not at 0
 		for(size_t j = 1; j < parSet->pars.GetCount(); j++)
 			parSet->pars[j]->file->status = kPaused;
 	}
