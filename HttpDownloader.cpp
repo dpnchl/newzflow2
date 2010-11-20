@@ -2,6 +2,7 @@
 #include <time.h>
 #include "util.h"
 #include "HttpDownloader.h"
+#include "zlib/zlib.h"
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
@@ -66,6 +67,9 @@ bool CHttpDownloader::Download(const CString& url, const CString& dstFile, CStri
 	// Create an HTTP request handle.
 	hRequest = WinHttpOpenRequest(hConnect, L"GET", urlComp.lpszUrlPath ? urlComp.lpszUrlPath : NULL, NULL, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, urlComp.nScheme == INTERNET_SCHEME_HTTPS ? WINHTTP_FLAG_SECURE : 0);
 	if(!hRequest)
+		return false;
+
+	if(!WinHttpAddRequestHeaders(hRequest, L"Accept-Encoding: gzip", -1L, WINHTTP_ADDREQ_FLAG_ADD))
 		return false;
 
 	// Set username/password if specified in URL
@@ -157,9 +161,28 @@ bool CHttpDownloader::Download(const CString& url, const CString& dstFile, CStri
 	if(statusCode != 200)
 		return false;
 
+	CStringW contentEncoding;
+	DWORD contentEncodingSize = 0;
+	WinHttpQueryHeaders(hRequest, WINHTTP_QUERY_CONTENT_ENCODING, WINHTTP_HEADER_NAME_BY_INDEX, NULL, &contentEncodingSize, NULL);
+	WinHttpQueryHeaders(hRequest, WINHTTP_QUERY_CONTENT_ENCODING, WINHTTP_HEADER_NAME_BY_INDEX, contentEncoding.GetBuffer(contentEncodingSize/sizeof(WCHAR)), &contentEncodingSize, NULL);
+	contentEncoding.ReleaseBuffer();
+
 	CFile fout;
 	if(!fout.Open(dstFile, GENERIC_WRITE, 0, CREATE_ALWAYS))
 		return false;
+
+	bool gzip = false;
+	if(contentEncoding == "gzip") gzip = true;
+
+	z_stream zstream;
+	memset(&zstream, 0, sizeof(zstream));
+	char* decompBuffer = new char[64*1024];
+	if(gzip) {
+		if(Z_OK != inflateInit2(&zstream, 15 + 32)) { // enough windowbits to detect gzip header (see http://www.deez.info/sengelha/2004/09/01/in-memory-decompression-of-gzip-using-zlib/)
+			delete[] decompBuffer;
+			return false;
+		}
+	}
 
 	DWORD dwSize = 0;
 	DWORD dwDownloaded = 0;
@@ -167,29 +190,71 @@ bool CHttpDownloader::Download(const CString& url, const CString& dstFile, CStri
 		// Check for available data.
 		dwSize = 0;
 		if(!WinHttpQueryDataAvailable(hRequest, &dwSize)) {
+			delete[] decompBuffer;
 			fout.Close();
 			DeleteFile(dstFile);
+			if(gzip) inflateEnd(&zstream);
 			return false;
 		}
+
+		if(dwSize == 0)
+			break;
 
 		// Allocate space for the buffer.
 		char* pszOutBuffer = new char[dwSize];
 		ZeroMemory(pszOutBuffer, dwSize);
 
 		if(!WinHttpReadData(hRequest, (LPVOID)pszOutBuffer, dwSize, &dwDownloaded)) {
+			delete[] decompBuffer;
 			delete[] pszOutBuffer;
 			fout.Close();
 			DeleteFile(dstFile);
+			if(gzip) inflateEnd(&zstream);
 			return false;
 		}
-		if(progress)
-			*progress += (float)dwSize;
 
-		fout.Write(pszOutBuffer, dwSize);
+		if(gzip) {
+			zstream.next_in = (Bytef*)pszOutBuffer;
+			zstream.avail_in = dwSize;
+			zstream.next_out = (Bytef*)decompBuffer;
+			zstream.avail_out = 64*1024;
+			do {
+				int zres = inflate(&zstream, Z_SYNC_FLUSH);
+				if(zres < 0) {
+					delete[] decompBuffer;
+					delete[] pszOutBuffer;
+					fout.Close();
+					DeleteFile(dstFile);
+					inflateEnd(&zstream);
+					return false;
+				}
+				// decompBuffer overflow
+				if(zstream.avail_out == 0) {
+					if(progress)
+						*progress += (float)dwSize;
+					fout.Write(decompBuffer, (char*)zstream.next_out - decompBuffer);
+					zstream.next_out = (Bytef*)decompBuffer;
+					zstream.avail_out = 64*1024;
+				}
+			} while(zstream.avail_in > 0);
+
+			if(progress)
+				*progress += (float)dwSize;
+
+			fout.Write(decompBuffer, (char*)zstream.next_out - decompBuffer);
+		} else {
+			if(progress)
+				*progress += (float)dwSize;
+
+			fout.Write(pszOutBuffer, dwSize);
+		}
 
 		// Free the memory allocated to the buffer.
 		delete [] pszOutBuffer;
 	} while(dwSize > 0);
+
+	if(gzip) inflateEnd(&zstream);
+	delete[] decompBuffer;
 
 	return true;
 }

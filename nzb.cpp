@@ -6,9 +6,7 @@
 #include "Settings.h"
 #include "Util.h"
 
-#include <msxml2.h>
 #include <algorithm>
-#pragma comment(lib, "msxml2.lib")
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
@@ -174,6 +172,7 @@ HRESULT STDMETHODCALLTYPE CNzbParser::startElement(
 	return S_OK;
 }
 
+// TODO: handle split calls due to entities (see CRssParser::characters())
 HRESULT STDMETHODCALLTYPE CNzbParser::characters( 
 	/* [in] */ const wchar_t *pwchChars,
 	/* [in] */ int cchChars)

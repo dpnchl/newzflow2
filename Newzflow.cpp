@@ -74,6 +74,7 @@ LRESULT CNewzflowThread::OnAddNzb(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL&
 
 		// now download the file
 		CString outFilename;
+		// TODO: move this to a separate thread, so we don't block the control thread!
 		if(CNewzflow::Instance()->httpDownloader->Download(*nzbUrl, nzb->GetLocalPath(), outFilename, &nzb->done)) {
 			// parse the NZB 
 			if(nzb->CreateFromLocal()) {
