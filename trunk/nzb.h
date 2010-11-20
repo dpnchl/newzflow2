@@ -7,6 +7,8 @@ class CNzb;
 
 // 'char' consts for better readability of queue.dat and to make sure that enums don't change when new consts are added
 enum ENzbStatus {
+	kEmpty = 'e',
+	kFetching = 'f',
 	kQueued = 'Q',
 	kPaused = 'P',
 	kDownloading = 'D',
@@ -135,32 +137,35 @@ public:
 */
 };
 
+// don't access anything else than status and done when status == kEmpty or status == kFetching
 class CNzb {
 public:
 	CNzb() {
-		status = kQueued;
+		status = kEmpty;
 		done = 0.f;
 		refCount = 0;
 		doRepair = doUnpack = doDelete = true;
 		path = _T("temp\\");
-		ZeroMemory(&guid, sizeof(GUID));
+		CoCreateGuid(&guid); // create GUID so we can later store the queue and just reference the GUID and copy file to %appdata%
 	}
 	~CNzb() {
-		Cleanup();
 		for(size_t i = 0; i < files.GetCount(); i++) delete files[i];
 		for(size_t i = 0; i < parSets.GetCount(); i++) delete parSets[i];
 	}
-	void Init();
-	void Cleanup();
 
 public:
-	CNzbFile* FindByName(const CString& name);
+	bool CreateFromPath(const CString& path); // add new NZB to queue
+	bool CreateFromQueue(REFGUID guid, const CString& name); // restore from queue
+	bool CreateFromLocal();
 
-	static CNzb* Create(const CString& path); // add new NZB to queue
-	static CNzb* Create(REFGUID guid, const CString& name); // restore from queue
+	CString GetLocalPath(); // location where .nzb is stored locally in %APPDATA%
+	void Cleanup(); // deletes local .nzb file and part files
+
+	CNzbFile* FindFile(const CString& name);
+
 protected:
-	static CNzb* ParseNZB(const CString& path);
-
+	void Init();
+	bool Parse(const CString& path);
 public:
 	ENzbStatus status;
 	float done; // percentage completed; used for status = [kVerifying]
@@ -177,11 +182,19 @@ public:
 /*
 	NZB Status flow chart:
 
-				.==>kQueued: NZB has just been created/added
+				.==<kEmpty: CNzb has just been created and added to the queue, but hasn't been parsed yet
+				|   ||
+				|   || [http downloader]
+				|	\/
+	[created	V	kFetching: NZB file is currently being fetched from HTTP/HTTPS
+	 from File	|	||
+	 or Queue]	|	|| [ParseNZB]
+				|	\/
+				.==>kQueued: NZB has just been parsed
 				|	||
 				|	|| [downloading in progress]
 				|	\/
-	[need more	|	kDownloading: Files are currently being downloaded
+	[need more	^	kDownloading: Files are currently being downloaded
 	 PAR files]	|	||
 				|	||
 				|	\/

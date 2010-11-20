@@ -14,18 +14,19 @@
 #define new DEBUG_CLIENTBLOCK
 #endif
 
+namespace {
 
-class MyContent : public CComObjectRootEx<CComSingleThreadModel>, public ISAXContentHandler
+class CNzbParser : public CComObjectRootEx<CComSingleThreadModel>, public ISAXContentHandler
 {
 public:
-	MyContent();
-	virtual ~MyContent();
+	CNzbParser();
+	virtual ~CNzbParser();
 
-	CNzb* GetNzb() { return curNzb; }
+	void SetNzb(CNzb* nzb) { theNzb = nzb; }
 
 	DECLARE_PROTECT_FINAL_CONSTRUCT()
 
-	BEGIN_COM_MAP(MyContent)
+	BEGIN_COM_MAP(CNzbParser)
 	COM_INTERFACE_ENTRY(ISAXContentHandler)
 	END_COM_MAP()
 
@@ -82,21 +83,22 @@ public:
 		/* [in] */ int cchName);
 
 private:
+	CNzb* theNzb;
 	CNzb* curNzb;
 	CNzbFile* curFile;
 	CNzbSegment* curSegment;
 	bool curGroup;
 };
 
-class SAXErrorHandlerImpl : public CComObjectRootEx<CComSingleThreadModel>, public ISAXErrorHandler
+class CErrorHandler : public CComObjectRootEx<CComSingleThreadModel>, public ISAXErrorHandler
 {
 public:
-	SAXErrorHandlerImpl();
-	virtual ~SAXErrorHandlerImpl();
+	CErrorHandler();
+	virtual ~CErrorHandler();
 
 	DECLARE_PROTECT_FINAL_CONSTRUCT()
 
-	BEGIN_COM_MAP(SAXErrorHandlerImpl)
+	BEGIN_COM_MAP(CErrorHandler)
 	COM_INTERFACE_ENTRY(ISAXErrorHandler)
 	END_COM_MAP()
 
@@ -116,7 +118,7 @@ public:
 		/* [in] */ HRESULT hrErrorCode);
 };
 
-MyContent::MyContent()
+CNzbParser::CNzbParser()
 {
 	curNzb = NULL;
 	curFile = NULL;
@@ -124,12 +126,11 @@ MyContent::MyContent()
 	curGroup = false;
 }
 
-MyContent::~MyContent()
+CNzbParser::~CNzbParser()
 {
-
 }
 
-HRESULT STDMETHODCALLTYPE MyContent::startElement( 
+HRESULT STDMETHODCALLTYPE CNzbParser::startElement( 
 	/* [in] */ const wchar_t *pwchNamespaceUri,
 	/* [in] */ int cchNamespaceUri,
 	/* [in] */ const wchar_t *pwchLocalName,
@@ -140,7 +141,8 @@ HRESULT STDMETHODCALLTYPE MyContent::startElement(
 {
 	CString localName(pwchLocalName, cchLocalName);
 	if(localName == _T("nzb")) {
-		curNzb = new CNzb;
+		ASSERT(theNzb);
+		curNzb = theNzb;
 	} else if(localName == _T("file")) {
 		ASSERT(curNzb);
 		curFile = new CNzbFile(curNzb);
@@ -172,7 +174,7 @@ HRESULT STDMETHODCALLTYPE MyContent::startElement(
 	return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE MyContent::characters( 
+HRESULT STDMETHODCALLTYPE CNzbParser::characters( 
 	/* [in] */ const wchar_t *pwchChars,
 	/* [in] */ int cchChars)
 {
@@ -186,7 +188,7 @@ HRESULT STDMETHODCALLTYPE MyContent::characters(
 	return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE MyContent::endElement( 
+HRESULT STDMETHODCALLTYPE CNzbParser::endElement( 
 	/* [in] */ const wchar_t *pwchNamespaceUri,
 	/* [in] */ int cchNamespaceUri,
 	/* [in] */ const wchar_t *pwchLocalName,
@@ -202,30 +204,30 @@ HRESULT STDMETHODCALLTYPE MyContent::endElement(
 	} else if(localName == _T("file")) {
 		curFile = NULL;
 	} else if(localName == _T("nzb")) {
-		// caller wants to get final nzb with GetNzb() { return curNzb; }
+		curNzb = NULL;
 	}
 
 	return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE MyContent::startDocument()
+HRESULT STDMETHODCALLTYPE CNzbParser::startDocument()
 {
 	return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE MyContent::putDocumentLocator( 
+HRESULT STDMETHODCALLTYPE CNzbParser::putDocumentLocator( 
 	/* [in] */ ISAXLocator *pLocator
 	)
 {
 	return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE MyContent::endDocument( void)
+HRESULT STDMETHODCALLTYPE CNzbParser::endDocument( void)
 {
 	return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE MyContent::startPrefixMapping( 
+HRESULT STDMETHODCALLTYPE CNzbParser::startPrefixMapping( 
 	/* [in] */ const wchar_t *pwchPrefix,
 	/* [in] */ int cchPrefix,
 	/* [in] */ const wchar_t *pwchUri,
@@ -234,22 +236,21 @@ HRESULT STDMETHODCALLTYPE MyContent::startPrefixMapping(
 	return S_OK;
 }
 
-
-HRESULT STDMETHODCALLTYPE MyContent::endPrefixMapping( 
+HRESULT STDMETHODCALLTYPE CNzbParser::endPrefixMapping( 
 	/* [in] */ const wchar_t *pwchPrefix,
 	/* [in] */ int cchPrefix)
 {
 	return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE MyContent::ignorableWhitespace( 
+HRESULT STDMETHODCALLTYPE CNzbParser::ignorableWhitespace( 
 	/* [in] */ const wchar_t *pwchChars,
 	/* [in] */ int cchChars)
 {
 	return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE MyContent::processingInstruction( 
+HRESULT STDMETHODCALLTYPE CNzbParser::processingInstruction( 
 	/* [in] */ const wchar_t *pwchTarget,
 	/* [in] */ int cchTarget,
 	/* [in] */ const wchar_t *pwchData,
@@ -258,24 +259,22 @@ HRESULT STDMETHODCALLTYPE MyContent::processingInstruction(
 	return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE MyContent::skippedEntity( 
+HRESULT STDMETHODCALLTYPE CNzbParser::skippedEntity( 
 	/* [in] */ const wchar_t *pwchVal,
 	/* [in] */ int cchVal)
 {
 	return S_OK;
 }
 
-SAXErrorHandlerImpl::SAXErrorHandlerImpl()
+CErrorHandler::CErrorHandler()
 {
-
 }
 
-SAXErrorHandlerImpl::~SAXErrorHandlerImpl()
+CErrorHandler::~CErrorHandler()
 {
-
 }
 
-HRESULT STDMETHODCALLTYPE SAXErrorHandlerImpl::error( 
+HRESULT STDMETHODCALLTYPE CErrorHandler::error( 
 	/* [in] */ ISAXLocator *pLocator,
 	/* [in] */ const wchar_t * pwchErrorMessage,
 	/* [in] */ HRESULT errCode)
@@ -283,7 +282,7 @@ HRESULT STDMETHODCALLTYPE SAXErrorHandlerImpl::error(
 	return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE SAXErrorHandlerImpl::fatalError( 
+HRESULT STDMETHODCALLTYPE CErrorHandler::fatalError( 
 	/* [in] */ ISAXLocator *pLocator,
 	/* [in] */ const wchar_t * pwchErrorMessage,
 	/* [in] */ HRESULT errCode)
@@ -291,17 +290,21 @@ HRESULT STDMETHODCALLTYPE SAXErrorHandlerImpl::fatalError(
 	return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE SAXErrorHandlerImpl::ignorableWarning( 
+HRESULT STDMETHODCALLTYPE CErrorHandler::ignorableWarning( 
 	/* [in] */ ISAXLocator *pLocator,
 	/* [in] */ const wchar_t * pwchErrorMessage,
 	/* [in] */ HRESULT errCode)
 {
 	return S_OK;
 }
+
+} // namespace
 
 CString GetNzbStatusString(ENzbStatus status, float done /*= 0.f*/)
 {
 	switch(status) {
+	case kEmpty:		return _T("Initializing");
+	case kFetching:		{ CString s; s.Format(_T("Fetching %s"), Util::FormatSize((__int64)done)); return s; }
 	case kQueued:		return _T("Queued");
 	case kPaused:		return _T("Paused");
 	case kDownloading:	return _T("Downloading");
@@ -328,26 +331,28 @@ CString GetParStatusString(EParStatus status, float done)
 	}
 }
 
-CNzb* CNzb::ParseNZB(const CString& path)
+bool CNzb::Parse(const CString& path)
 {
-	CNzb* nzb = NULL;
+	bool retCode = false;
+
 	// parse NZB file
 	{
 		CComPtr<ISAXXMLReader> pRdr;
 		CoInitialize(NULL);
 		HRESULT hr = pRdr.CoCreateInstance(__uuidof(SAXXMLReader30));
 		if(SUCCEEDED(hr)) {
-			CComObject<MyContent>* content;
-			CComObject<MyContent>::CreateInstance(&content);
+			CComObject<CNzbParser>* content;
+			CComObject<CNzbParser>::CreateInstance(&content);
+			content->SetNzb(this);
 			hr = pRdr->putContentHandler(content);
 			if(SUCCEEDED(hr)) {
-				CComObject<SAXErrorHandlerImpl>* error;
-				CComObject<SAXErrorHandlerImpl>::CreateInstance(&error);
+				CComObject<CErrorHandler>* error;
+				CComObject<CErrorHandler>::CreateInstance(&error);
 				hr = pRdr->putErrorHandler(error);
 				if(SUCCEEDED(hr)) {
 					hr = pRdr->parseURL(path);
 					if(SUCCEEDED(hr)) {
-						nzb = content->GetNzb();
+						retCode = true;
 					}
 				}
 			}
@@ -356,24 +361,24 @@ CNzb* CNzb::ParseNZB(const CString& path)
 	}
 
 	// Post-processing
-	if(nzb) {
-		nzb->Init();
+	if(retCode) {
+		Init();
 	}
 
-	return nzb;
+	return retCode;
 }
 
 // add new NZB to queue
-CNzb* CNzb::Create(const CString& path)
+bool CNzb::CreateFromPath(const CString& path)
 {
-	CNzb* nzb = ParseNZB(path);
+	if(!Parse(path))
+		return false;
 
-	if(!nzb)
-		return NULL;
+	status = kQueued;
 
 	// pause all PARs except for the smallest in each ParSet
-	for(size_t i = 0; i < nzb->parSets.GetCount(); i++) {
-		CParSet* parSet = nzb->parSets[i];
+	for(size_t i = 0; i < parSets.GetCount(); i++) {
+		CParSet* parSet = parSets[i];
 		// PARs are sorted by size, that's why we start at 1, and not at 0
 		for(size_t j = 1; j < parSet->pars.GetCount(); j++)
 			parSet->pars[j]->file->status = kPaused;
@@ -382,36 +387,54 @@ CNzb* CNzb::Create(const CString& path)
 	// set NZB name
 	int slash = path.ReverseFind('\\');
 	if(slash >= 0)
-		nzb->name = path.Mid(slash+1);
+		name = path.Mid(slash+1);
 	else
-		nzb->name = path;
+		name = path;
 
-	// create GUID so we can later store the queue and just reference the GUID
-	// and copy file to %appdata%
-	CoCreateGuid(&nzb->guid);
+	CopyFile(path, GetLocalPath(), FALSE);
 
-	CString dstFile = CNewzflow::Instance()->settings->GetAppDataDir() + CComBSTR(nzb->guid) + _T(".nzb");
-	CopyFile(path, dstFile, FALSE);
+	return true;
+}
 
-	return nzb;
+// add new NZB to queue
+bool CNzb::CreateFromLocal()
+{
+	if(!Parse(GetLocalPath()))
+		return false;
+
+	status = kQueued;
+
+	// pause all PARs except for the smallest in each ParSet
+	for(size_t i = 0; i < parSets.GetCount(); i++) {
+		CParSet* parSet = parSets[i];
+		// PARs are sorted by size, that's why we start at 1, and not at 0
+		for(size_t j = 1; j < parSet->pars.GetCount(); j++)
+			parSet->pars[j]->file->status = kPaused;
+	}
+
+	return true;
 }
 
 // restore NZB from queue
-CNzb* CNzb::Create(REFGUID guid, const CString& name)
+bool CNzb::CreateFromQueue(REFGUID _guid, const CString& _name)
 {
-	CString path = CNewzflow::Instance()->settings->GetAppDataDir() + CComBSTR(guid) + _T(".nzb");
-	CNzb* nzb = ParseNZB(path);
+	name = _name;
+	guid = _guid; // restore GUID from queue
 
-	if(!nzb)
-		return NULL;
+	if(!Parse(GetLocalPath()))
+		return false;
 
-	nzb->name = name;
-	nzb->guid = guid;
+	status = kQueued;
 
-	return nzb;
+	return true;
 }
 
-CNzbFile* CNzb::FindByName(const CString& name)
+CString CNzb::GetLocalPath()
+{
+	return CNewzflow::Instance()->settings->GetAppDataDir() + CComBSTR(guid) + _T(".nzb");
+}
+
+CNzbFile* CNzb::FindFile(const CString& name)
 {
 	for(size_t i = 0; i < files.GetCount(); i++) {
 		if(name.CompareNoCase(files[i]->fileName) == 0)
@@ -479,6 +502,7 @@ void CNzb::Init()
 
 void CNzb::Cleanup()
 {
+	DeleteFile(GetLocalPath());
 	Util::DeleteDirectory(CNewzflow::Instance()->settings->GetAppDataDir() + CComBSTR(guid));
 }
 

@@ -60,19 +60,52 @@ LRESULT CNewzflowThread::OnAddNzb(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL&
 {
 	CString* nzbUrl = (CString*)wParam;
 
-	if(nzbUrl->Left(5) == _T("http:")) {
-		CNewzflow::Instance()->httpDownloader->Download(*nzbUrl, _T("downloaded.nzb"));
-		delete nzbUrl;
-		return 0;
-	}
+	CNzb* nzb = new CNzb;
 
-	CNzb* nzb = CNzb::Create(*nzbUrl);
-	if(nzb) {
+	// download .nzb from HTTP/HTTPS first
+	if(nzbUrl->Left(5) == _T("http:")) {
+		// create a new empty CNzb
+		nzb->name = *nzbUrl;
+		nzb->status = kFetching;
 		{ CNewzflow::CLock lock;
-			CNewzflow::Instance()->nzbs.Add(nzb);
+			nzb->refCount++; // so it doesn't get deleted while we're still downloading
+			CNewzflow::Instance()->nzbs.Add(nzb); // add it to the queue so it shows up in CNzbView
 		}
-		CNewzflow::Instance()->CreateDownloaders();
-		WriteQueue();
+
+		// now download the file
+		CString outFilename;
+		if(CNewzflow::Instance()->httpDownloader->Download(*nzbUrl, nzb->GetLocalPath(), outFilename, &nzb->done)) {
+			// parse the NZB 
+			if(nzb->CreateFromLocal()) {
+				{ CNewzflow::CLock lock;
+					nzb->name = outFilename; // adjust the name
+					nzb->refCount--;
+				}
+				CNewzflow::Instance()->CreateDownloaders();
+				WriteQueue();
+			} else {
+				// error during parsing, so remove NZB from queue
+				{ CNewzflow::CLock lock;
+					nzb->refCount--;
+				}
+				CNewzflow::Instance()->RemoveNzb(nzb);
+			}
+		} else {
+			nzb->status = kError;
+			CString s; s.Format(_T("ERROR: %s\n"), CNewzflow::Instance()->httpDownloader->GetLastError());
+			Util::Print(s);
+			// TODO: what to do when the http downloader returns an error? remove the nzb? try again later?
+		}
+	} else {
+		if(nzb->CreateFromPath(*nzbUrl)) {
+			{ CNewzflow::CLock lock;
+				CNewzflow::Instance()->nzbs.Add(nzb);
+			}
+			CNewzflow::Instance()->CreateDownloaders();
+			WriteQueue();
+		} else {
+			delete nzb;
+		}
 	}
 
 	delete nzbUrl;
@@ -502,8 +535,8 @@ bool CNewzflow::ReadQueue()
 		for(size_t i = 0; i < nzbCount; i++) {
 			GUID guid = mf.Read<GUID>();
 			CString name = mf.ReadString();
-			CNzb* nzb = CNzb::Create(guid, name);
-			if(nzb) {
+			CNzb* nzb = new CNzb;
+			if(nzb->CreateFromQueue(guid, name)) {
 				nzb->path = mf.ReadString();
 				nzb->doRepair = !!mf.Read<char>();
 				nzb->doUnpack = !!mf.Read<char>();
@@ -536,6 +569,7 @@ bool CNewzflow::ReadQueue()
 				if(nzb->status == kQueued) // if NZB hasn't finished downloading, downloaders need to be created
 					ret = true;
 			} else { // NZB-file in %appdir% doesn't exist, so we need to skip all the data for this NZB in the queue file
+				delete nzb;
 				mf.ReadString(); // path
 				mf.Read<char>(); // doRepair
 				mf.Read<char>(); // doUnpack
@@ -562,20 +596,20 @@ bool CNewzflow::ReadQueue()
 	return ret;
 }
 
-// called from main thread (CMainFrame::OnNzbRemove)
+// called from main thread (CMainFrame::OnNzbRemove) or CNewzflowThread
 void CNewzflow::RemoveNzb(CNzb* nzb)
 {
 	CLock lock; // CMainframe already locked, but it's the same thread, so no deadlock here
 	for(size_t i = 0; i < nzbs.GetCount(); i++) {
 		if(nzbs[i] == nzb) {
 			nzbs.RemoveAt(i);
-			DeleteFile(settings->GetAppDataDir() + CComBSTR(nzb->guid) + _T(".nzb")); // delete cached .nzb
 			// if NZB's refCount is 0, we can delete it immediately
 			// otherwise there are still downloaders or the post processor active,
 			// so just move it to a different array where we will periodically check whether we can delete it for good
-			if(nzb->refCount == 0)
+			if(nzb->refCount == 0) {
+				nzb->Cleanup();
 				delete nzb;
-			else {
+			} else {
 				TRACE(_T("Can't remove %s yet. refCount=%d\n"), nzb->name, nzb->refCount);
 				deletedNzbs.Add(nzb);
 			}
@@ -591,6 +625,7 @@ void CNewzflow::FreeDeletedNzbs()
 	for(size_t i = 0; i < deletedNzbs.GetCount(); i++) {
 		if(deletedNzbs[i]->refCount == 0) {
 			TRACE(_T("Finally can remove %s.\n"), deletedNzbs[i]->name);
+			deletedNzbs[i]->Cleanup();
 			delete deletedNzbs[i];
 			deletedNzbs.RemoveAt(i);
 			i--;

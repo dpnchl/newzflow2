@@ -304,7 +304,7 @@ void CPostProcessor::Par2Repair(CParFile* par2file)
 				CString fn(match[1].first, match[1].length());
 				float percent = (float)_tstof(match[2].first);
 				//TRACE(_T("***%s*** %f\n"), fn, percent);
-				CNzbFile* file = nzb->FindByName(fn);
+				CNzbFile* file = nzb->FindFile(fn);
 				if(file) {
 					file->parStatus = kScanning;
 					file->parDone = percent;
@@ -316,7 +316,7 @@ void CPostProcessor::Par2Repair(CParFile* par2file)
 				CString fn(match[1].first, match[1].length());
 				CString status(match[2].first, match[2].length());
 				//TRACE(_T("***%s*** %s\n"), fn, status);
-				CNzbFile* file = nzb->FindByName(fn);
+				CNzbFile* file = nzb->FindFile(fn);
 				if(file) {
 					par2file->parent->files.Add(file); // add target file to par2 set
 					file->parDone = 100.f;
