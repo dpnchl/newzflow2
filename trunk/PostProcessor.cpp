@@ -4,8 +4,7 @@
 #include "nzb.h"
 #include "Newzflow.h"
 #include "NntpSocket.h"
-#include "unrar.h"
-#pragma comment(lib, "unrar.lib")
+#include "Compress.h"
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
@@ -237,7 +236,8 @@ LRESULT CPostProcessor::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 			// it's the first part if name contains ".part[0]*1.rar" or just ".rar" (without "part")
 			if(hasPart && _ttoi(CString(match[1].first, match[1].length())) != 1)
 				continue;
-			if(Unrar(file)) {
+
+			if(UncompressRAR(file)) {
 				// unrar succeeded, so delete all rar files of thie rar set
 				CString sBase;
 				if(hasPart)
@@ -379,118 +379,11 @@ void CPostProcessor::Par2Cleanup(CParSet* parSet)
 	}
 }
 
-struct RarProgress {
-	__int64 totalSize;
-	__int64 done;
-	float* percentage;
-};
-
-static int CALLBACK RarCallbackProc(UINT msg, LPARAM UserData, LPARAM P1, LPARAM P2);
-
-bool CPostProcessor::Unrar(CNzbFile* file)
+bool CPostProcessor::UncompressRAR(CNzbFile* file)
 {
 	CNzb* nzb = file->parent;
 	nzb->done = 0;
 	CString rarfile(nzb->path + file->fileName);
 
-	__int64 totalSize = GetRarTotalSize(rarfile);
-
-	HANDLE hArcData;
-	int RHCode, PFCode;
-	struct RARHeaderDataEx HeaderData;
-	struct RAROpenArchiveDataEx OpenArchiveData;
-
-	memset(&OpenArchiveData, 0, sizeof(OpenArchiveData));
-	memset(&HeaderData, 0, sizeof(HeaderData));
-	OpenArchiveData.ArcNameW = (wchar_t*)(const wchar_t*)rarfile;
-	OpenArchiveData.OpenMode = RAR_OM_EXTRACT;
-	hArcData = RAROpenArchiveEx(&OpenArchiveData);
-
-	if(OpenArchiveData.OpenResult != 0)
-		return false;
-
-	RarProgress progress;
-	progress.totalSize = totalSize;
-	progress.done = 0;
-	progress.percentage = &nzb->done;
-
-	RARSetCallback(hArcData, RarCallbackProc, (LPARAM)&progress);
-
-	bool ret = true;
-
-	{ CString s; s.Format(_T("CPostProcessor::Unrar(%s)\n"), rarfile); Util::Print(s); }
-
-	while((RHCode = RARReadHeaderEx(hArcData, &HeaderData)) == 0) {
-		{ CString s; s.Format(_T("  %s\n"), HeaderData.FileNameW); Util::Print(s); }
-		if ((PFCode = RARProcessFileW(hArcData, RAR_EXTRACT, (wchar_t*)(const wchar_t*)nzb->path, NULL)) != 0) {
-			Util::Print("   failed\n");
-			ret = false;
-			break;
-		}
-	}
-
-	if (RHCode == ERAR_BAD_DATA)
-		ret = false;
-
-	RARCloseArchive(hArcData);
-
-	return ret;
-}
-
-__int64 CPostProcessor::GetRarTotalSize(const CString& rarfile)
-{
-	__int64 totalSize = 0;
-
-	HANDLE hArcData;
-	int RHCode, PFCode;
-	struct RARHeaderDataEx HeaderData;
-	struct RAROpenArchiveDataEx OpenArchiveData;
-
-	memset(&OpenArchiveData, 0, sizeof(OpenArchiveData));
-	memset(&HeaderData, 0, sizeof(HeaderData));
-	OpenArchiveData.ArcNameW = (wchar_t*)(const wchar_t*)rarfile;
-	OpenArchiveData.OpenMode = RAR_OM_LIST;
-	hArcData = RAROpenArchiveEx(&OpenArchiveData);
-
-	if(OpenArchiveData.OpenResult != 0) {
-		//OutOpenArchiveError(OpenArchiveData.OpenResult,ArcName);
-		return 0;
-	}
-
-	RARSetCallback(hArcData, RarCallbackProc, 0);
-
-	while((RHCode = RARReadHeaderEx(hArcData, &HeaderData)) == 0) {
-		__int64 UnpSize = HeaderData.UnpSize + (((__int64)HeaderData.UnpSizeHigh) << 32);
-		totalSize += UnpSize;
-		if ((PFCode = RARProcessFile(hArcData, RAR_SKIP, NULL, NULL)) != 0) {
-			//OutProcessFileError(PFCode);
-			break;
-		}
-	}
-
-	RARCloseArchive(hArcData);
-
-	return totalSize;
-}
-
-static int CALLBACK RarCallbackProc(UINT msg, LPARAM UserData, LPARAM P1, LPARAM P2)
-{
-	switch(msg) {
-	case UCM_CHANGEVOLUME:
-		if (P2 == RAR_VOL_ASK) {
-			// we don't have any other volumes
-			return -1;
-		}
-		return 0;
-	case UCM_PROCESSDATA: {
-		RarProgress* progress = (RarProgress*)UserData;
-		progress->done += P2;
-		*progress->percentage = 100.f * (float)progress->done / (float)progress->totalSize;
-		return 0;
-	}
-	case UCM_NEEDPASSWORD:
-		strcpy((char*)P1, "xxxxx"); // we don't have a password
-		return 0;
-	}
-	return 0;
+	return Compress::UnRar(rarfile, nzb->path, &nzb->done);
 }

@@ -194,15 +194,23 @@ LRESULT CMainFrame::OnFileExit(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCt
 }
 
 // this handler is currently used for testing out features
+#include "rss.h"
+#include "HttpDownloader.h"
 LRESULT CMainFrame::OnFileAdd(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 {
 //	CNewzflow::Instance()->controlThread->AddFile(_T("test\\test.nzb"));
 //	CNewzflow::Instance()->controlThread->AddFile(_T("test\\ubuntu-10.04-desktop-i386(devilspeed).par2.nzb"));
 //	CNewzflow::Instance()->controlThread->AddFile(_T("test\\VW Sharan-Technik.par2.nzb"));
 //	Util::CreateConsole();
-	CNewzflow::Instance()->controlThread->AddURL(_T("http://www.binsearch.info/?action=nzb&45248169=1"));
+//	CNewzflow::Instance()->controlThread->AddURL(_T("http://www.binsearch.info/?action=nzb&45248169=1"));
 //	CNewzflow::Instance()->controlThread->AddURL(_T("http://www.nzbindex.com/download/28627887/01-ubuntu-10.10-server-i386.nzb"));
 //	CNewzflow::Instance()->controlThread->AddURL(_T("http://nzbmatrix.com/api-nzb-download.php?id=778343&username=XXXXX&apikey=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX&scenename=1"));
+//	CRss rss;
+//	rss.Parse(_T("test\\rss\\nzbmatrix_download.xml"));
+	// this URL requires GZIP handling!
+//	CHttpDownloader downloader;
+//	downloader.Init();
+//	downloader.Download(_T("http://rss.binsearch.net/rss.php?max=50&g=alt.binaries.e-book"), _T("rss"), CString(), NULL);
 
 	// Test UnRAR
 /*

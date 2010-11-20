@@ -52,6 +52,7 @@ extern CAppModule _Module;
 #include <atlmisc.h>
 #include <atlcoll.h>
 #include <atlimage.h>
+#include <atlcomtime.h>
 
 #include <atlframe.h>
 #include <atlctrls.h>
@@ -65,6 +66,9 @@ extern CAppModule _Module;
 
 #include <Winhttp.h>
 #pragma comment(lib, "Winhttp.lib")
+
+#include <msxml2.h>
+#pragma comment(lib, "msxml2.lib")
 
 // STL
 #include <utility>
