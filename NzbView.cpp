@@ -101,6 +101,8 @@ int CNzbView::OnRefresh()
 			SetItemTextEx(i, kName, nzb->name);
 			int image;
 			switch(nzb->status) {
+			case kEmpty:		image = ilQueued; break;
+			case kFetching:		image = ilQueued; break;
 			case kQueued:		image = ilQueued; break;
 			case kDownloading:	image = ilDownloading; break;
 			case kCompleted:	image = ilCompleted; break;
@@ -114,27 +116,34 @@ int CNzbView::OnRefresh()
 			SetItemEx(i, kName, LVIF_IMAGE, NULL, image, 0, 0, 0);
 			s.Format(_T("%d"), i+1);
 			SetItemTextEx(i, kOrder, s);
-			__int64 completed = 0, total = 0;
-			for(size_t j = 0; j < nzb->files.GetCount(); j++) {
-				CNzbFile* f = nzb->files[j];
-				if(f->status == kPaused)
-					continue;
-				for(size_t k = 0; k < f->segments.GetCount(); k++) {
-					CNzbSegment* s = f->segments[k];
-					if(s->status == kPaused)
+			__int64 left = 0;
+			if(nzb->status != kEmpty && nzb->status != kFetching) {
+				__int64 completed = 0, total = 0;
+				for(size_t j = 0; j < nzb->files.GetCount(); j++) {
+					CNzbFile* f = nzb->files[j];
+					if(f->status == kPaused)
 						continue;
-					total += s->bytes;
-					if(s->status == kCompleted || s->status == kCached || s->status == kError)
-						completed += s->bytes;
+					for(size_t k = 0; k < f->segments.GetCount(); k++) {
+						CNzbSegment* s = f->segments[k];
+						if(s->status == kPaused)
+							continue;
+						total += s->bytes;
+						if(s->status == kCompleted || s->status == kCached || s->status == kError)
+							completed += s->bytes;
+					}
 				}
+				left = total - completed;
+				s.Format(_T("%.1f%%"), 100. * (double)completed / (double)total);
+				SetItemTextEx(i, kSize, Util::FormatSize(total));
+				SetItemTextEx(i, kDone, s);
+			} else {
+				SetItemTextEx(i, kSize, _T(""));
+				SetItemTextEx(i, kDone, _T(""));
 			}
-			SetItemTextEx(i, kSize, Util::FormatSize(total));
-			s.Format(_T("%.1f%%"), 100. * (double)completed / (double)total);
-			SetItemTextEx(i, kDone, s);
 			SetItemTextEx(i, kStatus, GetNzbStatusString(nzb->status, nzb->done));
 			if(nzb->status == kDownloading) {
 				if(speed > 1024) {
-					eta += (total - completed) / speed;
+					eta += left / speed;
 					SetItemTextEx(i, kETA, Util::FormatTimeSpan(eta));
 				} else {
 					SetItemTextEx(i, kETA, _T("\x221e")); // "unlimited"
@@ -168,24 +177,26 @@ DWORD CNzbView::OnSubItemPrePaint(int /*idCtrl*/, LPNMCUSTOMDRAW lpNMCustomDraw)
 {
 	LPNMLVCUSTOMDRAW cd = (LPNMLVCUSTOMDRAW)lpNMCustomDraw;
 	if(cd->iSubItem == SubItemFromColumn(kDone)) {
-		CDCHandle dcPaint(cd->nmcd.hdc);
-		CRect rc;
-		GetSubItemRect(cd->nmcd.dwItemSpec, cd->iSubItem, LVIR_BOUNDS, rc);
-
-		// draw progress frame
-		CRect rcProgress(rc);
-		rcProgress.DeflateRect(3, 2);
-		m_thmProgress.DrawThemeBackground(dcPaint, PP_BAR, 0, rcProgress, NULL);
-
 		CString strItemText;
 		GetItemText(cd->nmcd.dwItemSpec, cd->iSubItem, strItemText);
 
-		// draw progress bar															
-		rcProgress.DeflateRect(1, 1, 1, 1);
-		rcProgress.right = rcProgress.left + (int)( (double)rcProgress.Width() * ((max(min(_tstof(strItemText), 100), 0)) / 100.0));
-		m_thmProgress.DrawThemeBackground(dcPaint, PP_CHUNK, 0, rcProgress, NULL);
+		if(!strItemText.IsEmpty()) {
+			CDCHandle dcPaint(cd->nmcd.hdc);
+			CRect rc;
+			GetSubItemRect(cd->nmcd.dwItemSpec, cd->iSubItem, LVIR_BOUNDS, rc);
 
-		m_thmProgress.DrawThemeText(dcPaint, cd->iPartId, cd->iStateId, strItemText, -1, DT_CENTER | DT_SINGLELINE | DT_VCENTER, 0, rc);
+			// draw progress frame
+			CRect rcProgress(rc);
+			rcProgress.DeflateRect(3, 2);
+			m_thmProgress.DrawThemeBackground(dcPaint, PP_BAR, 0, rcProgress, NULL);
+
+			// draw progress bar															
+			rcProgress.DeflateRect(1, 1, 1, 1);
+			rcProgress.right = rcProgress.left + (int)( (double)rcProgress.Width() * ((max(min(_tstof(strItemText), 100), 0)) / 100.0));
+			m_thmProgress.DrawThemeBackground(dcPaint, PP_CHUNK, 0, rcProgress, NULL);
+
+			m_thmProgress.DrawThemeText(dcPaint, cd->iPartId, cd->iStateId, strItemText, -1, DT_CENTER | DT_SINGLELINE | DT_VCENTER, 0, rc);
+		}
 
 		return CDRF_SKIPDEFAULT;
 	}

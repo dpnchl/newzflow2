@@ -24,9 +24,15 @@ public:
 	~CHttpDownloader();
 
 	bool Init();
+	bool Download(const CString& url, const CString& dstFile, CString& outFilename, float* progress);
 
-	bool Download(const CString& url, const CString& dstFile);
+	CString GetFilename(HINTERNET hRequest);
+	CString GetLastError();
 
 protected:
+	CString GetHeader(HINTERNET hRequest, DWORD infoLevel);
+	CString GetOption(HINTERNET hRequest, DWORD option);
+	static void CALLBACK StatusCallback(HINTERNET hInternet, DWORD_PTR dwContext, DWORD dwInternetStatus, LPVOID lpvStatusInformation, DWORD dwStatusInformationLength);
+
 	CAutoWinHttpHandle hSession;
 };

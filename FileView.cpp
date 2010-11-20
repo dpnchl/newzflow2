@@ -69,7 +69,7 @@ void CFileView::SetNzb(CNzb* _nzb)
 
 int CFileView::OnRefresh()
 {
-	if(!nzb)
+	if(!nzb || nzb->status == kEmpty || nzb->status == kFetching)
 		return 0;
 
 	{ CNewzflow::CLock lock;

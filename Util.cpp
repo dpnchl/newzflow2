@@ -11,6 +11,10 @@ namespace Util
 {
 	void CreateConsole()
 	{
+		static bool consoleOpen = false;
+		if(consoleOpen)
+			return;
+
 		// redirect unbuffered STDOUT to the console
 		int hConHandle;
 		long lStdHandle;
@@ -33,6 +37,7 @@ namespace Util
 		fp = _fdopen( hConHandle, "w" );
 		*stderr = *fp;
 		setvbuf( stderr, NULL, _IONBF, 0 );
+		consoleOpen = true;
 	}
 
 	void Print(const char* s)
