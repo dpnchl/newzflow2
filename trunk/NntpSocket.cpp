@@ -7,6 +7,10 @@
 #define new DEBUG_CLIENTBLOCK
 #endif
 
+// TODO: timeout handling for recv(), etc. calls!
+// close sockets from control thread when shutting down to improve shutdown time
+
+
 // CFifoBuffer
 //////////////////////////////////////////////////////////////////////////
 

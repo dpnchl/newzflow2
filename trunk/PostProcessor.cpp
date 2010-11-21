@@ -153,9 +153,9 @@ LRESULT CPostProcessor::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 			continue;
 		// only process this par set if at least 1 par file has been downloaded
 		CParFile* parFile = NULL;
-		for(size_t j = 0; j < parSet->pars.GetCount(); j++) {
+		for(int j = (int)parSet->pars.GetCount() - 1; j >= 0; j--) {
 			CParFile* pf = parSet->pars[j];
-			if(pf->file->status == kCompleted) {
+			if(pf->file->status == kCompleted && (j == 0 || CFile::GetFileSize(pf->parent->parent->path + pf->file->fileName) > 0)) {
 				parFile = pf;
 				break;
 			}
@@ -186,6 +186,7 @@ LRESULT CPostProcessor::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 					// if there are enough left, unpause as needed
 					// TODO: how can we handle when unpaused PAR2s are corrupted and don't have as many blocks as we expected?
 					if(couldBlocks >= parSet->needBlocks) {
+						// go from largest to smallest PAR2 file so we don't download more than necessary
 						for(int j = (int)parSet->pars.GetCount() - 1; j >= 0 && parSet->needBlocks > 0; j--) {
 							CParFile* parFile = parSet->pars[j];
 							if(parFile->file->status == kPaused && parSet->needBlocks >= parFile->numBlocks) {
@@ -193,6 +194,15 @@ LRESULT CPostProcessor::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 								parSet->needBlocks = max(0, parSet->needBlocks - parFile->numBlocks);
 							}
 						}
+						// now go from smallest to largest PAR2 file -- this should only happen if there are missing PAR2 files
+						for(size_t j = 0; j < parSet->pars.GetCount() && parSet->needBlocks > 0; j++) {
+							CParFile* parFile = parSet->pars[j];
+							if(parFile->file->status == kPaused) {
+								parFile->file->status = kQueued;
+								parSet->needBlocks = max(0, parSet->needBlocks - parFile->numBlocks);
+							}
+						}
+						ASSERT(parSet->needBlocks == 0);
 						finished = false; // requeue nzb
 					} else {
 						// not enough available, so we might just skip requeuing at all
@@ -278,7 +288,6 @@ void CPostProcessor::Par2Repair(CParFile* par2file)
 	bool repairRequired = false;
 	bool repairPossible = false;
 	bool repairing = false;
-	int needBlocks = 0;
 	int numFiles = 0, numFilesDone = 0;
 
 	using std::tr1::tregex; using std::tr1::tcmatch; using std::tr1::regex_search; using std::tr1::regex_match;
@@ -358,6 +367,8 @@ void CPostProcessor::Par2Repair(CParFile* par2file)
 				} else if(line.Find(_T("repair is not required")) >= 0) {
 					nzb->done = 100.f;
 					Par2Cleanup(par2file->parent);
+				} else if(line.Find(_T("Main packet not found")) >= 0 || line.Find(_T("The recovery file does not exist")) >= 0) {
+					par2file->parent->needBlocks = 1;
 				}
 			}
 		}

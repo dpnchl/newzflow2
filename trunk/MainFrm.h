@@ -9,12 +9,13 @@
 #include "TabView.h"
 #include "FileView.h"
 #include "Util.h"
+#include "DropFileHandler.h"
 
-class CMainFrame : public CFrameWindowImpl<CMainFrame>, public CUpdateUI<CMainFrame>,
+class CMainFrame : public CFrameWindowImpl<CMainFrame>, public CUpdateUI<CMainFrame>, public CDropFilesHandler<CMainFrame>,
 		public CMessageFilter, public CIdleHandler
 {
 public:
-	DECLARE_FRAME_WND_CLASS_EX(NULL, IDR_MAINFRAME, 0, COLOR_BTNFACE)
+	DECLARE_FRAME_WND_CLASS_EX(_T("NewzflowMainFrame"), IDR_MAINFRAME, 0, COLOR_BTNFACE)
 
 	CNzbView m_list;
 	::CTabViewEx m_tab;
@@ -53,6 +54,7 @@ public:
 		MESSAGE_HANDLER(WM_LBUTTONDOWN, OnLButtonDown)
 		MESSAGE_HANDLER(WM_LBUTTONUP, OnLButtonUp)
 		MESSAGE_HANDLER(s_msgTaskbarButtonCreated, OnTaskbarButtonCreated)
+		MESSAGE_HANDLER(WM_COPYDATA, OnCopyData)
 		COMMAND_ID_HANDLER(ID_APP_EXIT, OnFileExit)
 		COMMAND_ID_HANDLER(ID_FILE_ADD, OnFileAdd)
 		COMMAND_ID_HANDLER(ID_FILE_ADD_URL, OnFileAdd)
@@ -64,6 +66,7 @@ public:
 		REFLECT_NOTIFICATIONS() // needed for tab control
 		CHAIN_MSG_MAP(CUpdateUI<CMainFrame>)
 		CHAIN_MSG_MAP(CFrameWindowImpl<CMainFrame>)
+		CHAIN_MSG_MAP(CDropFilesHandler<CMainFrame>)
 	END_MSG_MAP()
 
 // Handler prototypes (uncomment arguments if needed):
@@ -86,6 +89,12 @@ public:
 	LRESULT OnLButtonDown(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, BOOL& bHandled);
 	LRESULT OnMouseMove(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
 	LRESULT OnTaskbarButtonCreated(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
+	LRESULT OnCopyData(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
+
+	// CDropFilesHandler
+	BOOL IsReadyForDrop();
+	BOOL HandleDroppedFile(LPCTSTR szBuff);
+	void EndDropFiles();
 
 protected:
     CComPtr<ITaskbarList3> m_pTaskbarList;

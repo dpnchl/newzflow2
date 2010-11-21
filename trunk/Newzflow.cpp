@@ -15,6 +15,7 @@
 
 // TODO:
 // - CNzbView/CFileView: implement progress bar with no theming
+// - CNewzflowThread:: AddFile(): what to do when a file is added that is already in the queue. can it be detected? should it be skipped or renamed (add counter) and added anyway?
 
 // CNewzflowThread
 //////////////////////////////////////////////////////////////////////////
@@ -54,6 +55,11 @@ void CNewzflowThread::AddURL(const CString& nzbUrl)
 void CNewzflowThread::WriteQueue()
 {
 	PostThreadMessage(MSG_WRITE_QUEUE);
+}
+
+void CNewzflowThread::CreateDownloaders()
+{
+	PostThreadMessage(MSG_CREATE_DOWNLOADERS);
 }
 
 LRESULT CNewzflowThread::OnAddNzb(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
@@ -227,6 +233,12 @@ LRESULT CNewzflowThread::OnWriteQueue(UINT uMsg, WPARAM wParam, LPARAM lParam, B
 	return 0;	
 }
 
+LRESULT CNewzflowThread::OnCreateDownloaders(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
+{
+	CNewzflow::Instance()->CreateDownloaders();
+	return 0;	
+}
+
 class CShutdownDialog : public CDialogImpl<CShutdownDialog>
 {
 public:
@@ -373,6 +385,31 @@ CNzbSegment* CNewzflow::GetSegment()
 	return NULL;
 }
 
+bool CNewzflow::HasSegment()
+{
+	CLock lock;
+	if(shuttingDown)
+		return false;
+
+	for(size_t i = 0; i < nzbs.GetCount(); i++) {
+		CNzb* nzb = nzbs[i];
+		if(nzb->status != kQueued && nzb->status != kDownloading)
+			continue;
+		for(size_t j = 0; j < nzb->files.GetCount(); j++) {
+			CNzbFile* file = nzb->files[j];
+			if(file->status != kQueued && file->status != kDownloading)
+				continue;
+			for(size_t k = 0; k < file->segments.GetCount(); k++) {
+				CNzbSegment* segment = file->segments[k];
+				if(segment->status != kQueued)
+					continue;
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 // Downloader/DiskWriter is finished with a segment
 void CNewzflow::UpdateSegment(CNzbSegment* s, ENzbStatus newStatus)
 {
@@ -442,8 +479,15 @@ void CNewzflow::RemoveDownloader(CDownloader* dl)
 			break;
 		}
 	}
+
+	// if all downloaders are removed, but there are still segments left, start new downloaders (from controlThread)
+	if(downloaders.GetCount() == 0 && HasSegment())
+		CNewzflow::Instance()->controlThread->CreateDownloaders();
 }
 
+// There's a race condition where downloader's currently shutting down
+// but not yet removed from downloaders array, resulting in no new downloaders being created
+// To avoid this, RemoveDownloader() now checks the queue and calls CreateDownloaders() from controlThread if necessary
 void CNewzflow::CreateDownloaders()
 {
 	CLock lock;
@@ -454,7 +498,7 @@ void CNewzflow::CreateDownloaders()
 	}
 	finishedDownloaders.RemoveAll();
 
-	if(nzbs.IsEmpty())
+	if(!HasSegment())
 		return;
 
 	// create enough downloaders

@@ -12,6 +12,8 @@ namespace Util
 	__int64 ParseTimeSpan(const CString& s);
 	CString SanitizeFilename(const CString& fn);
 	void DeleteDirectory(const CString& path);
+	void RegisterAssoc(HINSTANCE hInstance);
+	void UnregisterAssoc();
 };
 
 class CToolBarImageList
