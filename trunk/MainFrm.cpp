@@ -12,12 +12,22 @@
 #include "Settings.h"
 #include "NntpSocket.h"
 #include "Util.h"
+#include "SettingsDlg.h"
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
 #endif
 
 const UINT CMainFrame::s_msgTaskbarButtonCreated = RegisterWindowMessage(_T("TaskbarButtonCreated"));
+
+CMainFrame::CMainFrame()
+{
+	m_pSettingsDlg = NULL;
+}
+
+CMainFrame::~CMainFrame()
+{
+}
 
 BOOL CMainFrame::PreTranslateMessage(MSG* pMsg)
 {
@@ -135,7 +145,6 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 	m_tab.SetActivePage(0);
 
 	NONCLIENTMETRICS ncm = { sizeof(NONCLIENTMETRICS) };
-
 	if(SystemParametersInfo(SPI_GETNONCLIENTMETRICS, 0, &ncm, false))
 		m_font.CreateFontIndirect(&ncm.lfMessageFont);
 
@@ -172,6 +181,13 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 
 LRESULT CMainFrame::OnDestroy(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& bHandled)
 {
+	if(m_pSettingsDlg) {
+		if(m_pSettingsDlg->IsWindow())
+			m_pSettingsDlg->DestroyWindow();
+		delete m_pSettingsDlg;
+		m_pSettingsDlg = NULL;
+	}
+
 	// save window position to settings
 	WINDOWPLACEMENT wp;
 	wp.length = sizeof(WINDOWPLACEMENT);
@@ -263,6 +279,23 @@ LRESULT CMainFrame::OnViewStatusBar(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*h
 	::ShowWindow(m_hWndStatusBar, bVisible ? SW_SHOWNOACTIVATE : SW_HIDE);
 	UISetCheck(ID_VIEW_STATUS_BAR, bVisible);
 	UpdateLayout();
+	return 0;
+}
+
+LRESULT CMainFrame::OnSettings(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
+{
+	if(m_pSettingsDlg) {
+		if(m_pSettingsDlg->IsWindow()) {
+			m_pSettingsDlg->BringWindowToTop();
+			return 0;
+		}
+
+		delete m_pSettingsDlg;
+		m_pSettingsDlg = NULL;
+	}
+	m_pSettingsDlg = new CSettingsSheet;
+	m_pSettingsDlg->Create(*this);
+ 
 	return 0;
 }
 

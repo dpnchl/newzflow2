@@ -8,9 +8,12 @@
 #define IDB_STATUS                      202
 #define IDB_STATUS_OWN                  204
 #define IDB_TOOLBAR                     205
-#define IDC_PROGRESS1                   1000
+#define IDD_PREFS_SERVER                206
+#define IDD_SETTINGS_SERVER             206
 #define IDC_PROGRESS                    1000
 #define IDC_TEXT                        1001
+#define IDC_EDIT1                       1002
+#define IDC_EDIT2                       1004
 #define ID_FILE_ADD                     32775
 #define ID_FILE_ADD_URL                 32776
 #define ID_CREATE                       32777
@@ -28,9 +31,9 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        206
+#define _APS_NEXT_RESOURCE_VALUE        207
 #define _APS_NEXT_COMMAND_VALUE         32787
-#define _APS_NEXT_CONTROL_VALUE         1002
+#define _APS_NEXT_CONTROL_VALUE         1003
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

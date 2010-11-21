@@ -11,11 +11,16 @@
 #include "Util.h"
 #include "DropFileHandler.h"
 
+class CSettingsSheet;
+
 class CMainFrame : public CFrameWindowImpl<CMainFrame>, public CUpdateUI<CMainFrame>, public CDropFilesHandler<CMainFrame>,
 		public CMessageFilter, public CIdleHandler
 {
 public:
 	DECLARE_FRAME_WND_CLASS_EX(_T("NewzflowMainFrame"), IDR_MAINFRAME, 0, COLOR_BTNFACE)
+
+	CMainFrame();
+	~CMainFrame();
 
 	CNzbView m_list;
 	::CTabViewEx m_tab;
@@ -23,6 +28,7 @@ public:
 	CFileView m_files;
 	CFont m_font;
 	CToolBarImageList m_toolBarImageList;
+	CSettingsSheet* m_pSettingsDlg;
 
 	int m_vertSplitY; // user wanted position, from bottom
 	int m_vertSplitYReal; // real position
@@ -61,6 +67,7 @@ public:
 		COMMAND_ID_HANDLER(ID_NZB_REMOVE, OnNzbRemove)
 		COMMAND_ID_HANDLER(ID_VIEW_TOOLBAR, OnViewToolBar)
 		COMMAND_ID_HANDLER(ID_VIEW_STATUS_BAR, OnViewStatusBar)
+		COMMAND_ID_HANDLER(ID_SETTINGS, OnSettings)
 		COMMAND_ID_HANDLER(ID_APP_ABOUT, OnAppAbout)
 		NOTIFY_CODE_HANDLER(LVN_ITEMCHANGED, OnNzbChanged)
 		REFLECT_NOTIFICATIONS() // needed for tab control
@@ -84,6 +91,7 @@ public:
 	LRESULT OnNzbRemove(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnViewToolBar(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnViewStatusBar(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
+	LRESULT OnSettings(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnAppAbout(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnLButtonUp(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& bHandled);
 	LRESULT OnLButtonDown(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lParam, BOOL& bHandled);
