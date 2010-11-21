@@ -201,6 +201,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\DialogTemplate.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\DiskWriter.cpp"
 				>
 			</File>
@@ -253,6 +257,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\SettingsDlg.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\stdafx.cpp"
 				>
 				<FileConfiguration
@@ -291,6 +299,10 @@
 			</File>
 			<File
 				RelativePath=".\ConnectionView.h"
+				>
+			</File>
+			<File
+				RelativePath=".\DialogTemplate.h"
 				>
 			</File>
 			<File
@@ -338,6 +350,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\PropertyEx.h"
+				>
+			</File>
+			<File
 				RelativePath=".\resource.h"
 				>
 			</File>
@@ -347,6 +363,10 @@
 			</File>
 			<File
 				RelativePath=".\Settings.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SettingsDlg.h"
 				>
 			</File>
 			<File

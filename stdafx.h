@@ -39,12 +39,12 @@
 	#include <atldbgmem.h>
 #endif
 */
+
+// ATL
 #include <atlstr.h>
 #include <atlbase.h>
 #include <atlapp.h>
-
 extern CAppModule _Module;
-
 #include <atlcom.h>
 #include <atlhost.h>
 #include <atlwin.h>
@@ -54,13 +54,18 @@ extern CAppModule _Module;
 #include <atlimage.h>
 #include <atlcomtime.h>
 
+// WTL
 #include <atlframe.h>
 #include <atlctrls.h>
+#define _WTL_NEW_PAGE_NOTIFY_HANDLERS
 #include <atldlgs.h>
 #include <atlctrlw.h>
 #include <atlsplit.h>
 #include <atlctrlx.h>
 #include <atltheme.h>
+#include <atlddx.h>
+#include <atlcrack.h>
+
 #include "atlwfile.h"
 #include "Thread.h"
 
