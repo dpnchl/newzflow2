@@ -45,6 +45,8 @@ LRESULT CDiskWriter::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandl
 	}
 
 	fout.Close();
+	if(CFile::GetFileSize(file->parent->path + file->fileName) == 0) CFile::Delete(file->parent->path + file->fileName); // don't keep 0 byte files around
+
 	CNewzflow::Instance()->UpdateFile(file, kCompleted);
 
 	return 0;

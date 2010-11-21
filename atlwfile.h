@@ -286,6 +286,16 @@ namespace ATL
 			_ASSERTE(!::IsBadStringPtr(pstrTargetFileName, MAX_PATH));
 			return ::MoveFile(pstrSourceFileName, pstrTargetFileName);
 		}
+
+		// newzflow: added static version
+		static LONGLONG GetFileSize(LPCTSTR pstrFileName)
+		{
+			CFileT<true> f;
+			if(!f.Open(pstrFileName))
+				return 0LL;
+
+			return f.GetSize();
+		}
 	};
 
 	typedef CFileT<true> CFile;

@@ -13,11 +13,13 @@ class CNewzflowThread : public CGuiThreadImpl<CNewzflowThread>
 	enum {
 		MSG_ADD_NZB = WM_USER+1,
 		MSG_WRITE_QUEUE,
+		MSG_CREATE_DOWNLOADERS,
 	};
 
 	BEGIN_MSG_MAP(CNewzflowThread)
 		MESSAGE_HANDLER(MSG_ADD_NZB, OnAddNzb)
 		MESSAGE_HANDLER(MSG_WRITE_QUEUE, OnWriteQueue)
+		MESSAGE_HANDLER(MSG_CREATE_DOWNLOADERS, OnCreateDownloaders)
 	END_MSG_MAP()
 
 public:
@@ -26,11 +28,12 @@ public:
 	void AddFile(const CString& nzbUrl);
 	void AddURL(const CString& nzbUrl);
 	void WriteQueue();
+	void CreateDownloaders();
 
 protected:
 	LRESULT OnAddNzb(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
-
 	LRESULT OnWriteQueue(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
+	LRESULT OnCreateDownloaders(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
 };
 
 class CNewzflow
@@ -45,6 +48,7 @@ public:
 	~CNewzflow();
 	static CNewzflow* Instance();
 
+	bool HasSegment();
 	CNzbSegment* GetSegment();
 	bool IsShuttingDown();
 	void UpdateSegment(CNzbSegment* s, ENzbStatus newStatus);

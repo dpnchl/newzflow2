@@ -161,6 +161,8 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 	pLoop->AddMessageFilter(this);
 	pLoop->AddIdleHandler(this);
 
+	RegisterDropHandler();
+
 	if(CNewzflow::Instance()->ReadQueue()) // TODO: move somewhere else?!
 		CNewzflow::Instance()->CreateDownloaders();
 	SendMessage(WM_TIMER); // to update views
@@ -235,6 +237,7 @@ LRESULT CMainFrame::OnFileAdd(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl
 LRESULT CMainFrame::OnNzbRemove(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 {
 	{ CNewzflow::CLock lock;
+		m_files.SetNzb(NULL);
 		for(int item = m_list.GetNextItem(-1, LVNI_SELECTED); item != -1; item = m_list.GetNextItem(item, LVNI_SELECTED)) {
 			CNzb* nzb = (CNzb*)m_list.GetItemData(item);
 			CNewzflow::Instance()->RemoveNzb(nzb);
@@ -330,8 +333,12 @@ LRESULT CMainFrame::OnNzbChanged(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled*
 {
 	LPNMLISTVIEW lvn = (LPNMLISTVIEW)pnmh;
 	if(lvn->hdr.hwndFrom == m_list && (lvn->uChanged & LVIF_STATE) && ((lvn->uOldState & LVIS_SELECTED) != (lvn->uNewState & LVIS_SELECTED))) {
-		/*if(!m_list.IsLockUpdate())*/ {
-			m_files.SetNzb((CNzb*)m_list.GetItemData(m_list.GetNextItem(-1, LVNI_SELECTED)));
+		if(!m_list.IsLockUpdate()) {
+			CNzb* nzb = NULL;
+			int iSelItem = m_list.GetNextItem(-1, LVNI_SELECTED);
+			if(iSelItem >= 0)
+				nzb = (CNzb*)m_list.GetItemData(iSelItem);
+			m_files.SetNzb(nzb);
 			bool enable = m_list.GetSelectedCount() > 0;
 	/*
 			bool allStopped = true;
@@ -368,4 +375,30 @@ LRESULT CMainFrame::OnTaskbarButtonCreated(UINT uMsg, WPARAM wParam, LPARAM lPar
 	}
 
 	return 0;
+}
+
+LRESULT CMainFrame::OnCopyData(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
+{
+	COPYDATASTRUCT* cds = (COPYDATASTRUCT*)lParam;
+
+	CString str((LPCTSTR)cds->lpData, cds->cbData / sizeof(TCHAR));
+	CNewzflow::Instance()->controlThread->AddFile(str);
+
+	return 0;
+}
+
+// CDropFilesHandler
+BOOL CMainFrame::IsReadyForDrop()
+{
+	return TRUE;
+}
+
+BOOL CMainFrame::HandleDroppedFile(LPCTSTR szBuff)
+{
+	CNewzflow::Instance()->controlThread->AddFile(szBuff);
+	return TRUE;
+}
+
+void CMainFrame::EndDropFiles()
+{
 }

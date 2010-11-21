@@ -171,6 +171,53 @@ namespace Util
 		FindClose(h);
 		RemoveDirectory(_path);
 	}
+
+	void RegisterAssoc(HINSTANCE hInstance)
+	{
+		CRegKey reg;
+		reg.Create(HKEY_CURRENT_USER, _T("Software\\Classes\\Newzflow.1"));
+		reg.SetStringValue(NULL, _T("Newzflow NZB"));
+		reg.Close();
+
+		reg.Create(HKEY_CURRENT_USER, _T("Software\\Classes\\Newzflow.1\\Content Type"));
+		reg.SetStringValue(NULL, _T("application/x-nzb"));
+		reg.Close();
+
+		CString sAppPath;
+		::GetModuleFileName(hInstance, sAppPath.GetBuffer(MAX_PATH), MAX_PATH); sAppPath.ReleaseBuffer();
+		CString sIcon;
+		sIcon.Format(_T("\"%s\",0"), sAppPath);
+		reg.Create(HKEY_CURRENT_USER, _T("Software\\Classes\\Newzflow.1\\DefaultIcon"));
+		reg.SetStringValue(NULL, sIcon);
+		reg.Close();
+
+		CString sOpenCmd;
+		sOpenCmd.Format(_T("\"%s\" \"%%1\""), sAppPath);
+		reg.Create(HKEY_CURRENT_USER, _T("Software\\Classes\\Newzflow.1\\shell\\open\\command"));
+		reg.SetStringValue(NULL, sOpenCmd);
+		reg.Close();
+
+		reg.Create(HKEY_CURRENT_USER, _T("Software\\Classes\\.nzb"));
+		reg.SetStringValue(NULL, _T("Newzflow.1"));
+		reg.SetStringValue(_T("Content Type"), _T("application/x-nzb"));
+		reg.Close();
+
+		reg.Create(HKEY_CURRENT_USER, _T("Software\\Classes\\.nzb\\OpenWithProgids"));
+		reg.SetStringValue(_T("Newzflow.1"), _T(""));
+		reg.Close();
+
+		SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, NULL, NULL);
+	}
+
+	void UnregisterAssoc()
+	{
+		CRegKey reg;
+		reg.Open(HKEY_CURRENT_USER, _T("Software\\Classes"));
+		reg.RecurseDeleteKey(_T("Newzflow.1"));
+		reg.RecurseDeleteKey(_T(".nzb"));
+
+		SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, NULL, NULL);
+	}
 };
 
 // CToolBarImageList
