@@ -79,15 +79,6 @@ void CYDecoder::ProcessLine(const char* line)
 // CDownloader
 //////////////////////////////////////////////////////////////////////////
 
-static CString GetIni(LPCTSTR section, LPCTSTR key, LPCTSTR def)
-{
-	CString val;
-	DWORD ret = GetPrivateProfileString(section, key, def, val.GetBuffer(1024), 1024, _T(".\\server.ini"));
-	val.ReleaseBuffer(ret);
-
-	return val;
-}
-
 CDownloader::CDownloader()
 {
 	connected = false;
@@ -148,8 +139,13 @@ CDownloader::EStatus CDownloader::Connect()
 {
 	curGroup.Empty();
 	connected = false;
-	if(!sock.Connect(GetIni(_T("Server"), _T("Host"), _T("localhost")), GetIni(_T("Server"), _T("Port"), _T("119")), GetIni(_T("Server"), _T("User"), NULL), GetIni(_T("Server"), _T("Password"), NULL))) {
-		return kTemporaryError;
+	CSettings* settings = CNewzflow::Instance()->settings;
+	if(!sock.Connect(
+		settings->GetIni(_T("Server"), _T("Host"), _T("localhost")), 
+		settings->GetIni(_T("Server"), _T("Port"), _T("119")), 
+		settings->GetIni(_T("Server"), _T("User"), NULL), 
+		settings->GetIni(_T("Server"), _T("Password"), NULL))) {
+			return kTemporaryError;
 	}
 	CStringA reply = sock.ReceiveLine();
 	// error has occured

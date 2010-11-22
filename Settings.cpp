@@ -19,15 +19,12 @@ CSettings::CSettings()
 
 CSettings::~CSettings()
 {
-
 }
 
 CRect CSettings::GetWindowPos(int& showCmd)
 {
 	// Get Window Rect
-	CString s;
-	GetPrivateProfileString(_T("Window"), _T("Pos"), _T("0 0 0 0"), s.GetBuffer(512), 512, m_ini);
-	s.ReleaseBuffer();
+	CString s = GetIni(_T("Window"), _T("Pos"), _T("0 0 0 0"));
 	CRect r;
 	if(_stscanf(s, _T("%d %d %d %d"), &r.left, &r.top, &r.right, &r.bottom) != 4)
 		r.SetRectEmpty();
@@ -46,9 +43,9 @@ void CSettings::SetWindowPos(const CRect& r, int showCmd)
 {
 	CString s;
 	s.Format(_T("%d %d %d %d"), r.left, r.top, r.right, r.bottom);
-	WritePrivateProfileString(_T("Window"), _T("Pos"), s, m_ini);
+	SetIni(_T("Window"), _T("Pos"), s);
 	s.Format(_T("%d"), showCmd);
-	WritePrivateProfileString(_T("Window"), _T("ShowCmd"), s, m_ini);
+	SetIni(_T("Window"), _T("ShowCmd"), s);
 }
 
 int CSettings::GetSplitPos()
@@ -58,9 +55,7 @@ int CSettings::GetSplitPos()
 
 void CSettings::SetSplitPos(int split)
 {
-	CString s;
-	s.Format(_T("%d"), split);
-	WritePrivateProfileString(_T("Window"), _T("Split"), s, m_ini);
+	SetIni(_T("Window"), _T("Split"), split);
 }
 
 void CSettings::GetListViewColumns(const CString& name, CListViewCtrl lv, int* columnVisibility, int maxColumns)
@@ -104,9 +99,7 @@ void CSettings::SetListViewColumns(const CString& name, CListViewCtrl lv, int* c
 	for(int i = 0; i < numColumns; i++)
 		columnWidths[i] = lv.GetColumnWidth(i);
 
-	CString s;
-	s.Format(_T("%d"), numColumns);
-	WritePrivateProfileString(name, _T("NumColumns"), s, m_ini);
+	SetIni(name, _T("NumColumns"), numColumns);
 	WritePrivateProfileStruct(name, _T("ColumnOrder"), columnOrder, numColumns * sizeof(int), m_ini);
 	WritePrivateProfileStruct(name, _T("ColumnWidths"), columnWidths, numColumns * sizeof(int), m_ini);
 	WritePrivateProfileStruct(name, _T("ColumnVisibility"), columnVisibility, maxColumns * sizeof(int), m_ini);
@@ -115,4 +108,25 @@ void CSettings::SetListViewColumns(const CString& name, CListViewCtrl lv, int* c
 const CString& CSettings::GetAppDataDir()
 {
 	return m_appData;
+}
+
+CString CSettings::GetIni(LPCTSTR section, LPCTSTR key, LPCTSTR def)
+{
+	CString val;
+	DWORD ret = GetPrivateProfileString(section, key, def, val.GetBuffer(1024), 1024, m_ini);
+	val.ReleaseBuffer(ret);
+
+	return val;
+}
+
+void CSettings::SetIni(LPCTSTR section, LPCTSTR key, LPCTSTR value)
+{
+	DWORD ret = WritePrivateProfileString(section, key, value, m_ini);
+}
+
+void CSettings::SetIni(LPCTSTR section, LPCTSTR key, int value)
+{
+	CString s;
+	s.Format(_T("%d"), value);
+	DWORD ret = WritePrivateProfileString(section, key, s, m_ini);
 }

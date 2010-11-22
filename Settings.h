@@ -15,6 +15,10 @@ public:
 	void GetListViewColumns(const CString& name, CListViewCtrl lv, int* columnVisibility, int maxColumns);
 	void SetListViewColumns(const CString& name, CListViewCtrl lv, int* columnsVisibility, int maxColumns);
 
+	CString GetIni(LPCTSTR section, LPCTSTR key, LPCTSTR def = NULL);
+	void SetIni(LPCTSTR section, LPCTSTR key, LPCTSTR value);
+	void SetIni(LPCTSTR section, LPCTSTR key, int value);
+
 	const CString& GetAppDataDir();
 
 protected:

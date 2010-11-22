@@ -501,8 +501,10 @@ void CNewzflow::CreateDownloaders()
 	if(!HasSegment())
 		return;
 
+	int maxDownloaders = min(100, max(0, _ttoi(settings->GetIni(_T("Server"), _T("Connections"), _T("10")))));
+
 	// create enough downloaders
-	int numDownloaders = max(0, 1 - downloaders.GetCount()); // Number of max. simultaneous downloaders here!
+	int numDownloaders = max(0, maxDownloaders - downloaders.GetCount());
 	for(int i = 0; i < numDownloaders; i++) {
 		downloaders.Add(new CDownloader);
 	}
