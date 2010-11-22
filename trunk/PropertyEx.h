@@ -78,13 +78,37 @@ public:
 	DECLARE_EMPTY_MSG_MAP()
 };
 
-
+// CMessageFilter/PreTranslateMessage necessary for keyboard navigation to work when used as a modeless property sheet
+// see http://osdir.com/ml/windows.wtl/2002-11/msg00156.html
 template <class T, class TBase = CPropertySheetWindow>
-class CPropertySheetImplEx : public CPropertySheetImpl<T, TBase>
+class CPropertySheetImplEx : public CPropertySheetImpl<T, TBase>, public CMessageFilter
 {
 public:
 	CPropertySheetImplEx(ATL::_U_STRINGorID title = (LPCTSTR)NULL, UINT uStartPage = 0, HWND hWndParent = NULL)
-		: CPropertySheetImpl<T, TBase>(title, uStartPage, hWndParent) {}
+		: CPropertySheetImpl<T, TBase>(title, uStartPage, hWndParent) 
+	{
+		CMessageLoop* pLoop = _Module.GetMessageLoop();
+		ATLASSERT(pLoop != NULL);
+		pLoop->AddMessageFilter(this);
+	}
+
+	~CPropertySheetImplEx() 
+	{
+		CMessageLoop* pLoop = _Module.GetMessageLoop();
+		ATLASSERT(pLoop != NULL);
+		pLoop->RemoveMessageFilter(this);
+	}
+
+	BOOL PreTranslateMessage(MSG* pMsg)
+	{
+		if(pMsg && ((m_hWnd == pMsg->hwnd) || ::IsChild(m_hWnd, pMsg->hwnd))) {
+			// Only check keyboard message
+			if(pMsg->message >= WM_KEYFIRST && pMsg->message <= WM_KEYLAST) {
+				return IsDialogMessage(pMsg);
+			}
+		}
+		return FALSE;
+	}
 
 	static int CALLBACK PropSheetCallback(HWND hWnd, UINT uMsg, LPARAM lParam)
 	{
