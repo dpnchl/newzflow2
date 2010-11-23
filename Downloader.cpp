@@ -80,8 +80,12 @@ void CYDecoder::ProcessLine(const char* line)
 //////////////////////////////////////////////////////////////////////////
 
 CDownloader::CDownloader()
+: CThreadImpl<CDownloader>(CREATE_SUSPENDED)
 {
 	connected = false;
+	shutDown = false;
+
+	Resume();
 }
 
 DWORD CDownloader::Run()
@@ -90,7 +94,7 @@ DWORD CDownloader::Run()
 	CNzbSegment* segment = NULL;
 
 	for(;;) {
-		if(CNewzflow::Instance()->IsShuttingDown())
+		if(CNewzflow::Instance()->IsShuttingDown() || shutDown)
 			break;
 
 		if(penalty > 0) {

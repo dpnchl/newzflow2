@@ -33,6 +33,7 @@ int CSettingsServerPage::OnApply()
 	settings->SetIni(_T("Server"), _T("User"), m_sUser);
 	settings->SetIni(_T("Server"), _T("Password"), m_sPassword);
 	settings->SetIni(_T("Server"), _T("Connections"), m_nConnections);
+	CNewzflow::Instance()->OnServerSettingsChanged();
 
 	return PSNRET_NOERROR;
 }
@@ -53,6 +54,16 @@ LRESULT CSettingsServerPage::OnChange(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /
 	SetModified(TRUE);
 	return 0;
 }
+
+/*
+void CSettingsServerPage::OnDataValidateError(UINT nCtrlID, BOOL bSave, _XData& data)
+{
+}
+
+void CSettingsServerPage::OnDataExchangeError(UINT nCtrlID, BOOL bSave, _XData& data)
+{
+}
+*/
 
 // CSettingsSheet
 //////////////////////////////////////////////////////////////////////////

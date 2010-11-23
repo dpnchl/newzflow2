@@ -27,10 +27,10 @@ class CPropertyPageImplEx : public CPropertyPageImpl<T, TBase>
 {
 public:
 // Data members
-	HGLOBAL m_hDlgRes;
+	void* m_resource;
 
 	CPropertyPageImplEx(ATL::_U_STRINGorID title = (LPCTSTR)NULL) : 
-		CPropertyPageImpl< T, TBase >(title), m_hDlgRes(NULL)
+		CPropertyPageImpl< T, TBase >(title), m_resource(NULL)
 	{
 		// copy from CAxPropertyPageImpl
 		T* pT = static_cast<T*>(this);
@@ -39,29 +39,30 @@ public:
 		HINSTANCE hInstance = ModuleHelper::GetResourceInstance();
 		LPCTSTR lpTemplateName = MAKEINTRESOURCE(pT->IDD);
 		HRSRC hDlg = ::FindResource(hInstance, lpTemplateName, (LPTSTR)RT_DIALOG);
-		if(hDlg != NULL)
-		{
-			m_hDlgRes = ::LoadResource(hInstance, hDlg);
-			DLGTEMPLATE* pDlg = (DLGTEMPLATE*)::LockResource(m_hDlgRes);
+		if(hDlg != NULL) {
+			HGLOBAL hDlgRes = ::LoadResource(hInstance, hDlg);
+			DLGTEMPLATE* pDlg = (DLGTEMPLATE*)::LockResource(hDlgRes);
+			// make a copy of the resource, can't modify it inplace
+			int resSize = ::SizeofResource(hInstance, hDlg);
+			m_resource = new char [resSize];
+			memcpy(m_resource, pDlg, resSize);
+			UnlockResource(hDlgRes);
+			FreeResource(hDlgRes);
 
 			// set up property page to use in-memory dialog template
 			m_psp.dwFlags |= PSP_DLGINDIRECT;
-			m_psp.pResource = pDlg;
+			m_psp.pResource = (PROPSHEETPAGE_RESOURCE)m_resource;
 
 			SetMessageFontDlgTemplate(m_psp.pResource, NULL);
-		}
-		else
-		{
+		} else {
 			ATLASSERT(FALSE && _T("CPropertyPageEx - Cannot find dialog template!"));
 		}
 	}
 
 	~CPropertyPageImplEx()
 	{
-		if(m_hDlgRes != NULL)
-		{
-			UnlockResource(m_hDlgRes);
-			FreeResource(m_hDlgRes);
+		if(m_resource != NULL) {
+			delete (char*)m_resource;
 		}
 	}
 };

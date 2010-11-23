@@ -16,6 +16,7 @@
 // TODO:
 // - CNzbView/CFileView: implement progress bar with no theming
 // - CNewzflowThread:: AddFile(): what to do when a file is added that is already in the queue. can it be detected? should it be skipped or renamed (add counter) and added anyway?
+// - during shut down, it should be avoided to add jobs to the disk writer or post processor; have to check if queue states are correctly restored if we just skip adding jobs.
 
 // CNewzflowThread
 //////////////////////////////////////////////////////////////////////////
@@ -468,6 +469,7 @@ void CNewzflow::UpdateFile(CNzbFile* file, ENzbStatus newStatus)
 void CNewzflow::RemoveDownloader(CDownloader* dl)
 {
 	CLock lock;
+
 	// if we're shutting down, do nothing. ~CNewzflow will wait for all downloaders and delete them
 	if(shuttingDown)
 		return;
@@ -505,10 +507,31 @@ void CNewzflow::CreateDownloaders()
 
 	// create enough downloaders
 	int numDownloaders = max(0, maxDownloaders - downloaders.GetCount());
+
+	CString s;
+	s.Format(_T("CreateDownloaders(): Have %d, need %d, creating %d.\n"), downloaders.GetCount(), maxDownloaders, numDownloaders);
+	Util::Print(s);
+
 	for(int i = 0; i < numDownloaders; i++) {
 		downloaders.Add(new CDownloader);
 	}
 }
+
+// called by settings dialog when server settings have changed
+void CNewzflow::OnServerSettingsChanged()
+{
+	CLock lock;
+
+	// shut down all downloaders - hostname/port/username/password could have been changed, so we need to reconnect
+	for(size_t i = 0; i < downloaders.GetCount(); i++) {
+		CString s;
+		downloaders[i]->shutDown = true;
+	}
+	Util::Print("Finished shutting down downloaders\n");
+
+	// when downloaders are shutting down, CreateDownloaders will be called to recreate new downloaders
+}
+
 
 // write the queue to disk so it can be restored later
 // called from CNewzflowThread

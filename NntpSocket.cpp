@@ -10,6 +10,8 @@
 // TODO: timeout handling for recv(), etc. calls!
 // close sockets from control thread when shutting down to improve shutdown time
 
+//#define NNTP_TRACE Util::Print
+#define NNTP_TRACE(x) (void)0
 
 // CFifoBuffer
 //////////////////////////////////////////////////////////////////////////
@@ -204,6 +206,8 @@ CString CNntpSocket::GetLastError()
 	CString s(errString);
 	LocalFree(errString);
 
+	Util::Print(s);
+
 	return s;
 }
 
@@ -232,7 +236,6 @@ bool CNntpSocket::Connect(const CString& host, const CString& service, const CSt
 
 	// Resolve the server address and port
 	int iResult = GetAddrInfo(host, service, &hints, &result);
-	ASSERT(iResult == 0);
 	if (iResult != 0) {
 		SetLastReply(_T("Connect failed: (GetAddrInfo) %s"), GetLastError());
 		return false;
@@ -244,7 +247,6 @@ bool CNntpSocket::Connect(const CString& host, const CString& service, const CSt
 	for(ADDRINFOT* ptr = result; ptr; ptr = ptr->ai_next) {
 		// Create a SOCKET for connecting to server
 		sock = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
-		ASSERT(sock != INVALID_SOCKET);
 		if(sock == INVALID_SOCKET) {
 			SetLastReply(_T("Connect failed: (sock) %s"), GetLastError());
 			FreeAddrInfo(result);
@@ -309,7 +311,7 @@ bool CNntpSocket::SendV(const char* fmt, va_list args)
 	CStringA line;
 	line.FormatV(fmt, args);
 	va_end(args);
-	Util::Print(line);
+	NNTP_TRACE(line);
 	int iResult = send(sock, line, line.GetLength(), 0);
 	bytesSent += iResult;
 	return iResult != SOCKET_ERROR;
@@ -331,7 +333,7 @@ again:
 	bool ret = Send(command);
 	if(!ret)
 		return "";
-	CStringA reply = ReceiveLine(); Util::Print(reply);
+	CStringA reply = ReceiveLine(); NNTP_TRACE(reply);
 	if(reply.IsEmpty())
 		return "";
 	SetLastReply(CString(reply));
@@ -340,14 +342,14 @@ again:
 			return "";
 		Send("AUTHINFO USER %s\n", user); 
 		SetLastCommand(_T("AUTHINFO USER ***"));
-		reply = ReceiveLine(); Util::Print(reply);
+		reply = ReceiveLine(); NNTP_TRACE(reply);
 		SetLastReply(CString(reply));
 		if(reply.Left(3) == "281")
 			goto again;
 		if(reply.Left(3) == "381") {
 			Send("AUTHINFO PASS %s\n", passwd);
 			SetLastCommand(_T("AUTHINFO PASS ***"));
-			reply = ReceiveLine(); Util::Print(reply);
+			reply = ReceiveLine(); NNTP_TRACE(reply);
 			SetLastReply(CString(reply));
 			if(reply.Left(3) == "281")
 				goto again;
@@ -366,7 +368,7 @@ void CNntpSocket::Close()
 	timeEnd = time(NULL);
 	CString str;
 	str.Format(_T("rate: %s (%s sent, %s received in %s)"), Util::FormatSpeed(__int64(bytesReceived + bytesSent) / __int64(timeEnd - timeStart)), Util::FormatSize(bytesSent), Util::FormatSize(bytesReceived), Util::FormatTimeSpan(timeEnd - timeStart));
-	Util::Print(CStringA(str));
+	NNTP_TRACE(CStringA(str));
 
 	shutdown(sock, SD_SEND);
 	closesocket(sock);

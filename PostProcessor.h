@@ -42,7 +42,7 @@ class CPostProcessor : public CGuiThreadImpl<CPostProcessor>
 	END_MSG_MAP()
 
 public:
-	CPostProcessor() : CGuiThreadImpl<CPostProcessor>(&_Module) { currentNzb = NULL; }
+	CPostProcessor() : CGuiThreadImpl<CPostProcessor>(&_Module, CREATE_SUSPENDED) { currentNzb = NULL; Resume(); }
 
 	volatile CNzb* currentNzb;
 

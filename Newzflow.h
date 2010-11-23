@@ -23,7 +23,7 @@ class CNewzflowThread : public CGuiThreadImpl<CNewzflowThread>
 	END_MSG_MAP()
 
 public:
-	CNewzflowThread() : CGuiThreadImpl<CNewzflowThread>(&_Module) {}
+	CNewzflowThread() : CGuiThreadImpl<CNewzflowThread>(&_Module, CREATE_SUSPENDED) { Resume(); }
 
 	void AddFile(const CString& nzbUrl);
 	void AddURL(const CString& nzbUrl);
@@ -59,6 +59,7 @@ public:
 	bool ReadQueue();
 	void RemoveNzb(CNzb* nzb);
 	void FreeDeletedNzbs();
+	void OnServerSettingsChanged();
 	CAtlArray<CNzb*> nzbs, deletedNzbs;
 	CAtlArray<CDownloader*> downloaders, finishedDownloaders;
 	CDiskWriter* diskWriter;
