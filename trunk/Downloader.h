@@ -10,6 +10,7 @@ public:
 	DWORD Run();
 
 	CNntpSocket sock;
+	volatile bool shutDown; // CNewzflow will set this to "true" to indicate this downloader should shut down
 
 protected:
 	enum EStatus {

@@ -32,19 +32,8 @@ public:
 	BOOL OnInitDialog(HWND hwndFocus, LPARAM lParam);
 	LRESULT OnChange(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 
-/* // TODO
-	void OnDataValidateError ( UINT nCtrlID, BOOL bSave, _XData& data )
-	{
-	CString sMsg;
-	 
-		sMsg.Format ( _T("Enter a number between %d and %d"),
-					  data.intData.nMin, data.intData.nMax );
-	 
-		MessageBox ( sMsg, _T("ControlMania2"), MB_ICONEXCLAMATION );
-	 
-		GotoDlgCtrl ( GetDlgItem(nCtrlID) );
-	}
-*/
+	//void OnDataValidateError(UINT nCtrlID, BOOL bSave, _XData& data);
+	//void OnDataExchangeError(UINT nCtrlID, BOOL bSave, _XData& data);
 
 	// Property page notification handlers
 	int OnApply();

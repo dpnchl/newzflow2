@@ -13,7 +13,7 @@ class CDiskWriter : public CGuiThreadImpl<CDiskWriter>
 	END_MSG_MAP()
 
 public:
-	CDiskWriter() : CGuiThreadImpl<CDiskWriter>(&_Module) {}
+	CDiskWriter() : CGuiThreadImpl<CDiskWriter>(&_Module, CREATE_SUSPENDED) { Resume(); }
 
 	void Add(CNzbFile* file);
 	LRESULT OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
