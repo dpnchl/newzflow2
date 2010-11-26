@@ -5,6 +5,7 @@
 #define IDD_ABOUTBOX                    100
 #define IDD_SHUTDOWN                    101
 #define IDR_MAINFRAME                   128
+#define IDR_SPEEDLIMIT                  129
 #define IDB_STATUS                      202
 #define IDB_STATUS_OWN                  204
 #define IDB_TOOLBAR                     205
@@ -15,7 +16,6 @@
 #define IDC_USER                        1003
 #define IDC_PORT                        1004
 #define IDC_PASSWORD                    1005
-#define IDC_EDIT5                       1006
 #define IDC_CONNECTIONS                 1006
 #define ID_FILE_ADD                     32775
 #define ID_FILE_ADD_URL                 32776

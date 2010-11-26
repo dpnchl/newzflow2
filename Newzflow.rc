@@ -326,6 +326,7 @@ END
 STRINGTABLE 
 BEGIN
     IDR_MAINFRAME           "Newzflow"
+    IDR_SPEEDLIMIT          "Max. Speed: Unlimited@@@"
 END
 
 STRINGTABLE 

@@ -285,6 +285,8 @@ CNewzflow::CNewzflow()
 		delete httpDownloader;
 		httpDownloader = NULL;
 	}
+	// now downloaders have been created so far, so we don't need to propagate the speed limit to downloaders
+	CNntpSocket::speedLimiter.SetLimit(settings->GetSpeedLimit());
 }
 
 CNewzflow::~CNewzflow()
@@ -706,4 +708,16 @@ void CNewzflow::FreeDeletedNzbs()
 bool CNewzflow::IsShuttingDown()
 {
 	return shuttingDown;
+}
+
+void CNewzflow::SetSpeedLimit(int limit)
+{
+	CLock lock;
+	CNntpSocket::speedLimiter.SetLimit(limit);
+	CNewzflow::Instance()->settings->SetSpeedLimit(limit);
+
+	// propagate speed limit to all downloaders (they need to adjust their socket rcvbuf size)
+	for(size_t i = 0; i < downloaders.GetCount(); i++) {
+		downloaders[i]->sock.SetLimit();
+	}
 }

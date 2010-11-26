@@ -13,6 +13,17 @@
 
 class CSettingsSheet;
 
+class CNewzflowStatusBarCtrl : public CMultiPaneStatusBarCtrl
+{
+public:
+	BEGIN_MSG_MAP(CConnectionView)
+		MESSAGE_HANDLER(WM_RBUTTONUP, OnRButtonUp)
+		CHAIN_MSG_MAP(CMultiPaneStatusBarCtrl)
+	END_MSG_MAP()
+
+	LRESULT OnRButtonUp(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
+};
+
 class CMainFrame : public CFrameWindowImpl<CMainFrame>, public CUpdateUI<CMainFrame>, public CDropFilesHandler<CMainFrame>,
 		public CMessageFilter, public CIdleHandler
 {
@@ -49,6 +60,7 @@ public:
 		UPDATE_ELEMENT(ID_NZB_REMOVE, UPDUI_TOOLBAR)
 		UPDATE_ELEMENT(ID_NZB_MOVE_UP, UPDUI_TOOLBAR)
 		UPDATE_ELEMENT(ID_NZB_MOVE_DOWN, UPDUI_TOOLBAR)
+		UPDATE_ELEMENT(1, UPDUI_STATUSBAR)
 	END_UPDATE_UI_MAP()
 
 	BEGIN_MSG_MAP(CMainFrame)
@@ -106,6 +118,7 @@ public:
 
 protected:
     CComPtr<ITaskbarList3> m_pTaskbarList;
+	CNewzflowStatusBarCtrl m_statusBar;
 
 private:
 	static const UINT s_msgTaskbarButtonCreated;

@@ -56,6 +56,24 @@ protected:
 	CAtlList<std::pair<time_t, int> > history;
 };
 
+class CSpeedLimiter
+{
+public:
+	CSpeedLimiter(int _limit);
+	~CSpeedLimiter();
+
+	bool Update(int bytesReceived);
+
+	int GetLimit();
+	void SetLimit(int limit);
+
+protected:
+	int limit, received;
+	DWORD lastTick;
+
+	CComAutoCriticalSection cs; // protects lastCommand and lastReply
+};
+
 class CNntpSocket
 {
 public:
@@ -64,6 +82,8 @@ public:
 
 	static bool InitWinsock();
 	static void CloseWinsock();
+
+	void SetLimit();
 
 	bool Connect(const CString& host, const CString& service, const CString& user, const CString& passwd);
 	void Close();
@@ -84,6 +104,7 @@ protected:
 	CString GetLastError();
 
 	SOCKET sock;
+	int defaultRcvbufSize;
 
 	CStringA user, passwd;
 
@@ -95,9 +116,9 @@ protected:
 public:
 	CSpeedMonitor speed;
 	static CSpeedMonitor totalSpeed;
+	static CSpeedLimiter speedLimiter;
 
 protected:
 	CComAutoCriticalSection cs; // protects lastCommand and lastReply
 	CString lastCommand, lastReply;
-
 };

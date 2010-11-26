@@ -130,3 +130,13 @@ void CSettings::SetIni(LPCTSTR section, LPCTSTR key, int value)
 	s.Format(_T("%d"), value);
 	DWORD ret = WritePrivateProfileString(section, key, s, m_ini);
 }
+
+int CSettings::GetSpeedLimit()
+{
+	return _ttoi(GetIni(_T("Server"), _T("MaxSpeed"), _T("0")));
+}
+
+void CSettings::SetSpeedLimit(int limit)
+{
+	SetIni(_T("Server"), _T("MaxSpeed"), limit);
+}
