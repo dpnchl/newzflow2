@@ -154,6 +154,7 @@ CNntpSocket::CNntpSocket()
 {
 	recvBuffer.Create(10*1024);
 	sock = INVALID_SOCKET;
+	defaultRcvbufSize = 0;
 
 	timeStart = timeEnd = 0;
 	bytesReceived = bytesSent = 0;
@@ -223,6 +224,24 @@ CString CNntpSocket::GetLastReply()
 	return lastReply;
 }
 
+void CNntpSocket::SetLimit()
+{
+	if(sock == INVALID_SOCKET)
+		return;
+
+	// store default rcvbuf size for later use
+	int len = sizeof(defaultRcvbufSize);
+	if(defaultRcvbufSize == 0)
+		getsockopt(sock, SOL_SOCKET, SO_RCVBUF, (char*)&defaultRcvbufSize, &len);
+
+	// set a smaller rcvbuf size if limiter is enabled
+	int limit = min(defaultRcvbufSize, CNntpSocket::speedLimiter.GetLimit() / 4);
+	if(limit > 0)
+		setsockopt(sock, SOL_SOCKET, SO_RCVBUF, (const char*)&limit, sizeof(limit));
+	else
+		setsockopt(sock, SOL_SOCKET, SO_RCVBUF, (const char*)&defaultRcvbufSize, sizeof(defaultRcvbufSize)); // when speed is unlimited, restore original rcvbuf size
+}
+
 bool CNntpSocket::Connect(const CString& host, const CString& service, const CString& _user, const CString& _passwd)
 {
 	SetLastCommand(_T("Connecting to %s:%s..."), host, service);
@@ -252,6 +271,7 @@ bool CNntpSocket::Connect(const CString& host, const CString& service, const CSt
 			FreeAddrInfo(result);
 			return false;
 		}
+		SetLimit();
 		iResult = connect(sock, ptr->ai_addr, (int)ptr->ai_addrlen);
 		if(iResult == SOCKET_ERROR) {
 			// connect failed, try next address
@@ -286,11 +306,19 @@ CStringA CNntpSocket::ReceiveLine()
 			recvBuffer.Consume(NULL, lineLen);
 			return line;
 		}
-		int iResult = recv(sock, recvBuffer.GetFillPtr(), recvBuffer.GetFillSize(), 0);
+		int maxRecv = recvBuffer.GetFillSize();
+		int limit = CNntpSocket::speedLimiter.GetLimit() / 2;
+		if(limit > 0) maxRecv = min(maxRecv, limit);
+		int iResult = recv(sock, recvBuffer.GetFillPtr(), maxRecv, 0);
 		if(iResult > 0) {
 			recvBuffer.Fill(NULL, iResult);
 			speed.OnReceive(iResult);
 			CNntpSocket::totalSpeed.OnReceive(iResult);
+			if(!CNntpSocket::speedLimiter.Update(iResult)) {
+				do {
+					Sleep((rand() * 30 / 32768) + 30);
+				} while(!CNntpSocket::speedLimiter.Update(0));
+			}
 			bytesReceived += iResult;
 		} else
 			return CStringA(); // error, return empty string
@@ -376,6 +404,7 @@ void CNntpSocket::Close()
 }
 
 /*static*/ CSpeedMonitor CNntpSocket::totalSpeed(3);
+/*static*/ CSpeedLimiter CNntpSocket::speedLimiter(0);
 
 // CSpeedMonitor
 //////////////////////////////////////////////////////////////////////////
@@ -434,4 +463,50 @@ void CSpeedMonitor::Trim()
 	time_t now = time(NULL);
 	while(!history.IsEmpty() && history.GetTail().first < now - slots)
 		history.RemoveTail();
+}
+
+// CSpeedLimiter
+//////////////////////////////////////////////////////////////////////////
+
+CSpeedLimiter::CSpeedLimiter(int _limit)
+{
+	limit = _limit;
+	lastTick = 0;
+	received = 0;
+}
+
+CSpeedLimiter::~CSpeedLimiter()
+{
+}
+
+int CSpeedLimiter::GetLimit()
+{
+	return limit;
+}
+
+void CSpeedLimiter::SetLimit(int _limit)
+{
+	CComCritSecLock<CComAutoCriticalSection> lock(cs);
+	limit = _limit;
+}
+
+bool CSpeedLimiter::Update(int bytesReceived)
+{
+	CComCritSecLock<CComAutoCriticalSection> lock(cs);
+	if(limit == 0)
+		return true;
+
+	DWORD curTick = GetTickCount();
+	DWORD span = curTick - lastTick;
+	if(span > 2 * 1000) {
+		received = 0;
+		span = 0;
+	}
+
+	received += bytesReceived;
+	received -= span * limit / 1000;
+
+	lastTick = curTick;
+
+	return received <= limit;
 }

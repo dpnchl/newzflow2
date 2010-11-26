@@ -12,6 +12,9 @@ public:
 	int GetSplitPos();
 	void SetSplitPos(int split);
 
+	int GetSpeedLimit();
+	void SetSpeedLimit(int limit);
+
 	void GetListViewColumns(const CString& name, CListViewCtrl lv, int* columnVisibility, int maxColumns);
 	void SetListViewColumns(const CString& name, CListViewCtrl lv, int* columnsVisibility, int maxColumns);
 

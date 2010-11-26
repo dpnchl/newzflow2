@@ -60,6 +60,7 @@ public:
 	void RemoveNzb(CNzb* nzb);
 	void FreeDeletedNzbs();
 	void OnServerSettingsChanged();
+	void SetSpeedLimit(int limit);
 	CAtlArray<CNzb*> nzbs, deletedNzbs;
 	CAtlArray<CDownloader*> downloaders, finishedDownloaders;
 	CDiskWriter* diskWriter;
