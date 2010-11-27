@@ -15,6 +15,9 @@ public:
 	int GetSpeedLimit();
 	void SetSpeedLimit(int limit);
 
+	int GetConnections();
+	void SetConnections(int connections);
+
 	void GetListViewColumns(const CString& name, CListViewCtrl lv, int* columnVisibility, int maxColumns);
 	void SetListViewColumns(const CString& name, CListViewCtrl lv, int* columnsVisibility, int maxColumns);
 

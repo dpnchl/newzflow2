@@ -39,9 +39,11 @@ BOOL CMainFrame::PreTranslateMessage(MSG* pMsg)
 
 BOOL CMainFrame::OnIdle()
 {
-	CString sMaxSpeed;
-	sMaxSpeed.Format(_T("Max. Speed: %s"), CNntpSocket::speedLimiter.GetLimit() > 0 ? Util::FormatSpeed(CNntpSocket::speedLimiter.GetLimit()) : _T("Unlimited"));
-	UISetText(1, sMaxSpeed);
+	CString s;
+	s.Format(_T("Connections: %d"), CNewzflow::Instance()->settings->GetConnections());
+	UISetText(1, s);
+	s.Format(_T("Max. Speed: %s"), CNntpSocket::speedLimiter.GetLimit() > 0 ? Util::FormatSpeed(CNntpSocket::speedLimiter.GetLimit()) : _T("Unlimited"));
+	UISetText(2, s);
 
 	UIUpdateToolBar();
 	UIUpdateStatusBar();
@@ -137,10 +139,9 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 	CreateSimpleReBar(ATL_SIMPLE_REBAR_NOBORDER_STYLE);
 	AddSimpleReBarBand(hWndToolBar);
 
-	//CreateSimpleStatusBar();
 	m_hWndStatusBar = m_statusBar.Create(*this);
 	UIAddStatusBar(m_hWndStatusBar);
-	int nPanes[] = { ID_DEFAULT_PANE, IDR_SPEEDLIMIT };
+	int nPanes[] = { ID_DEFAULT_PANE, IDR_CONNECTIONS, IDR_SPEEDLIMIT };
 	m_statusBar.SetPanes(nPanes, countof(nPanes), false);
 
 	m_vertSplitY = CNewzflow::Instance()->settings->GetSplitPos();
@@ -458,60 +459,113 @@ LRESULT CNewzflowStatusBarCtrl::OnRButtonUp(UINT /*uMsg*/, WPARAM /*wParam*/, LP
 	CPoint ptScreen(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)), pt(ptScreen);
 	ScreenToClient(&pt);
 	CRect rPane;
+	GetPaneRect(IDR_CONNECTIONS, rPane);
+	if(rPane.PtInRect(pt)) {
+		OnRClickConnections(ptScreen);
+		return 0;
+	}
 	this->GetPaneRect(IDR_SPEEDLIMIT, rPane);
 	if(rPane.PtInRect(pt)) {
-		int curLimit = CNntpSocket::speedLimiter.GetLimit();
-		CMenu menu;
-		menu.CreatePopupMenu();
-		menu.AppendMenu((curLimit == 0 ? MF_CHECKED : 0) | MF_STRING, (UINT_PTR)100000, _T("Unlimited"));
-		menu.AppendMenu(MF_SEPARATOR);
-		CAtlArray<int> limits;
-		if(curLimit == 0) {
-			for(int i = 10; i <= 50; i += 10) limits.Add(i*1024);
-			for(int i = 100; i <= 500; i += 100) limits.Add(i*1024);
-			for(int i = 1; i < 10; i += 2) limits.Add(i*1024*1000);
-		} else {
-			int l = curLimit / 1024;
-			int mul = 1;
-			if(l >= 300) mul = 5;
-			if(l >= 500) mul = 10;
-			if(l >= 1000) mul = 20;
-			if(l >= 3000) mul = 50;
-			if(l <= 60000) limits.Add(l*1024);
-			if(l+mul*1 <= 60000) limits.Add((l+mul*1)*1024);
-			if(l+mul*2 <= 60000) limits.Add((l+mul*2)*1024);
-			if(l-1 >= 1) limits.InsertAt(0, (l-mul*1)*1024);
-			if(l-2 >= 1) limits.InsertAt(0, (l-mul*2)*1024);
-			int l5 = (l-2) - (l-2)%(mul*5);
-			if(l5 >= 1 && l5 % (mul*10)) limits.InsertAt(0, l5*1024);
-			int l10 = l5 - l5%(mul*10);
-			if(l10 >= 1) limits.InsertAt(0, l10*1024);
-			if(l10-mul*10 >= 1) limits.InsertAt(0, (l10-10)*1024);
-			if(l10-mul*20 >= 1) limits.InsertAt(0, (l10-mul*20)*1024);
-			if(l10-mul*30 >= 1) limits.InsertAt(0, (l10-mul*30)*1024);
-			if(l10-mul*40 >= 1) limits.InsertAt(0, (l10-mul*40)*1024);
-			l5 = (l+mul*2) - (l+mul*2)%(mul*5) + mul*5;
-			if(l5 <= 60000) limits.Add(l5*1024);
-			l10 = l5 - l5%(mul*10) + mul*10;
-			if(l10 <= 60000) limits.Add(l10*1024);
-			if(l10+mul*10 <= 60000) limits.Add((l10+mul*10)*1024);
-			if(l10+mul*20 <= 60000) limits.Add((l10+mul*20)*1024);
-			int l50 = (l10+mul*20) - (l10+mul*20)%(mul*50) + mul*50;
-			if(l50 <= 60000) limits.Add(l50*1024);
-			if(l50+mul*50 <= 60000) limits.Add((l50+mul*50)*1024);
-			if(l50+mul*150 <= 60000) limits.Add((l50+mul*150)*1024);
-		}
-		for(size_t i = 0; i < limits.GetCount(); i++) {
-			CString s;
-			s.Format(_T("%d kB/s"), limits[i] / 1024);
-			menu.AppendMenu((curLimit == limits[i]  ? MF_CHECKED : 0) | MF_STRING, limits[i], s);
-		}
-		int ret = (int)menu.TrackPopupMenu(TPM_RIGHTBUTTON | TPM_RETURNCMD, ptScreen.x, ptScreen.y, *this);
-		if(ret == 0) // cancelled
-			return 0;
+		OnRClickSpeedLimit(ptScreen);
+		return 0;
+	}
+	return 0;
+}
 
+void CNewzflowStatusBarCtrl::OnRClickSpeedLimit(const CPoint& ptScreen)
+{
+	int curLimit = CNntpSocket::speedLimiter.GetLimit();
+	CMenu menu;
+	menu.CreatePopupMenu();
+	menu.AppendMenu((curLimit == 0 ? MF_CHECKED : 0) | MF_STRING, (UINT_PTR)100000, _T("Unlimited"));
+	menu.AppendMenu(MF_SEPARATOR);
+	CAtlArray<int> limits;
+	if(curLimit == 0) {
+		for(int i = 10; i <= 50; i += 10) limits.Add(i*1024);
+		for(int i = 100; i <= 500; i += 100) limits.Add(i*1024);
+		for(int i = 1; i < 10; i += 2) limits.Add(i*1024*1000);
+	} else {
+		int l = curLimit / 1024;
+		int mul = 1;
+		if(l >= 300) mul = 5;
+		if(l >= 500) mul = 10;
+		if(l >= 1000) mul = 20;
+		if(l >= 3000) mul = 50;
+		if(l <= 60000) limits.Add(l*1024);
+		if(l+mul*1 <= 60000) limits.Add((l+mul*1)*1024);
+		if(l+mul*2 <= 60000) limits.Add((l+mul*2)*1024);
+		if(l-1 >= 1) limits.InsertAt(0, (l-mul*1)*1024);
+		if(l-2 >= 1) limits.InsertAt(0, (l-mul*2)*1024);
+		int l5 = (l-2) - (l-2)%(mul*5);
+		if(l5 >= 1 && l5 % (mul*10)) limits.InsertAt(0, l5*1024);
+		int l10 = l5 - l5%(mul*10);
+		if(l10 >= 1) limits.InsertAt(0, l10*1024);
+		if(l10-mul*10 >= 1) limits.InsertAt(0, (l10-10)*1024);
+		if(l10-mul*20 >= 1) limits.InsertAt(0, (l10-mul*20)*1024);
+		if(l10-mul*30 >= 1) limits.InsertAt(0, (l10-mul*30)*1024);
+		if(l10-mul*40 >= 1) limits.InsertAt(0, (l10-mul*40)*1024);
+		l5 = (l+mul*2) - (l+mul*2)%(mul*5) + mul*5;
+		if(l5 <= 60000) limits.Add(l5*1024);
+		l10 = l5 - l5%(mul*10) + mul*10;
+		if(l10 <= 60000) limits.Add(l10*1024);
+		if(l10+mul*10 <= 60000) limits.Add((l10+mul*10)*1024);
+		if(l10+mul*20 <= 60000) limits.Add((l10+mul*20)*1024);
+		int l50 = (l10+mul*20) - (l10+mul*20)%(mul*50) + mul*50;
+		if(l50 <= 60000) limits.Add(l50*1024);
+		if(l50+mul*50 <= 60000) limits.Add((l50+mul*50)*1024);
+		if(l50+mul*150 <= 60000) limits.Add((l50+mul*150)*1024);
+	}
+	for(size_t i = 0; i < limits.GetCount(); i++) {
+		CString s;
+		s.Format(_T("%d kB/s"), limits[i] / 1024);
+		menu.AppendMenu((curLimit == limits[i]  ? MF_CHECKED : 0) | MF_STRING, limits[i], s);
+	}
+	int ret = (int)menu.TrackPopupMenu(TPM_RIGHTBUTTON | TPM_RETURNCMD, ptScreen.x, ptScreen.y, *this);
+	if(ret != 0) {
 		int newLimit = (ret == 100000) ? 0 : ret;
 		CNewzflow::Instance()->SetSpeedLimit(newLimit);
 	}
-	return 0;
+}
+
+void CNewzflowStatusBarCtrl::OnRClickConnections(const CPoint &ptScreen)
+{
+	int curLimit = CNewzflow::Instance()->settings->GetConnections();
+	CMenu menu;
+	menu.CreatePopupMenu();
+	CAtlArray<int> limits;
+	int l = curLimit;
+	if(l <= 100) limits.Add(l);
+	if(l+1 <= 100) limits.Add((l+1));
+	if(l+2 <= 100) limits.Add((l+2));
+	if(l-1 >= 1) limits.InsertAt(0, (l-1));
+	if(l-2 >= 1) limits.InsertAt(0, (l-2));
+	int l5 = (l-2) - (l-2)%(5);
+	if(l5 >= 1 && l5 % (10)) limits.InsertAt(0, l5);
+	int l10 = l5 - l5%(10);
+	if(l10 >= 1) limits.InsertAt(0, l10);
+	if(l10-10 >= 1) limits.InsertAt(0, (l10-10));
+	if(l10-20 >= 1) limits.InsertAt(0, (l10-20));
+	if(l10-30 >= 1) limits.InsertAt(0, (l10-30));
+	if(l10-40 >= 1) limits.InsertAt(0, (l10-40));
+	l5 = (l+2) - (l+2)%(5) + 5;
+	if(l5 <= 100) limits.Add(l5);
+	l10 = l5 - l5%(10) + 10;
+	if(l10 <= 100) limits.Add(l10);
+	if(l10+10 <= 100) limits.Add((l10+10));
+	if(l10+20 <= 100) limits.Add((l10+20));
+	int l50 = (l10+20) - (l10+20)%(50) + 50;
+	if(l50 <= 100) limits.Add(l50);
+	if(l50+50 <= 100) limits.Add((l50+50));
+	if(l50+150 <= 100) limits.Add((l50+150));
+
+	for(size_t i = 0; i < limits.GetCount(); i++) {
+		CString s;
+		s.Format(_T("%d"), limits[i]);
+		menu.AppendMenu((curLimit == limits[i]  ? MF_CHECKED : 0) | MF_STRING, limits[i], s);
+	}
+	int ret = (int)menu.TrackPopupMenu(TPM_RIGHTBUTTON | TPM_RETURNCMD, ptScreen.x, ptScreen.y, *this);
+	if(ret != 0) {
+		CNewzflow::Instance()->settings->SetConnections(ret);
+		CNewzflow::Instance()->OnServerSettingsChanged();
+	}
 }

@@ -2,3 +2,6 @@ the following skins are currently used for testing purposes from www.utorrent.co
 
 tstatus.bmp: LuxoJr Crystal Round by fractalnoise http://forum.utorrent.com/viewtopic.php?id=8425
 toolbar.bmp: Vista Revamp by savaden http://forum.utorrent.com/viewtopic.php?id=13801
+
+Tool used to create .ico file from .png/.psd:
+IcoFX: http://www.icofx.ro/

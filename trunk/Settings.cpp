@@ -140,3 +140,13 @@ void CSettings::SetSpeedLimit(int limit)
 {
 	SetIni(_T("Server"), _T("MaxSpeed"), limit);
 }
+
+int CSettings::GetConnections()
+{
+	return min(100, max(1, _ttoi(GetIni(_T("Server"), _T("Connections"), _T("10")))));
+}
+
+void CSettings::SetConnections(int connections)
+{
+	SetIni(_T("Server"), _T("Connections"), connections);
+}
