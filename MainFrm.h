@@ -22,6 +22,9 @@ public:
 	END_MSG_MAP()
 
 	LRESULT OnRButtonUp(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
+
+	void OnRClickSpeedLimit(const CPoint &ptScreen);
+	void OnRClickConnections(const CPoint &ptScreen);
 };
 
 class CMainFrame : public CFrameWindowImpl<CMainFrame>, public CUpdateUI<CMainFrame>, public CDropFilesHandler<CMainFrame>,
@@ -61,6 +64,7 @@ public:
 		UPDATE_ELEMENT(ID_NZB_MOVE_UP, UPDUI_TOOLBAR)
 		UPDATE_ELEMENT(ID_NZB_MOVE_DOWN, UPDUI_TOOLBAR)
 		UPDATE_ELEMENT(1, UPDUI_STATUSBAR)
+		UPDATE_ELEMENT(2, UPDUI_STATUSBAR)
 	END_UPDATE_UI_MAP()
 
 	BEGIN_MSG_MAP(CMainFrame)

@@ -306,6 +306,7 @@ CStringA CNntpSocket::ReceiveLine()
 			recvBuffer.Consume(NULL, lineLen);
 			return line;
 		}
+		// don't receive too much at once if speed limiter is active
 		int maxRecv = recvBuffer.GetFillSize();
 		int limit = CNntpSocket::speedLimiter.GetLimit() / 2;
 		if(limit > 0) maxRecv = min(maxRecv, limit);
@@ -314,8 +315,10 @@ CStringA CNntpSocket::ReceiveLine()
 			recvBuffer.Fill(NULL, iResult);
 			speed.OnReceive(iResult);
 			CNntpSocket::totalSpeed.OnReceive(iResult);
+			// if speed limiter says, we've exceeded the limit, wait until we're allowed to receive again
 			if(!CNntpSocket::speedLimiter.Update(iResult)) {
 				do {
+					// a bit randomness to help starving downloaders
 					Sleep((rand() * 30 / 32768) + 30);
 				} while(!CNntpSocket::speedLimiter.Update(0));
 			}
@@ -490,6 +493,7 @@ void CSpeedLimiter::SetLimit(int _limit)
 	limit = _limit;
 }
 
+// returns true if under speed limit
 bool CSpeedLimiter::Update(int bytesReceived)
 {
 	CComCritSecLock<CComAutoCriticalSection> lock(cs);
@@ -498,11 +502,13 @@ bool CSpeedLimiter::Update(int bytesReceived)
 
 	DWORD curTick = GetTickCount();
 	DWORD span = curTick - lastTick;
+	// if time since last update (recv) is greater than 2 seconds, reset limitation
 	if(span > 2 * 1000) {
 		received = 0;
 		span = 0;
 	}
 
+	// allow max. "limit" bytes per second
 	received += bytesReceived;
 	received -= span * limit / 1000;
 

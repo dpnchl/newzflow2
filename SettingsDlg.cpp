@@ -18,7 +18,9 @@ CSettingsServerPage::CSettingsServerPage()
 	m_nPort = min(65535, max(0, _ttoi(settings->GetIni(_T("Server"), _T("Port"), _T("119")))));
 	m_sUser = settings->GetIni(_T("Server"), _T("User"));
 	m_sPassword = settings->GetIni(_T("Server"), _T("Password"));
-	m_nConnections = min(100, max(0, _ttoi(settings->GetIni(_T("Server"), _T("Connections"), _T("10")))));
+	m_nConnections = settings->GetConnections();
+	m_nSpeedLimit = min(60000, max(0, settings->GetSpeedLimit() / 1024));
+	m_bSpeedLimitActive = m_nSpeedLimit != 0;
 }
 
 CSettingsServerPage::~CSettingsServerPage()
@@ -32,7 +34,8 @@ int CSettingsServerPage::OnApply()
 	settings->SetIni(_T("Server"), _T("Port"), m_nPort);
 	settings->SetIni(_T("Server"), _T("User"), m_sUser);
 	settings->SetIni(_T("Server"), _T("Password"), m_sPassword);
-	settings->SetIni(_T("Server"), _T("Connections"), m_nConnections);
+	settings->SetConnections(m_nConnections);
+	settings->SetSpeedLimit(m_bSpeedLimitActive ? m_nSpeedLimit * 1024 : 0);
 	CNewzflow::Instance()->OnServerSettingsChanged();
 
 	return PSNRET_NOERROR;
@@ -51,6 +54,17 @@ BOOL CSettingsServerPage::OnKillActive()
 
 LRESULT CSettingsServerPage::OnChange(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 {
+	static bool bLocked = false;
+	if(bLocked) return 0;
+	bLocked = true;
+
+	if(IsDlgButtonChecked(IDC_SPEEDLIMIT_CHECK)) {
+		::EnableWindow(GetDlgItem(IDC_SPEEDLIMIT), TRUE);
+	} else {
+		::EnableWindow(GetDlgItem(IDC_SPEEDLIMIT), FALSE);
+		::SetWindowText(GetDlgItem(IDC_SPEEDLIMIT), _T(""));
+	}
+	bLocked = false;
 	SetModified(TRUE);
 	return 0;
 }

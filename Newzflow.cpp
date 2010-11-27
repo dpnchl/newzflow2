@@ -285,7 +285,7 @@ CNewzflow::CNewzflow()
 		delete httpDownloader;
 		httpDownloader = NULL;
 	}
-	// now downloaders have been created so far, so we don't need to propagate the speed limit to downloaders
+	// no downloaders have been created so far, so we don't need to propagate the speed limit to downloaders
 	CNntpSocket::speedLimiter.SetLimit(settings->GetSpeedLimit());
 }
 
@@ -523,6 +523,9 @@ void CNewzflow::CreateDownloaders()
 void CNewzflow::OnServerSettingsChanged()
 {
 	CLock lock;
+
+	// set new speed limit; don't need to propagate to downloaders, because they will be recreated anyway
+	CNntpSocket::speedLimiter.SetLimit(settings->GetSpeedLimit());
 
 	// shut down all downloaders - hostname/port/username/password could have been changed, so we need to reconnect
 	for(size_t i = 0; i < downloaders.GetCount(); i++) {
