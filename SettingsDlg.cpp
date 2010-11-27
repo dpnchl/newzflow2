@@ -3,6 +3,7 @@
 #include "SettingsDlg.h"
 #include "Newzflow.h"
 #include "Settings.h"
+#include "Util.h"
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
@@ -69,18 +70,66 @@ LRESULT CSettingsServerPage::OnChange(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /
 	return 0;
 }
 
-/*
+
 void CSettingsServerPage::OnDataValidateError(UINT nCtrlID, BOOL bSave, _XData& data)
 {
+	MessageBox(NULL, _T("HALLO"));
 }
-
+/*
 void CSettingsServerPage::OnDataExchangeError(UINT nCtrlID, BOOL bSave, _XData& data)
 {
 }
 */
 
+// CSettingsDirectoriesPage
+//////////////////////////////////////////////////////////////////////////
+
+CSettingsDirectoriesPage::CSettingsDirectoriesPage()
+{
+}
+
+CSettingsDirectoriesPage::~CSettingsDirectoriesPage()
+{
+}
+
+BOOL CSettingsDirectoriesPage::OnInitDialog(HWND hwndFocus, LPARAM lParam)
+{
+	DoDataExchange(false);
+	return TRUE;
+}
+
+LRESULT CSettingsDirectoriesPage::OnChange(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
+{
+	SetModified(TRUE);
+	return 0;
+}
+
+int CSettingsDirectoriesPage::OnApply()
+{
+	return PSNRET_NOERROR;
+}
+
+BOOL CSettingsDirectoriesPage::OnKillActive()
+{
+	return DoDataExchange(true) ? PSNRET_NOERROR : PSNRET_INVALID;
+}
+
+void CSettingsDirectoriesPage::OnDownloadDirButton(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/)
+{
+	Util::BrowseForFolder(*this, _T("Title"), _T("z:\\Newzflow"));
+}
+
 // CSettingsSheet
 //////////////////////////////////////////////////////////////////////////
+
+// CSettingsSheet uses a slightly weird Creation/Deletion method.
+// We need to consider 2 requirements:
+// - Create a new CSettingsSheet instance every time the settings dialog wants to be shown (Multiple calls to Create() ASSERT in CPropertySheetImpl)
+// - don't delete a CSettingsSheet instance in OnFinalMessage() because there may still be a modal dialog / shell dialog open when sheet receives WM_DESTROY
+//   and if we delete the instance at this point, we get a heap corruption because the message loop is still running for this sheet
+
+/*static*/ CSettingsSheet* CSettingsSheet::s_pCurInstance = NULL;
+/*static*/ CSettingsSheet* CSettingsSheet::s_pLastInstance = NULL;
 
 CSettingsSheet::CSettingsSheet(HWND hWndParent /*= NULL*/)
 : CPropertySheetImplEx<CSettingsSheet>(_T("Settings"), 0, hWndParent)
@@ -88,4 +137,33 @@ CSettingsSheet::CSettingsSheet(HWND hWndParent /*= NULL*/)
 	m_psh.dwFlags |= PSH_NOCONTEXTHELP;
 
 	AddPage(m_pgServer);
+	AddPage(m_pgDirectories);
+}
+
+void CSettingsSheet::OnFinalMessage(HWND)
+{
+	s_pCurInstance = NULL;
+	s_pLastInstance = this;
+}
+
+void CSettingsSheet::Show(HWND hWndParent)
+{
+	if(s_pCurInstance) {
+		if(s_pCurInstance->IsWindow()) {
+			s_pCurInstance->BringWindowToTop();
+			return;
+		}
+	} else {
+		Cleanup();
+		s_pCurInstance = new CSettingsSheet;
+		s_pCurInstance->Create(hWndParent);
+	}
+}
+
+void CSettingsSheet::Cleanup()
+{
+	if(s_pLastInstance) {
+		delete s_pLastInstance;
+		s_pLastInstance = NULL;
+	}
 }

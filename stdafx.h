@@ -5,16 +5,18 @@
 
 #pragma once
 
-// Change these values to use different versions
-#define WINVER			0x0500
-#define _WIN32_WINNT	0x0502
-#define _WIN32_IE		0x0501
+// We want app to be able to run on Windows XP, so we don't use any functions that statically import any Vista+ API
+// We need _WIN32_WINNT 0x0600 for the CShellFileOpenDialog; CFolderDialog used on Windows XP
+#define WINVER			0x0600 // _WIN32_WINNT_VISTA
+#define _WIN32_WINNT	0x0600 // _WIN32_WINNT_VISTA
+#define _WIN32_IE		0x0501 // _WIN32_IE_IE501
 #define _RICHEDIT_VER	0x0200
 
+/*
 #define PP_FILL 5
 #define PBFS_NORMAL 1
 #define PBFS_ERROR 2
-
+*/
 
 #define ASSERT ATLASSERT
 #define TRACE ATLTRACE
@@ -25,9 +27,11 @@
 #endif
 
 #define _CRT_SECURE_NO_WARNINGS
+// We use ATL's CString and CPoint, CRect
 #define _WTL_NO_CSTRING
 #define _WTL_NO_WTYPES
 
+// Winsock 2
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #pragma comment(lib, "ws2_32.lib")
@@ -69,9 +73,11 @@ extern CAppModule _Module;
 #include "atlwfile.h"
 #include "Thread.h"
 
+// WinHTTP
 #include <Winhttp.h>
 #pragma comment(lib, "Winhttp.lib")
 
+// MSXML2
 #include <msxml2.h>
 #pragma comment(lib, "msxml2.lib")
 
@@ -93,8 +99,8 @@ namespace std {
 
 #define countof(x) (sizeof(x) / sizeof(x[0]))
 
-// for SSL
 /*
+// SSL
 #define SECURITY_WIN32
 #include <wincrypt.h>
 #include <wintrust.h>
@@ -105,12 +111,4 @@ namespace std {
 #pragma comment(lib, "secur32.lib")
 */
 
-#if defined _M_IX86
-  #pragma comment(linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='x86' publicKeyToken='6595b64144ccf1df' language='*'\"")
-#elif defined _M_IA64
-  #pragma comment(linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='ia64' publicKeyToken='6595b64144ccf1df' language='*'\"")
-#elif defined _M_X64
-  #pragma comment(linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='amd64' publicKeyToken='6595b64144ccf1df' language='*'\"")
-#else
-  #pragma comment(linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
-#endif
+#pragma comment(linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='x86' publicKeyToken='6595b64144ccf1df' language='*'\"")

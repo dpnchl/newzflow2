@@ -14,6 +14,8 @@ namespace Util
 	void DeleteDirectory(const CString& path);
 	void RegisterAssoc(HINSTANCE hInstance);
 	void UnregisterAssoc();
+	CString BrowseForFolder(HWND hwndParent, const TCHAR* title, const TCHAR* initialDir);
+	bool CanCloseApp();
 };
 
 class CToolBarImageList
