@@ -22,11 +22,11 @@ const UINT CMainFrame::s_msgTaskbarButtonCreated = RegisterWindowMessage(_T("Tas
 
 CMainFrame::CMainFrame()
 {
-	m_pSettingsDlg = NULL;
 }
 
 CMainFrame::~CMainFrame()
 {
+	CSettingsSheet::Cleanup();
 }
 
 BOOL CMainFrame::PreTranslateMessage(MSG* pMsg)
@@ -194,13 +194,6 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 
 LRESULT CMainFrame::OnDestroy(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& bHandled)
 {
-	if(m_pSettingsDlg) {
-		if(m_pSettingsDlg->IsWindow())
-			m_pSettingsDlg->DestroyWindow();
-		delete m_pSettingsDlg;
-		m_pSettingsDlg = NULL;
-	}
-
 	// save window position to settings
 	WINDOWPLACEMENT wp;
 	wp.length = sizeof(WINDOWPLACEMENT);
@@ -297,17 +290,7 @@ LRESULT CMainFrame::OnViewStatusBar(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*h
 
 LRESULT CMainFrame::OnSettings(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 {
-	if(m_pSettingsDlg) {
-		if(m_pSettingsDlg->IsWindow()) {
-			m_pSettingsDlg->BringWindowToTop();
-			return 0;
-		}
-
-		delete m_pSettingsDlg;
-		m_pSettingsDlg = NULL;
-	}
-	m_pSettingsDlg = new CSettingsSheet;
-	m_pSettingsDlg->Create(*this);
+	CSettingsSheet::Show(*this);
  
 	return 0;
 }

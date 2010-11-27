@@ -27,10 +27,13 @@ public:
 	CThreadT(HANDLE hThread = NULL, DWORD dwThreadId = 0)
 		: m_hThread(hThread), m_dwThreadId(dwThreadId)
 	{
+	// newzflow: commented out, so we can #define WINVER 0x0600 but still run on Windows XP
+/*
 #if WINVER >= 0x0502
 		if ( m_hThread != NULL && m_dwThreadId == 0 )
 			m_dwThreadId = ::GetThreadId(m_hThread);
 #endif
+*/
 	}
 
 

@@ -218,6 +218,34 @@ namespace Util
 
 		SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, NULL, NULL);
 	}
+
+	CString BrowseForFolder(HWND hwndParent, const TCHAR* title, const TCHAR* initialDir)
+	{
+		// first try new Vista dialog
+		CStringW sInitialDirW;
+		if(initialDir) sInitialDirW = CStringW(initialDir);
+		CShellFileOpenDialog dlg(NULL, FOS_PICKFOLDERS);
+		if(dlg.GetPtr()) {
+			CComPtr<IShellItem> psiFolder;
+			// dynamically load SHCreateItemFromParsingName from shell32.dll; if we would just use the statically imported version, we couldn't run on Windows XP anymore
+			typedef HRESULT (STDAPICALLTYPE *SHCREATEITEMFROMPARSINGNAME)(__in PCWSTR, __in_opt IBindCtx *, __in REFIID, __deref_out void **);
+			SHCREATEITEMFROMPARSINGNAME imp_SHCreateItemFromParsingName = (SHCREATEITEMFROMPARSINGNAME)::GetProcAddress(::LoadLibrary(_T("shell32.dll")), "SHCreateItemFromParsingName");
+			// set initial folder
+			HRESULT hr = imp_SHCreateItemFromParsingName(initialDir, NULL, IID_PPV_ARGS(&psiFolder));
+			if(SUCCEEDED(hr))
+				dlg.GetPtr()->SetFolder(psiFolder);
+			if(title)
+				dlg.GetPtr()->SetTitle(title);
+			dlg.DoModal(hwndParent);
+		} else {
+			// fallback to XP dialog
+			CFolderDialog dlg(hwndParent, title, BIF_RETURNONLYFSDIRS | BIF_USENEWUI);
+			if(initialDir)
+				dlg.SetInitialFolder(initialDir);
+			dlg.DoModal();
+		}
+		return CString();
+	}
 };
 
 // CToolBarImageList

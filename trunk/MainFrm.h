@@ -11,8 +11,6 @@
 #include "Util.h"
 #include "DropFileHandler.h"
 
-class CSettingsSheet;
-
 class CNewzflowStatusBarCtrl : public CMultiPaneStatusBarCtrl
 {
 public:
@@ -42,7 +40,6 @@ public:
 	CFileView m_files;
 	CFont m_font;
 	CToolBarImageList m_toolBarImageList;
-	CSettingsSheet* m_pSettingsDlg;
 
 	int m_vertSplitY; // user wanted position, from bottom
 	int m_vertSplitYReal; // real position

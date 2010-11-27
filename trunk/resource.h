@@ -11,6 +11,7 @@
 #define IDB_STATUS_OWN                  204
 #define IDB_TOOLBAR                     205
 #define IDD_SETTINGS_SERVER             206
+#define IDD_SETTINGS_DIRECTORIES        207
 #define IDC_PROGRESS                    1000
 #define IDC_TEXT                        1001
 #define IDC_HOSTNAME                    1002
@@ -20,6 +21,17 @@
 #define IDC_CONNECTIONS                 1006
 #define IDC_SPEEDLIMIT                  1007
 #define IDC_SPEEDLIMIT_CHECK            1008
+#define IDC_DOWNLOAD_DIR                1009
+#define IDC_DOWNLOAD_DIR_BUTTON         1010
+#define IDC_COMPLETED_DIR_CHECK         1011
+#define IDC_COMPLETED_DIR               1012
+#define IDC_COMPLETED_DIR_BUTTON        1013
+#define IDC_WATCH_DIR_CHECK             1014
+#define IDC_WATCH_DIR                   1015
+#define IDC_BUTTON3                     1016
+#define IDC_WATCH_DIR_BUTTON            1016
+#define IDC_WATCH_DIR_DELETE            1017
+#define IDC_DOWNLOAD_DIR_CHECK          1018
 #define ID_FILE_ADD                     32775
 #define ID_FILE_ADD_URL                 32776
 #define ID_CREATE                       32777
@@ -39,7 +51,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        207
 #define _APS_NEXT_COMMAND_VALUE         32787
-#define _APS_NEXT_CONTROL_VALUE         1009
+#define _APS_NEXT_CONTROL_VALUE         1019
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

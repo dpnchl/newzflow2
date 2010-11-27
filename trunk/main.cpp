@@ -24,22 +24,25 @@ int Run(LPTSTR /*lpstrCmdLine*/ = NULL, int nCmdShow = SW_SHOWDEFAULT)
 	CMessageLoop theLoop;
 	_Module.AddMessageLoop(&theLoop);
 
-	CMainFrame wndMain;
-
-	CRect windowRect = CNewzflow::Instance()->settings->GetWindowPos(nCmdShow);
-
-	if(wndMain.CreateEx(NULL, !windowRect.IsRectEmpty() ? &windowRect : NULL) == NULL)
+	int nRet;
 	{
-		ATLTRACE(_T("Main window creation failed!\n"));
-		return 0;
+		CMainFrame wndMain;
+
+		CRect windowRect = CNewzflow::Instance()->settings->GetWindowPos(nCmdShow);
+
+		if(wndMain.CreateEx(NULL, !windowRect.IsRectEmpty() ? &windowRect : NULL) == NULL)
+		{
+			ATLTRACE(_T("Main window creation failed!\n"));
+			return 0;
+		}
+
+		if(!_CmdLine.IsEmpty())
+			CNewzflow::Instance()->controlThread->AddFile(_CmdLine);
+
+		wndMain.ShowWindow(nCmdShow);
+
+		nRet = theLoop.Run();
 	}
-
-	if(!_CmdLine.IsEmpty())
-		CNewzflow::Instance()->controlThread->AddFile(_CmdLine);
-
-	wndMain.ShowWindow(nCmdShow);
-
-	int nRet = theLoop.Run();
 
 	_Module.RemoveMessageLoop();
 	return nRet;
