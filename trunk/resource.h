@@ -28,7 +28,6 @@
 #define IDC_COMPLETED_DIR_BUTTON        1013
 #define IDC_WATCH_DIR_CHECK             1014
 #define IDC_WATCH_DIR                   1015
-#define IDC_BUTTON3                     1016
 #define IDC_WATCH_DIR_BUTTON            1016
 #define IDC_WATCH_DIR_DELETE            1017
 #define IDC_DOWNLOAD_DIR_CHECK          1018
@@ -44,13 +43,15 @@
 #define ID_SEARCH                       32784
 #define ID_RSS                          32785
 #define ID_SETTINGS                     32786
+#define ID_SETTINGS_SETTINGS            32787
+#define ID_FILE_ADD_NZB                 32788
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        207
-#define _APS_NEXT_COMMAND_VALUE         32787
+#define _APS_NEXT_COMMAND_VALUE         32789
 #define _APS_NEXT_CONTROL_VALUE         1019
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

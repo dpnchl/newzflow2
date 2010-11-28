@@ -63,8 +63,10 @@ void CMainFrame::UpdateLayout(BOOL bResizeBars)
 	r1.bottom = m_vertSplitYReal - 3;
 	r2.top = m_vertSplitYReal + 3;
 
-	m_list.SetWindowPos(NULL, r1, SWP_NOZORDER | SWP_NOACTIVATE);
-	m_tab.SetWindowPos(NULL, r2, SWP_NOZORDER | SWP_NOACTIVATE);
+	if(m_list.IsWindow())
+		m_list.SetWindowPos(NULL, r1, SWP_NOZORDER | SWP_NOACTIVATE);
+	if(m_tab.IsWindow())
+		m_tab.SetWindowPos(NULL, r2, SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 LRESULT CMainFrame::OnSetCursor(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
@@ -158,6 +160,13 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 	m_tab.SetActivePage(0);
 
 	NONCLIENTMETRICS ncm = { sizeof(NONCLIENTMETRICS) };
+	#if(WINVER >= 0x0600)
+		OSVERSIONINFO osvi;
+		ZeroMemory(&osvi, sizeof(OSVERSIONINFO));
+		osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+		GetVersionEx(&osvi);
+		if(osvi.dwMajorVersion < 6) ncm.cbSize -= sizeof(ncm.iPaddedBorderWidth);
+	#endif
 	if(SystemParametersInfo(SPI_GETNONCLIENTMETRICS, 0, &ncm, false))
 		m_font.CreateFontIndirect(&ncm.lfMessageFont);
 
@@ -217,11 +226,39 @@ LRESULT CMainFrame::OnFileExit(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCt
 	return 0;
 }
 
-// this handler is currently used for testing out features
-#include "rss.h"
-#include "HttpDownloader.h"
 LRESULT CMainFrame::OnFileAdd(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 {
+	CString sFilename;
+	OPENFILENAME ofn;
+	ZeroMemory(&ofn, sizeof(ofn));
+	ofn.lStructSize = sizeof(OPENFILENAME);
+	ofn.hwndOwner = *this;
+	ofn.lpstrFilter = _T("NZB files (*.nzb)\0*.nzb\0All files (*.*)\0*.*\0\0");
+	ofn.lpstrFile = sFilename.GetBuffer(32768);
+	ofn.nMaxFile = 32768;
+	ofn.Flags = OFN_EXPLORER | OFN_ALLOWMULTISELECT | OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+
+	if(GetOpenFileName(&ofn)) {
+		TCHAR* path = ofn.lpstrFile;
+		TCHAR* fn = path + _tcslen(path) + 1;
+		// multi-select
+		if(*fn) {
+			while(*fn) {
+				CNewzflow::Instance()->controlThread->AddFile(CString(path) + CString(_T("\\")) + CString(fn));
+				fn += _tcslen(fn) + 1;
+			}
+		} else {
+			CNewzflow::Instance()->controlThread->AddFile(path);
+		}
+	}
+
+	sFilename.ReleaseBuffer();
+	return 0;
+}
+
+// this handler is currently used for testing out features
+//#include "rss.h"
+//#include "HttpDownloader.h"
 //	CNewzflow::Instance()->controlThread->AddFile(_T("test\\test.nzb"));
 //	CNewzflow::Instance()->controlThread->AddFile(_T("test\\ubuntu-10.04-desktop-i386(devilspeed).par2.nzb"));
 //	CNewzflow::Instance()->controlThread->AddFile(_T("test\\VW Sharan-Technik.par2.nzb"));
@@ -253,8 +290,6 @@ LRESULT CMainFrame::OnFileAdd(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl
 	CNewzflow::Instance()->nzbs.Add(nzb);
 	CNewzflow::Instance()->UpdateFile(nzb->files[0], kCompleted);
 */
-	return 0;
-}
 
 LRESULT CMainFrame::OnNzbRemove(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 {
@@ -355,6 +390,7 @@ LRESULT CMainFrame::OnTimer(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& /*bHa
 
 	// pass on the message to all child windows to update them
 	SendMessageToDescendants(uMsg, wParam, lParam);
+	UpdateNzbButtons();
 	return 0;
 }
 
@@ -368,25 +404,7 @@ LRESULT CMainFrame::OnNzbChanged(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled*
 			if(iSelItem >= 0)
 				nzb = (CNzb*)m_list.GetItemData(iSelItem);
 			m_files.SetNzb(nzb);
-			bool enable = m_list.GetSelectedCount() > 0;
-	/*
-			bool allStopped = true;
-			bool allStarted = true;
-			int item = -1;
-			for(;;) {
-				item = m_list.GetNextItem(item, LVNI_SELECTED);
-				if(item == -1)
-					break;
-				CNzb* nzb = (CNzb*)m_list.GetItemData(item);
-				if(nzb->status != kDownloading) allStarted = FALSE;
-			}
-	*/
-			UIEnable(ID_NZB_START, enable);
-			UIEnable(ID_NZB_PAUSE, enable);
-			UIEnable(ID_NZB_STOP, enable);
-			UIEnable(ID_NZB_REMOVE, enable);
-			UIEnable(ID_NZB_MOVE_UP, enable);
-			UIEnable(ID_NZB_MOVE_DOWN, enable);
+			UpdateNzbButtons();
 		}
 	}
 	return 0;
@@ -406,6 +424,7 @@ LRESULT CMainFrame::OnTaskbarButtonCreated(UINT uMsg, WPARAM wParam, LPARAM lPar
 	return 0;
 }
 
+// another Newzflow instance notifies us of a new NZB that should be added
 LRESULT CMainFrame::OnCopyData(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
 {
 	COPYDATASTRUCT* cds = (COPYDATASTRUCT*)lParam;
@@ -430,6 +449,29 @@ BOOL CMainFrame::HandleDroppedFile(LPCTSTR szBuff)
 
 void CMainFrame::EndDropFiles()
 {
+}
+
+void CMainFrame::UpdateNzbButtons()
+{
+	bool enable = m_list.GetSelectedCount() > 0;
+	/*
+	bool allStopped = true;
+	bool allStarted = true;
+	int item = -1;
+	for(;;) {
+	item = m_list.GetNextItem(item, LVNI_SELECTED);
+	if(item == -1)
+	break;
+	CNzb* nzb = (CNzb*)m_list.GetItemData(item);
+	if(nzb->status != kDownloading) allStarted = FALSE;
+	}
+	*/
+	UIEnable(ID_NZB_START, enable);
+	UIEnable(ID_NZB_PAUSE, enable);
+	UIEnable(ID_NZB_STOP, enable);
+	UIEnable(ID_NZB_REMOVE, enable);
+	UIEnable(ID_NZB_MOVE_UP, enable);
+	UIEnable(ID_NZB_MOVE_DOWN, enable);
 }
 
 // CNewzflowStatusBarCtrl

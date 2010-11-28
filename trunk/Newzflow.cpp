@@ -14,6 +14,7 @@
 #endif
 
 // TODO:
+// - investigate why downloads get corrupted during testing (forcibly shutting down Newzbin lots of times)
 // - CNzbView/CFileView: implement progress bar with no theming
 // - CNewzflowThread:: AddFile(): what to do when a file is added that is already in the queue. can it be detected? should it be skipped or renamed (add counter) and added anyway?
 // - during shut down, it should be avoided to add jobs to the disk writer or post processor; have to check if queue states are correctly restored if we just skip adding jobs.

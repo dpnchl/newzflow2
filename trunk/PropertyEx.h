@@ -11,6 +11,13 @@ namespace {
 	static inline void SetMessageFontDlgTemplate(const DLGTEMPLATE* pResource, HWND hWnd)
 	{
 		NONCLIENTMETRICS ncm = { sizeof(NONCLIENTMETRICS) };
+		#if(WINVER >= 0x0600)
+			OSVERSIONINFO osvi;
+			ZeroMemory(&osvi, sizeof(OSVERSIONINFO));
+			osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+			GetVersionEx(&osvi);
+			if(osvi.dwMajorVersion < 6) ncm.cbSize -= sizeof(ncm.iPaddedBorderWidth);
+		#endif
 		if(SystemParametersInfo(SPI_GETNONCLIENTMETRICS, 0, &ncm, false)) {
 			CDialogTemplate dlgTemplate(pResource);
 			HDC dc = ::GetDC(NULL);

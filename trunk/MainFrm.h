@@ -83,10 +83,10 @@ public:
 		COMMAND_ID_HANDLER(ID_SETTINGS, OnSettings)
 		COMMAND_ID_HANDLER(ID_APP_ABOUT, OnAppAbout)
 		NOTIFY_CODE_HANDLER(LVN_ITEMCHANGED, OnNzbChanged)
-		REFLECT_NOTIFICATIONS() // needed for tab control
 		CHAIN_MSG_MAP(CUpdateUI<CMainFrame>)
 		CHAIN_MSG_MAP(CFrameWindowImpl<CMainFrame>)
 		CHAIN_MSG_MAP(CDropFilesHandler<CMainFrame>)
+		REFLECT_NOTIFICATIONS() // needed for tab control; put below CHAIN_MSG_MAP(CFrameWindowImpl), otherwise tooltips don't work
 	END_MSG_MAP()
 
 // Handler prototypes (uncomment arguments if needed):
@@ -99,6 +99,8 @@ public:
 	LRESULT OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
 	LRESULT OnSetCursor(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
 	LRESULT OnNzbChanged(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/);
+
+	void UpdateNzbButtons();
 	LRESULT OnFileExit(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnFileAdd(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnNzbRemove(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
