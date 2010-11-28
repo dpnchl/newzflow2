@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "util.h"
-#include "DownloadQueue.h"
+#include "nzb.h"
 #include "Downloader.h"
 #include "DiskWriter.h"
 #include "NntpSocket.h"

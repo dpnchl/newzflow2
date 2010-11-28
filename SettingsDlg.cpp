@@ -22,6 +22,7 @@ CSettingsServerPage::CSettingsServerPage()
 	m_nConnections = settings->GetConnections();
 	m_nSpeedLimit = min(60000, max(0, settings->GetSpeedLimit() / 1024));
 	m_bSpeedLimitActive = m_nSpeedLimit != 0;
+
 }
 
 CSettingsServerPage::~CSettingsServerPage()
@@ -65,27 +66,25 @@ LRESULT CSettingsServerPage::OnChange(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /
 		::EnableWindow(GetDlgItem(IDC_SPEEDLIMIT), FALSE);
 		::SetWindowText(GetDlgItem(IDC_SPEEDLIMIT), _T(""));
 	}
+
 	bLocked = false;
 	SetModified(TRUE);
 	return 0;
 }
-
-
-void CSettingsServerPage::OnDataValidateError(UINT nCtrlID, BOOL bSave, _XData& data)
-{
-	MessageBox(NULL, _T("HALLO"));
-}
-/*
-void CSettingsServerPage::OnDataExchangeError(UINT nCtrlID, BOOL bSave, _XData& data)
-{
-}
-*/
 
 // CSettingsDirectoriesPage
 //////////////////////////////////////////////////////////////////////////
 
 CSettingsDirectoriesPage::CSettingsDirectoriesPage()
 {
+	CSettings* settings = CNewzflow::Instance()->settings;
+	m_bDownloadDir = settings->GetIni(_T("Directories"), _T("UseDownload"), _T("0")) != _T("0");
+	m_sDownloadDir = settings->GetIni(_T("Directories"), _T("Download"));
+	m_bCompletedDir = settings->GetIni(_T("Directories"), _T("UseCompleted"), _T("0")) != _T("0");
+	m_sCompletedDir = settings->GetIni(_T("Directories"), _T("Completed"));
+	m_bWatchDir = settings->GetIni(_T("Directories"), _T("UseWatch"), _T("0")) != _T("0");
+	m_bWatchDirDelete = settings->GetIni(_T("Directories"), _T("DeleteWatch"), _T("0")) != _T("0");
+	m_sWatchDir = settings->GetIni(_T("Directories"), _T("Watch"));
 }
 
 CSettingsDirectoriesPage::~CSettingsDirectoriesPage()
@@ -100,12 +99,35 @@ BOOL CSettingsDirectoriesPage::OnInitDialog(HWND hwndFocus, LPARAM lParam)
 
 LRESULT CSettingsDirectoriesPage::OnChange(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 {
+	static bool bLocked = false;
+	if(bLocked) return 0;
+	bLocked = true;
+
+	GetDlgItem(IDC_DOWNLOAD_DIR).EnableWindow(IsDlgButtonChecked(IDC_DOWNLOAD_DIR_CHECK));
+	GetDlgItem(IDC_DOWNLOAD_DIR_BUTTON).EnableWindow(IsDlgButtonChecked(IDC_DOWNLOAD_DIR_CHECK));
+
+	GetDlgItem(IDC_COMPLETED_DIR).EnableWindow(IsDlgButtonChecked(IDC_COMPLETED_DIR_CHECK));
+	GetDlgItem(IDC_COMPLETED_DIR_BUTTON).EnableWindow(IsDlgButtonChecked(IDC_COMPLETED_DIR_CHECK));
+
+	GetDlgItem(IDC_WATCH_DIR_DELETE).EnableWindow(IsDlgButtonChecked(IDC_WATCH_DIR_CHECK));
+	GetDlgItem(IDC_WATCH_DIR).EnableWindow(IsDlgButtonChecked(IDC_WATCH_DIR_CHECK));
+	GetDlgItem(IDC_WATCH_DIR_BUTTON).EnableWindow(IsDlgButtonChecked(IDC_WATCH_DIR_CHECK));
+
+	bLocked = false;
 	SetModified(TRUE);
 	return 0;
 }
 
 int CSettingsDirectoriesPage::OnApply()
 {
+	CSettings* settings = CNewzflow::Instance()->settings;
+	settings->SetIni(_T("Directories"), _T("UseDownload"), m_bDownloadDir);
+	settings->SetIni(_T("Directories"), _T("Download"), m_sDownloadDir);
+	settings->SetIni(_T("Directories"), _T("UseCompleted"), m_bCompletedDir);
+	settings->SetIni(_T("Directories"), _T("Completed"), m_sCompletedDir);
+	settings->SetIni(_T("Directories"), _T("UseWatch"), m_bWatchDir);
+	settings->SetIni(_T("Directories"), _T("DeleteWatch"), m_bWatchDirDelete);
+	settings->SetIni(_T("Directories"), _T("Watch"), m_sWatchDir);
 	return PSNRET_NOERROR;
 }
 
@@ -116,7 +138,23 @@ BOOL CSettingsDirectoriesPage::OnKillActive()
 
 void CSettingsDirectoriesPage::OnDownloadDirButton(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/)
 {
-	Util::BrowseForFolder(*this, _T("Title"), _T("z:\\Newzflow"));
+	CString sDir;
+	GetDlgItemText(IDC_DOWNLOAD_DIR, sDir);
+	SetDlgItemText(IDC_DOWNLOAD_DIR, Util::BrowseForFolder(*this, NULL, sDir));
+}
+
+void CSettingsDirectoriesPage::OnCompletedDirButton(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/)
+{
+	CString sDir;
+	GetDlgItemText(IDC_COMPLETED_DIR, sDir);
+	SetDlgItemText(IDC_COMPLETED_DIR, Util::BrowseForFolder(*this, NULL, sDir));
+}
+
+void CSettingsDirectoriesPage::OnWatchDirButton(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/)
+{
+	CString sDir;
+	GetDlgItemText(IDC_WATCH_DIR, sDir);
+	SetDlgItemText(IDC_WATCH_DIR, Util::BrowseForFolder(*this, NULL, sDir));
 }
 
 // CSettingsSheet

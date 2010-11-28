@@ -222,8 +222,6 @@ namespace Util
 	CString BrowseForFolder(HWND hwndParent, const TCHAR* title, const TCHAR* initialDir)
 	{
 		// first try new Vista dialog
-		CStringW sInitialDirW;
-		if(initialDir) sInitialDirW = CStringW(initialDir);
 		CShellFileOpenDialog dlg(NULL, FOS_PICKFOLDERS);
 		if(dlg.GetPtr()) {
 			CComPtr<IShellItem> psiFolder;
@@ -231,20 +229,30 @@ namespace Util
 			typedef HRESULT (STDAPICALLTYPE *SHCREATEITEMFROMPARSINGNAME)(__in PCWSTR, __in_opt IBindCtx *, __in REFIID, __deref_out void **);
 			SHCREATEITEMFROMPARSINGNAME imp_SHCreateItemFromParsingName = (SHCREATEITEMFROMPARSINGNAME)::GetProcAddress(::LoadLibrary(_T("shell32.dll")), "SHCreateItemFromParsingName");
 			// set initial folder
-			HRESULT hr = imp_SHCreateItemFromParsingName(initialDir, NULL, IID_PPV_ARGS(&psiFolder));
-			if(SUCCEEDED(hr))
-				dlg.GetPtr()->SetFolder(psiFolder);
+			if(initialDir) {
+				HRESULT hr = imp_SHCreateItemFromParsingName(CStringW(initialDir), NULL, IID_PPV_ARGS(&psiFolder));
+				if(SUCCEEDED(hr))
+					dlg.GetPtr()->SetFolder(psiFolder);
+			}
 			if(title)
 				dlg.GetPtr()->SetTitle(title);
-			dlg.DoModal(hwndParent);
+			if(dlg.DoModal(hwndParent) == IDOK) {
+				CStringW sReturnW;
+				dlg.GetFilePath(sReturnW.GetBuffer(_MAX_PATH), _MAX_PATH);
+				sReturnW.ReleaseBuffer();
+				return CString(sReturnW);
+			} else
+				return initialDir;
 		} else {
 			// fallback to XP dialog
 			CFolderDialog dlg(hwndParent, title, BIF_RETURNONLYFSDIRS | BIF_USENEWUI);
 			if(initialDir)
 				dlg.SetInitialFolder(initialDir);
-			dlg.DoModal();
+			if(dlg.DoModal() == IDOK)
+				return dlg.GetFolderPath();
+			else
+				return initialDir;
 		}
-		return CString();
 	}
 };
 
@@ -297,7 +305,7 @@ bool CToolBarImageList::Load(CImage &image, int cx, int cy)
 		}
 		bits += pitch;
 	}
-	ilDisabled.Create(24, 24, ILC_COLOR32, 0, 100);
+	ilDisabled.Create(cx, cy, ILC_COLOR32, 0, 100);
 	ilDisabled.Add((HBITMAP)image, (HBITMAP)NULL);
 
 	return true;

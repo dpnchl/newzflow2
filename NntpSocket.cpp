@@ -398,7 +398,7 @@ void CNntpSocket::Close()
 
 	timeEnd = time(NULL);
 	CString str;
-	str.Format(_T("rate: %s (%s sent, %s received in %s)"), Util::FormatSpeed(__int64(bytesReceived + bytesSent) / __int64(timeEnd - timeStart)), Util::FormatSize(bytesSent), Util::FormatSize(bytesReceived), Util::FormatTimeSpan(timeEnd - timeStart));
+	str.Format(_T("rate: %s (%s sent, %s received in %s)"), Util::FormatSpeed((timeEnd - timeStart) ? __int64(bytesReceived + bytesSent) / __int64(timeEnd - timeStart) : 0), Util::FormatSize(bytesSent), Util::FormatSize(bytesReceived), Util::FormatTimeSpan(timeEnd - timeStart));
 	NNTP_TRACE(CStringA(str));
 
 	shutdown(sock, SD_SEND);
