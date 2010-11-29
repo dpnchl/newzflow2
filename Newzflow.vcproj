@@ -303,6 +303,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\DialogEx.h"
+				>
+			</File>
+			<File
 				RelativePath=".\DialogTemplate.h"
 				>
 			</File>
@@ -348,10 +352,6 @@
 			</File>
 			<File
 				RelativePath=".\PostProcessor.h"
-				>
-			</File>
-			<File
-				RelativePath=".\PropertyEx.h"
 				>
 			</File>
 			<File
@@ -854,5 +854,9 @@
 		</File>
 	</Files>
 	<Globals>
+		<Global
+			Name="RESOURCE_FILE"
+			Value="Newzflow.rc"
+		/>
 	</Globals>
 </VisualStudioProject>

@@ -256,6 +256,64 @@ LRESULT CMainFrame::OnFileAdd(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl
 	return 0;
 }
 
+class CAddNzbUrlDialog : public CDialogImplEx<CAddNzbUrlDialog>, public CWinDataExchangeEx<CAddNzbUrlDialog>
+{
+public:
+	enum { IDD = IDD_ADD_NZB_URL };
+
+	// Construction
+	//CAddNzbUrlDialog();
+	//~CAddNzbUrlDialog();
+
+	// Maps
+	BEGIN_MSG_MAP(CAddNzbUrlDialog)
+		MSG_WM_INITDIALOG(OnInitDialog)
+		COMMAND_HANDLER(IDOK, BN_CLICKED, OnOK)
+		COMMAND_HANDLER(IDCANCEL, BN_CLICKED, OnCancel)
+		CHAIN_MSG_MAP(CWinDataExchangeEx<CAddNzbUrlDialog>)
+	END_MSG_MAP()
+
+	BEGIN_DDX_MAP(CSettingsServerPage)
+		DDX_TEXT(IDC_URL, m_sUrl)
+	END_DDX_MAP()
+
+	// Message handlers
+	BOOL OnInitDialog(HWND hwndFocus, LPARAM lParam)
+	{
+		CenterWindow(GetParent());
+		DoDataExchange(false);
+		return TRUE;
+	}
+	LRESULT OnOK(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
+	{
+		DoDataExchange(true);
+		CString s(m_sUrl);
+		s.MakeLower();
+		if(s.Find(_T("http://")) != 0 && s.Find(_T("https://")) != 0)
+			OnDataCustomError(IDC_URL, _T("Please enter a valid http:// or https:// URL."));
+		else
+			EndDialog(IDOK);
+		return 0;
+	}
+	LRESULT OnCancel(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
+	{
+		EndDialog(IDCANCEL);
+		return 0;
+	}
+
+	// DDX variables
+	CString m_sUrl;
+};
+
+LRESULT CMainFrame::OnFileAddUrl(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
+{
+	CAddNzbUrlDialog dlg;
+	if(dlg.DoModal(*this)) {
+		CNewzflow::Instance()->controlThread->AddURL(dlg.m_sUrl);
+	}
+	return 0;
+}
+
 // this handler is currently used for testing out features
 //#include "rss.h"
 //#include "HttpDownloader.h"
