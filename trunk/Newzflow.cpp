@@ -49,8 +49,6 @@ void CNewzflowThread::AddFile(const CString& nzbPath)
 
 void CNewzflowThread::AddURL(const CString& nzbUrl)
 {
-// currently not supported until HTTP(S) downloader is complete
-// we want to avoid passing http:// urls to ISAXXMLReader, because it uses WinInet to receive the files. WinInet is known to cache files locally that shouldn't be
 	PostThreadMessage(MSG_ADD_NZB, (WPARAM)new CString(nzbUrl));
 }
 
