@@ -29,7 +29,7 @@ enum EParStatus {
 	kDamaged,
 };
 
-CString GetNzbStatusString(ENzbStatus status, float done = 0.f);
+CString GetNzbStatusString(ENzbStatus status, float done = 0.f, int setDone = 0, int setTotal = 0);
 CString GetParStatusString(EParStatus status, float done);
 
 class CParFile {
@@ -143,10 +143,10 @@ public:
 	CNzb() {
 		status = kEmpty;
 		done = 0.f;
+		setDone = setTotal = 0;
 		refCount = 0;
 		doRepair = doUnpack = doDelete = true;
-		path = _T("temp\\");
-		CoCreateGuid(&guid); // create GUID so we can later store the queue and just reference the GUID and copy file to %appdata%
+		CoCreateGuid(&guid); // create GUID so we can later store the queue and just reference the GUID and copy file to %appdata%\Newzflow
 	}
 	~CNzb() {
 		for(size_t i = 0; i < files.GetCount(); i++) delete files[i];
@@ -157,6 +157,7 @@ public:
 	bool CreateFromPath(const CString& path); // add new NZB to queue
 	bool CreateFromQueue(REFGUID guid, const CString& name); // restore from queue
 	bool CreateFromLocal();
+	void SetPath(LPCTSTR path, LPCTSTR name); // set the storage path to path\name (name=NULL => use nzb->name)
 
 	CString GetLocalPath(); // location where .nzb is stored locally in %APPDATA%
 	void Cleanup(); // deletes local .nzb file and part files
@@ -166,9 +167,11 @@ public:
 protected:
 	void Init();
 	bool Parse(const CString& path);
+
 public:
 	ENzbStatus status;
-	float done; // percentage completed; used for status = [kVerifying]
+	int setDone, setTotal; // used for status = [kVerifying, kUnpacking]
+	float done; // percentage completed; used for status = [kVerifying, kUnpacking]
 
 	GUID guid;
 	CString name;

@@ -140,8 +140,8 @@ int CNzbView::OnRefresh()
 				SetItemTextEx(i, kSize, _T(""));
 				SetItemTextEx(i, kDone, _T(""));
 			}
-			SetItemTextEx(i, kStatus, GetNzbStatusString(nzb->status, nzb->done));
-			if(nzb->status == kDownloading) {
+			SetItemTextEx(i, kStatus, GetNzbStatusString(nzb->status, nzb->done, nzb->setDone, nzb->setTotal));
+			if(left > 0) {
 				if(speed > 1024) {
 					eta += left / speed;
 					SetItemTextEx(i, kETA, Util::FormatTimeSpan(eta));

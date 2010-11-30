@@ -299,8 +299,12 @@ HRESULT STDMETHODCALLTYPE CErrorHandler::ignorableWarning(
 
 } // namespace
 
-CString GetNzbStatusString(ENzbStatus status, float done /*= 0.f*/)
+CString GetNzbStatusString(ENzbStatus status, float done /*= 0.f*/, int setDone /*= 0*/, int setTotal /*= 0*/)
 {
+	CString t;
+	if(setTotal > 1) 
+		t.Format(_T("(%d/%d) "), setDone, setTotal);
+
 	switch(status) {
 	case kEmpty:		return _T("Initializing");
 	case kFetching:		{ CString s; s.Format(_T("Fetching %s"), Util::FormatSize((__int64)done)); return s; }
@@ -310,9 +314,9 @@ CString GetNzbStatusString(ENzbStatus status, float done /*= 0.f*/)
 	case kCached:		return _T("Cached");
 	case kCompleted:	return _T("Completed");
 	case kError:		return _T("Error");
-	case kVerifying:	{ CString s; s.Format(_T("Verifying %.1f%%"), done); return s; }
-	case kRepairing:	{ CString s; s.Format(_T("Repairing %.1f%%"), done); return s; }
-	case kUnpacking:	{ CString s; s.Format(_T("Unpacking %.1f%%"), done); return s; }
+	case kVerifying:	{ CString s; s.Format(_T("Verifying %s%.1f%%"), t, done); return s; }
+	case kRepairing:	{ CString s; s.Format(_T("Repairing %s%.1f%%"), t, done); return s; }
+	case kUnpacking:	{ CString s; s.Format(_T("Unpacking %s%.1f%%"), t, done); return s; }
 	case kFinished:		return _T("Finished");
 	default:			return _T("???");
 	}
@@ -368,9 +372,10 @@ bool CNzb::Parse(const CString& path)
 }
 
 // add new NZB to queue
-bool CNzb::CreateFromPath(const CString& path)
+// NZB is on disk and will be copied to %appdata%\Newzflow
+bool CNzb::CreateFromPath(const CString& nzbPath)
 {
-	if(!Parse(path))
+	if(!Parse(nzbPath))
 		return false;
 
 	status = kQueued;
@@ -384,18 +389,19 @@ bool CNzb::CreateFromPath(const CString& path)
 	}
 
 	// set NZB name
-	int slash = path.ReverseFind('\\');
+	int slash = nzbPath.ReverseFind('\\');
 	if(slash >= 0)
-		name = path.Mid(slash+1);
+		name = nzbPath.Mid(slash+1);
 	else
-		name = path;
+		name = nzbPath;
 
-	CopyFile(path, GetLocalPath(), FALSE);
+	CopyFile(nzbPath, GetLocalPath(), FALSE);
 
 	return true;
 }
 
 // add new NZB to queue
+// NZB has been downloaded from HTTP and is already copied to %appdata%\Newzflow
 bool CNzb::CreateFromLocal()
 {
 	if(!Parse(GetLocalPath()))
@@ -415,6 +421,7 @@ bool CNzb::CreateFromLocal()
 }
 
 // restore NZB from queue
+// NZB is already copied to %appdata%\Newzflow
 bool CNzb::CreateFromQueue(REFGUID _guid, const CString& _name)
 {
 	name = _name;
@@ -431,6 +438,17 @@ bool CNzb::CreateFromQueue(REFGUID _guid, const CString& _name)
 CString CNzb::GetLocalPath()
 {
 	return CNewzflow::Instance()->settings->GetAppDataDir() + CComBSTR(guid) + _T(".nzb");
+}
+
+void CNzb::SetPath(LPCTSTR _path, LPCTSTR _name)
+{
+	ASSERT(_path);
+	path = _path;
+	if(path.Right(1) != _T("\\")) path += '\\';
+	if(_name) 
+		path += _name;
+	else
+		path += name;
 }
 
 CNzbFile* CNzb::FindFile(const CString& name)
