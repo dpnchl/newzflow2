@@ -146,7 +146,9 @@ LRESULT CPostProcessor::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 	currentNzb = nzb;
 
 	CNzbFile* par2file = NULL;
+
 	// process all par sets
+	nzb->setTotal = nzb->parSets.GetCount();
 	for(size_t i = 0; i < nzb->parSets.GetCount(); i++) {
 		CParSet* parSet = nzb->parSets[i];
 		if(parSet->completed)
@@ -162,6 +164,7 @@ LRESULT CPostProcessor::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 		}
 		// try to repair
 		if(parFile) {
+			nzb->setDone = i+1;
 			Par2Repair(parFile);
 		}
 	}
@@ -234,6 +237,9 @@ LRESULT CPostProcessor::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 		tregex rePart(_T("\\.part(\\d+)$"));
 		tcmatch match;
 
+		CAtlArray<std::pair<CNzbFile*, CString> > rars;
+
+		// get all RarSets
 		for(size_t i = 0; i < nzb->files.GetCount(); i++) {
 			CNzbFile* file = nzb->files[i];
 			CString fn(file->fileName);
@@ -247,17 +253,28 @@ LRESULT CPostProcessor::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 			if(hasPart && _ttoi(CString(match[1].first, match[1].length())) != 1)
 				continue;
 
+			CString sBase;
+			if(hasPart)
+				sBase = fn.Left(fn.GetLength() - match[1].length());
+			else
+				sBase = fn;
+
+			rars.Add(std::make_pair(file, sBase));
+		}
+
+		// process all RarSets
+		nzb->setTotal = rars.GetCount();
+		for(size_t i = 0; i < rars.GetCount(); i++) {
+			CNzbFile* file = rars[i].first;
+			CString sBase = rars[i].second;
+
+			nzb->setDone = i+1;
 			if(UncompressRAR(file)) {
 				// unrar succeeded, so delete all rar files of thie rar set
-				CString sBase;
-				if(hasPart)
-					sBase = fn.Left(fn.GetLength() - match[1].length());
-				else
-					sBase = fn;
 				for(size_t j = 0; j < nzb->files.GetCount(); j++) {
 					CNzbFile* file2 = nzb->files[j];
 					if(!sBase.CompareNoCase(file2->fileName.Left(sBase.GetLength()))) {
-						CFile::Delete(nzb->path + file2->fileName);
+						CFile::Delete(nzb->path + _T("\\") + file2->fileName);
 						//TRACE(_T("Delete(%s)\n"), nzb->path + file2->fileName);
 					}
 				}
@@ -279,7 +296,7 @@ void CPostProcessor::Par2Repair(CParFile* par2file)
 
 	CExternalTool tool;
 	CString cmdline;
-	cmdline.Format(_T("test\\par2\\par2.exe r \"%s%s\""), nzb->path, par2file->file->fileName);
+	cmdline.Format(_T("test\\par2\\par2.exe r \"%s\\%s\""), nzb->path, par2file->file->fileName);
 	if(!tool.Run(cmdline))
 		return;
 
@@ -381,12 +398,12 @@ void CPostProcessor::Par2Cleanup(CParSet* parSet)
 	// delete all par2 files
 	for(size_t i = 0; i < parSet->pars.GetCount(); i++) {
 		CNzbFile* file = parSet->pars[i]->file;
-		CFile::Delete(file->parent->path + file->fileName);
+		CFile::Delete(file->parent->path + _T("\\") + file->fileName);
 	}
 	// delete all backups of repaired target files (.1 ending)
 	for(size_t i = 0; i < parSet->files.GetCount(); i++) {
 		CNzbFile* file = parSet->files[i];
-		CFile::Delete(file->parent->path + file->fileName + _T(".1"));
+		CFile::Delete(file->parent->path + _T("\\") + file->fileName + _T(".1"));
 	}
 }
 
@@ -394,7 +411,7 @@ bool CPostProcessor::UncompressRAR(CNzbFile* file)
 {
 	CNzb* nzb = file->parent;
 	nzb->done = 0;
-	CString rarfile(nzb->path + file->fileName);
+	CString rarfile(nzb->path + _T("\\") + file->fileName);
 
 	return Compress::UnRar(rarfile, nzb->path, &nzb->done);
 }

@@ -150,3 +150,8 @@ void CSettings::SetConnections(int connections)
 {
 	SetIni(_T("Server"), _T("Connections"), connections);
 }
+
+CString CSettings::GetDownloadDir()
+{
+	return GetIni(_T("Directories"), _T("Download"), _T(""));
+}

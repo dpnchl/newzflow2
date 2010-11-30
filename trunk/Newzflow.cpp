@@ -86,6 +86,7 @@ LRESULT CNewzflowThread::OnAddNzb(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL&
 			if(nzb->CreateFromLocal()) {
 				{ CNewzflow::CLock lock;
 					nzb->name = outFilename; // adjust the name
+					nzb->SetPath(CNewzflow::Instance()->settings->GetDownloadDir(), NULL);
 					nzb->refCount--;
 				}
 				CNewzflow::Instance()->CreateDownloaders();
@@ -105,6 +106,7 @@ LRESULT CNewzflowThread::OnAddNzb(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL&
 		}
 	} else {
 		if(nzb->CreateFromPath(*nzbUrl)) {
+			nzb->SetPath(CNewzflow::Instance()->settings->GetDownloadDir(), NULL);
 			{ CNewzflow::CLock lock;
 				CNewzflow::Instance()->nzbs.Add(nzb);
 			}

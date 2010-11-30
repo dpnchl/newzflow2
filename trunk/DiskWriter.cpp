@@ -25,26 +25,26 @@ LRESULT CDiskWriter::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandl
 	nzbDir.Format(_T("%s%s"), CNewzflow::Instance()->settings->GetAppDataDir(), CComBSTR(file->parent->guid));
 
 	CFile fout;
-	fout.Open(file->parent->path + file->fileName, GENERIC_WRITE, 0, CREATE_ALWAYS);
-
-	// join all segments from temp dir to final file
-	for(size_t i = 0; i < file->segments.GetCount(); i++) {
-		CNzbSegment* s = file->segments[i];
-		CString segFileName;
-		segFileName.Format(_T("%s\\%s_part%05d"), nzbDir, file->fileName, s->number);
-		CFile fin;
-		if(fin.Open(segFileName, GENERIC_READ, 0, OPEN_ALWAYS)) {
-			int size = (int)fin.GetSize();
-			char* buffer = new char [size];
-			fin.Read(buffer, size);
-			fin.Close();
-			CFile::Delete(segFileName); // TODO: do only if writing everything succeeded
-			fout.Write(buffer, size);
-			delete buffer;
+	SHCreateDirectoryEx(NULL, file->parent->path, NULL);
+	if(fout.Open(file->parent->path + _T("\\") + file->fileName, GENERIC_WRITE, 0, CREATE_ALWAYS)) { // TODO: Error check
+		// join all segments from temp dir to final file
+		for(size_t i = 0; i < file->segments.GetCount(); i++) {
+			CNzbSegment* s = file->segments[i];
+			CString segFileName;
+			segFileName.Format(_T("%s\\%s_part%05d"), nzbDir, file->fileName, s->number);
+			CFile fin;
+			if(fin.Open(segFileName, GENERIC_READ, 0, OPEN_ALWAYS)) {
+				int size = (int)fin.GetSize();
+				char* buffer = new char [size];
+				fin.Read(buffer, size);
+				fin.Close();
+				CFile::Delete(segFileName); // TODO: do only if writing everything succeeded
+				fout.Write(buffer, size);
+				delete buffer;
+			}
 		}
+		fout.Close();
 	}
-
-	fout.Close();
 	if(CFile::GetFileSize(file->parent->path + file->fileName) == 0) CFile::Delete(file->parent->path + file->fileName); // don't keep 0 byte files around
 
 	CNewzflow::Instance()->UpdateFile(file, kCompleted);
