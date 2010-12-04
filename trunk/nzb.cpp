@@ -86,6 +86,7 @@ private:
 	CNzbFile* curFile;
 	CNzbSegment* curSegment;
 	bool curGroup;
+	CString curGroupString;
 };
 
 class CErrorHandler : public CComObjectRootEx<CComSingleThreadModel>, public ISAXErrorHandler
@@ -152,6 +153,7 @@ HRESULT STDMETHODCALLTYPE CNzbParser::startElement(
 	} else if(localName == _T("group")) {
 		ASSERT(curFile);
 		curGroup = true;
+		curGroupString.Empty();
 	} else if(localName == _T("segment")) {
 		ASSERT(curFile);
 		curSegment = new CNzbSegment(curFile);
@@ -172,16 +174,17 @@ HRESULT STDMETHODCALLTYPE CNzbParser::startElement(
 	return S_OK;
 }
 
-// TODO: handle split calls due to entities (see CRssParser::characters())
+// Note: the SAX parser issues multiple "characters" calls, when entities are embedded
+// e.g. hello&amp;world will result in calls "hello", "&" and "world", so make sure to concat the strings
 HRESULT STDMETHODCALLTYPE CNzbParser::characters( 
 	/* [in] */ const wchar_t *pwchChars,
 	/* [in] */ int cchChars)
 {
 	CString chars(pwchChars, cchChars);
 	if(curGroup) {
-		curFile->groups.Add(chars);
+		curGroupString += chars;
 	} else if(curSegment) {
-		curSegment->msgId = chars;
+		curSegment->msgId += chars;
 	}
 
 	return S_OK;
@@ -197,6 +200,7 @@ HRESULT STDMETHODCALLTYPE CNzbParser::endElement(
 {
 	CString localName(pwchLocalName, cchLocalName);
 	if(localName == _T("group")) {
+		curFile->groups.Add(curGroupString);
 		curGroup = false;
 	} else if(localName == _T("segment")) {
 		curSegment = NULL;
@@ -394,6 +398,10 @@ bool CNzb::CreateFromPath(const CString& nzbPath)
 		name = nzbPath.Mid(slash+1);
 	else
 		name = nzbPath;
+
+	CString right = name.Right(4);
+	if(!right.CompareNoCase(_T(".nzb")))
+		name = name.Left(name.GetLength() - 4);
 
 	CopyFile(nzbPath, GetLocalPath(), FALSE);
 
