@@ -49,7 +49,7 @@ public:
 	void Add(CNzb* nzb);
 	LRESULT OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
 
-	void Par2Repair(CParFile* par2file);
+	void Par2Repair(CParFile* par2file, bool allowJoin = true);
 	void Par2Cleanup(CParSet* parSet);
 	bool UncompressRAR(CNzbFile* file);
 	__int64 GetRarTotalSize(const CString& rarfile);

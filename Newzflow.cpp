@@ -331,7 +331,7 @@ CNewzflow::~CNewzflow()
 		CNzb* postProcNzb = (CNzb*)postProcessor->currentNzb;
 		if(postProcNzb) {
 			CString s;
-			s.Format(_T("Waiting for post processor: %s..."), GetNzbStatusString(postProcNzb->status, postProcNzb->done));
+			s.Format(_T("Waiting for post processor: %s..."), GetNzbStatusString(postProcNzb->status, postProcNzb->postProcStatus, postProcNzb->done));
 			dlg.text.SetWindowText(s);
 		}
 	}
@@ -363,7 +363,8 @@ CNewzflow* CNewzflow::Instance()
 }
 
 // Downloaders get next segment to download
-CNzbSegment* CNewzflow::GetSegment()
+// to check if there's a segment, set bTestOnly = true, but don't do anything with the returning pointer except checking for NULL
+CNzbSegment* CNewzflow::GetSegment(bool bTestOnly /*= false*/)
 {
 	CLock lock;
 	if(shuttingDown)
@@ -371,8 +372,8 @@ CNzbSegment* CNewzflow::GetSegment()
 
 	for(size_t i = 0; i < nzbs.GetCount(); i++) {
 		CNzb* nzb = nzbs[i];
-		if(nzb->status != kQueued && nzb->status != kDownloading)
-			continue;
+		//if(nzb->status == kQueued && nzb->status != kDownloading)
+		//	continue;
 		for(size_t j = 0; j < nzb->files.GetCount(); j++) {
 			CNzbFile* file = nzb->files[j];
 			if(file->status != kQueued && file->status != kDownloading)
@@ -381,8 +382,10 @@ CNzbSegment* CNewzflow::GetSegment()
 				CNzbSegment* segment = file->segments[k];
 				if(segment->status != kQueued)
 					continue;
-				segment->status = file->status = nzb->status = kDownloading;
-				nzb->refCount++;
+				if(!bTestOnly) {
+					segment->status = file->status = nzb->status = kDownloading;
+					nzb->refCount++;
+				}
 				return segment;
 			}
 		}
@@ -392,27 +395,7 @@ CNzbSegment* CNewzflow::GetSegment()
 
 bool CNewzflow::HasSegment()
 {
-	CLock lock;
-	if(shuttingDown)
-		return false;
-
-	for(size_t i = 0; i < nzbs.GetCount(); i++) {
-		CNzb* nzb = nzbs[i];
-		if(nzb->status != kQueued && nzb->status != kDownloading)
-			continue;
-		for(size_t j = 0; j < nzb->files.GetCount(); j++) {
-			CNzbFile* file = nzb->files[j];
-			if(file->status != kQueued && file->status != kDownloading)
-				continue;
-			for(size_t k = 0; k < file->segments.GetCount(); k++) {
-				CNzbSegment* segment = file->segments[k];
-				if(segment->status != kQueued)
-					continue;
-				return true;
-			}
-		}
-	}
-	return false;
+	return GetSegment(true) != NULL;
 }
 
 // Downloader/DiskWriter is finished with a segment
@@ -635,6 +618,10 @@ bool CNewzflow::ReadQueue()
 						if(seg->status == kDownloading)
 							seg->status = kQueued;
 					}
+					if(file->status == kDownloading)
+						file->status = kQueued;
+					if(file->status == kQueued) // there's a queued file, downloaders need to be created
+						ret = true;
 				}
 				size_t parCount = mf.Read<size_t>();
 				ASSERT(parCount == nzb->parSets.GetCount());
@@ -643,8 +630,6 @@ bool CNewzflow::ReadQueue()
 					parSet->completed = !!mf.Read<char>();
 				}
 				newNzbs.Add(nzb);
-				if(nzb->status == kQueued) // if NZB hasn't finished downloading, downloaders need to be created
-					ret = true;
 			} else { // NZB-file in %appdir% doesn't exist, so we need to skip all the data for this NZB in the queue file
 				delete nzb;
 				mf.ReadString(); // path
@@ -725,4 +710,9 @@ void CNewzflow::SetSpeedLimit(int limit)
 	for(size_t i = 0; i < downloaders.GetCount(); i++) {
 		downloaders[i]->sock.SetLimit();
 	}
+}
+
+void CNewzflow::AddPostProcessor(CNzb* nzb)
+{
+	postProcessor->Add(nzb);
 }

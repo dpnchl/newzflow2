@@ -363,6 +363,27 @@ LRESULT CMainFrame::OnNzbRemove(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndC
 	return 0;
 }
 
+LRESULT CMainFrame::OnNzbMoveUp(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
+{
+	{ CNewzflow::CLock lock;
+		for(int item = m_list.GetNextItem(-1, LVNI_SELECTED); item != -1; item = m_list.GetNextItem(item, LVNI_SELECTED)) {
+			CNzb* nzb = (CNzb*)m_list.GetItemData(item);
+			ASSERT(CNewzflow::Instance()->nzbs[item] == nzb);
+			// can't move up if we're already at the top
+			if(item == 0)
+				break;
+			std::swap(CNewzflow::Instance()->nzbs[item-1], CNewzflow::Instance()->nzbs[item]);
+		}
+	}
+	SendMessage(WM_TIMER);
+	return 0;
+}
+
+LRESULT CMainFrame::OnNzbMoveDown(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
+{
+	return 0;
+}
+
 LRESULT CMainFrame::OnViewToolBar(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 {
 	BOOL bVisible = !::IsWindowVisible(m_hWndToolBar);
@@ -468,6 +489,29 @@ LRESULT CMainFrame::OnNzbChanged(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled*
 	return 0;
 }
 
+void CMainFrame::UpdateNzbButtons()
+{
+	bool enable = m_list.GetSelectedCount() > 0;
+	/*
+	bool allStopped = true;
+	bool allStarted = true;
+	int item = -1;
+	for(;;) {
+	item = m_list.GetNextItem(item, LVNI_SELECTED);
+	if(item == -1)
+	break;
+	CNzb* nzb = (CNzb*)m_list.GetItemData(item);
+	if(nzb->status != kDownloading) allStarted = FALSE;
+	}
+	*/
+	UIEnable(ID_NZB_START, enable);
+	UIEnable(ID_NZB_PAUSE, enable);
+	UIEnable(ID_NZB_STOP, enable);
+	UIEnable(ID_NZB_REMOVE, enable);
+	UIEnable(ID_NZB_MOVE_UP, enable);
+	UIEnable(ID_NZB_MOVE_DOWN, enable);
+}
+
 LRESULT CMainFrame::OnTaskbarButtonCreated(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
 {
 	DWORD dwMajor = LOBYTE(LOWORD(GetVersion()));
@@ -507,29 +551,6 @@ BOOL CMainFrame::HandleDroppedFile(LPCTSTR szBuff)
 
 void CMainFrame::EndDropFiles()
 {
-}
-
-void CMainFrame::UpdateNzbButtons()
-{
-	bool enable = m_list.GetSelectedCount() > 0;
-	/*
-	bool allStopped = true;
-	bool allStarted = true;
-	int item = -1;
-	for(;;) {
-	item = m_list.GetNextItem(item, LVNI_SELECTED);
-	if(item == -1)
-	break;
-	CNzb* nzb = (CNzb*)m_list.GetItemData(item);
-	if(nzb->status != kDownloading) allStarted = FALSE;
-	}
-	*/
-	UIEnable(ID_NZB_START, enable);
-	UIEnable(ID_NZB_PAUSE, enable);
-	UIEnable(ID_NZB_STOP, enable);
-	UIEnable(ID_NZB_REMOVE, enable);
-	UIEnable(ID_NZB_MOVE_UP, enable);
-	UIEnable(ID_NZB_MOVE_DOWN, enable);
 }
 
 // CNewzflowStatusBarCtrl

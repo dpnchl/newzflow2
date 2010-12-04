@@ -101,17 +101,15 @@ int CNzbView::OnRefresh()
 			SetItemTextEx(i, kName, nzb->name);
 			int image;
 			switch(nzb->status) {
-			case kEmpty:		image = ilQueued; break;
-			case kFetching:		image = ilQueued; break;
-			case kQueued:		image = ilQueued; break;
-			case kDownloading:	image = ilDownloading; break;
-			case kCompleted:	image = ilCompleted; break;
-			case kError:		image = ilError; break;
-			case kVerifying:	image = ilVerifying; break;
-			case kRepairing:	image = ilVerifying; break;
-			case kUnpacking:	image = ilVerifying; break;
-			case kFinished:		image = ilCompleted; break;
-			default:			image = ilQueued; break;
+			case kEmpty:			image = ilQueued; break;
+			case kFetching:			image = ilQueued; break;
+			case kQueued:			image = ilQueued; break;
+			case kDownloading:		image = ilDownloading; break;
+			case kCompleted:		image = ilCompleted; break;
+			case kError:			image = ilError; break;
+			case kPostProcessing:	image = ilVerifying; break;
+			case kFinished:			image = ilCompleted; break;
+			default:				image = ilQueued; break;
 			}
 			SetItemEx(i, kName, LVIF_IMAGE, NULL, image, 0, 0, 0);
 			s.Format(_T("%d"), i+1);
@@ -140,7 +138,7 @@ int CNzbView::OnRefresh()
 				SetItemTextEx(i, kSize, _T(""));
 				SetItemTextEx(i, kDone, _T(""));
 			}
-			SetItemTextEx(i, kStatus, GetNzbStatusString(nzb->status, nzb->done, nzb->setDone, nzb->setTotal));
+			SetItemTextEx(i, kStatus, GetNzbStatusString(nzb->status, nzb->postProcStatus, nzb->done, nzb->setDone, nzb->setTotal));
 			if(left > 0) {
 				if(speed > 1024) {
 					eta += left / speed;
@@ -208,9 +206,36 @@ const CDynamicColumns<CNzbView>::ColumnInfo* CNzbView::GetColumnInfoArray()
 	return s_columnInfo;
 }
 
-#if 0
-	BOOL b;
-	OnTimer(WM_TIMER, 0, 0, b);
+LRESULT CNzbView::OnRClick(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/)
+{
+#ifdef _DEBUG
+	if(m_menu.IsNull())
+		m_menu.LoadMenu(IDR_NZBVIEW);
+
+	DWORD lParam = GetMessagePos();
+	CPoint ptScreen(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+
+	if(GetNextItem(-1, LVNI_SELECTED) != -1) {
+		m_menu.GetSubMenu(0).TrackPopupMenu(TPM_RIGHTBUTTON, ptScreen.x, ptScreen.y, *this);
+	}
+#endif // _DEBUG
 
 	return 0;
-#endif
+}
+
+LRESULT CNzbView::OnDebugPostprocess(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
+{
+	{ CNewzflow::CLock lock;
+		for(int item = GetNextItem(-1, LVNI_SELECTED); item != -1; item = GetNextItem(item, LVNI_SELECTED)) {
+			CNzb* nzb = (CNzb*)GetItemData(item);
+			if(nzb->status != kPostProcessing) {
+				for(size_t i = 0; i < nzb->parSets.GetCount(); i++) {
+					nzb->parSets[i]->completed = false;
+				}
+				CNewzflow::Instance()->AddPostProcessor(nzb);
+			}
+		}
+	}
+
+	return 0;
+}

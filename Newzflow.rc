@@ -282,6 +282,23 @@ BEGIN
     END
 END
 
+IDR_FILEVIEW MENU 
+BEGIN
+    POPUP "Popup"
+    BEGIN
+        MENUITEM "Pause",                       ID_FILE_PAUSE
+        MENUITEM "Unpause",                     ID_FILE_UNPAUSE
+    END
+END
+
+IDR_NZBVIEW MENU 
+BEGIN
+    POPUP "Debug"
+    BEGIN
+        MENUITEM "PostProcess",                 ID_DEBUG_POSTPROCESS
+    END
+END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //

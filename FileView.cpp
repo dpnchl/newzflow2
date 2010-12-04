@@ -111,6 +111,63 @@ LRESULT CFileView::OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, 
 	return 0;
 }
 
+LRESULT CFileView::OnRClick(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/)
+{
+	if(m_menu.IsNull())
+		m_menu.LoadMenu(IDR_FILEVIEW);
+
+	DWORD lParam = GetMessagePos();
+	CPoint ptScreen(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+
+	bool canPause = false, canUnpause = false;
+
+	{ CNewzflow::CLock lock;
+		for(int item = GetNextItem(-1, LVNI_SELECTED); item != -1; item = GetNextItem(item, LVNI_SELECTED)) {
+			CNzbFile* file = (CNzbFile*)GetItemData(item);
+			if(file->status == kQueued || file->status == kDownloading)
+				canPause = true;
+			if(file->status == kPaused)
+				canUnpause = true;
+		}
+	}
+
+	m_menu.GetSubMenu(0).EnableMenuItem(ID_FILE_PAUSE, (canPause ? MF_ENABLED : MF_DISABLED) | MF_BYCOMMAND);
+	m_menu.GetSubMenu(0).EnableMenuItem(ID_FILE_UNPAUSE, (canUnpause ? MF_ENABLED : MF_DISABLED) | MF_BYCOMMAND);
+	m_menu.GetSubMenu(0).TrackPopupMenu(TPM_RIGHTBUTTON, ptScreen.x, ptScreen.y, *this);
+
+	return 0;
+}
+
+LRESULT CFileView::OnFilePause(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
+{
+	{ CNewzflow::CLock lock;
+		for(int item = GetNextItem(-1, LVNI_SELECTED); item != -1; item = GetNextItem(item, LVNI_SELECTED)) {
+			CNzbFile* file = (CNzbFile*)GetItemData(item);
+			if(file->status == kQueued || file->status == kDownloading)
+				file->status = kPaused;
+		}
+	}
+	SendMessage(WM_TIMER);
+	// we should send the main window WM_TIMER to refresh, but don't know how to get a handle to the main window
+	return 0;
+}
+
+LRESULT CFileView::OnFileUnpause(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
+{
+	{ CNewzflow::CLock lock;
+		for(int item = GetNextItem(-1, LVNI_SELECTED); item != -1; item = GetNextItem(item, LVNI_SELECTED)) {
+			CNzbFile* file = (CNzbFile*)GetItemData(item);
+			if(file->status == kPaused)
+				file->status = kQueued;
+		}
+	}
+	CNewzflow::Instance()->CreateDownloaders();
+	SendMessage(WM_TIMER);
+	// we should send the main window WM_TIMER to refresh, but don't know how to get a handle to the main window
+	return 0;
+}
+
+// CCustomDraw
 DWORD CFileView::OnPrePaint(int /*idCtrl*/, LPNMCUSTOMDRAW /*lpNMCustomDraw*/)
 {
 	return CDRF_NOTIFYITEMDRAW;
