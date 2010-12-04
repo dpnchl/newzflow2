@@ -194,6 +194,8 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 
 	RegisterDropHandler();
 
+	Util::SetMainWindow(*this);
+
 	if(CNewzflow::Instance()->ReadQueue()) // TODO: move somewhere else?!
 		CNewzflow::Instance()->CreateDownloaders();
 	SendMessage(WM_TIMER); // to update views
@@ -209,6 +211,8 @@ LRESULT CMainFrame::OnDestroy(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*
 	GetWindowPlacement(&wp);
 	CNewzflow::Instance()->settings->SetWindowPos(wp.rcNormalPosition, wp.showCmd);
 	CNewzflow::Instance()->settings->SetSplitPos(m_vertSplitY);
+
+	Util::SetMainWindow(NULL);
 
 	// unregister message filtering and idle updates
 	CMessageLoop* pLoop = _Module.GetMessageLoop();
@@ -305,12 +309,127 @@ public:
 	CString m_sUrl;
 };
 
+class CSaveNzbDialog : public CDialogImplEx<CSaveNzbDialog>, public CWinDataExchangeEx<CSaveNzbDialog>
+{
+public:
+	enum { IDD = IDD_SAVE_NZB };
+
+	// Construction
+	CSaveNzbDialog(CNzb* _nzb, int _errorCode)
+	{
+		{ CNewzflow::CLock lock;
+		nzb = _nzb;
+		nzb->refCount++; // so it doesn't get deleted while we're displaying this dialog
+		}
+		errorCode = _errorCode;
+	}
+	~CSaveNzbDialog()
+	{
+		{ CNewzflow::CLock lock;
+		nzb->refCount--;
+		}
+	}
+
+	// Maps
+	BEGIN_MSG_MAP(CSaveNzbDialog)
+		MSG_WM_INITDIALOG(OnInitDialog)
+		MESSAGE_HANDLER(WM_CLOSE, OnClose)
+		COMMAND_HANDLER(IDC_DIRECTORY_BUTTON, BN_CLICKED, OnDirectoryButton)
+		COMMAND_HANDLER(IDOK, BN_CLICKED, OnOK)
+		COMMAND_HANDLER(IDCANCEL, BN_CLICKED, OnCancel)
+		CHAIN_MSG_MAP(CWinDataExchangeEx<CSaveNzbDialog>)
+	END_MSG_MAP()
+
+	BEGIN_DDX_MAP(CSaveNzbDialog)
+		DDX_TEXT(IDC_DIRECTORY, m_sDirectory)
+	END_DDX_MAP()
+
+	// Message handlers
+	BOOL OnInitDialog(HWND hwndFocus, LPARAM lParam)
+	{
+		SetWindowText(nzb->name);
+		CenterWindow(GetParent());
+		m_sDirectory = CNewzflow::Instance()->settings->GetDownloadDir();
+		DoDataExchange(false);
+		ShowWindow(SW_SHOW);
+		CComboBoxEx wDirectory(GetDlgItem(IDC_DIRECTORY));
+
+		CAtlArray<CString>& history = CNewzflow::Instance()->settings->downloadDirHistory;
+		for(size_t i = 0; i < history.GetCount(); i++) {
+			wDirectory.AddItem(history[i], 0, 0, 0);
+		}
+
+		SHAutoComplete(wDirectory.GetEditCtrl(), SHACF_FILESYS_DIRS);
+		if(errorCode != ERROR_SUCCESS) {
+			OnDataCustomError(IDC_DIRECTORY, Util::GetErrorMessage(errorCode));
+			return FALSE;
+		} else {
+			return TRUE;
+		}
+	}
+	LRESULT OnDirectoryButton(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
+	{
+		CString sDir;
+		GetDlgItemText(IDC_DIRECTORY, sDir);
+		sDir = Util::BrowseForFolder(*this, NULL, sDir);
+		if(IsWindow()) // window could have been destroyed while folder dialog was blocking us
+			SetDlgItemText(IDC_DIRECTORY, sDir);
+		return 0;
+	}
+	LRESULT OnOK(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
+	{
+		DoDataExchange(true);
+		if(nzb->SetPath(m_sDirectory, NULL, &errorCode)) {
+			CAtlArray<CString>& history = CNewzflow::Instance()->settings->downloadDirHistory;
+			bool dupe = false;
+			for(size_t i = 0; i < history.GetCount(); i++) {
+				if(m_sDirectory == history[i]) {
+					dupe = true;
+					break;
+				}
+			}
+			if(!dupe)
+				history.InsertAt(0, m_sDirectory);
+			CNewzflow::Instance()->controlThread->CreateDownloaders();
+			DestroyWindow();
+		} else {
+			OnDataCustomError(IDC_DIRECTORY, Util::GetErrorMessage(errorCode));
+		}
+		return 0;
+	}
+	void Cancel()
+	{
+		CNewzflow::Instance()->RemoveNzb(nzb);
+		DestroyWindow();
+	}
+	LRESULT OnCancel(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
+	{
+		Cancel();
+		return 0;
+	}
+	LRESULT OnClose(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)
+	{
+		Cancel();
+		return 0;
+	}
+	virtual void OnFinalMessage(HWND)
+	{
+		delete this;
+	}
+
+	// DDX variables
+	CString m_sDirectory;
+	CNzb* nzb;
+	int errorCode;
+};
+
 LRESULT CMainFrame::OnFileAddUrl(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 {
 	CAddNzbUrlDialog dlg;
 	if(dlg.DoModal(*this)) {
 		CNewzflow::Instance()->controlThread->AddURL(dlg.m_sUrl);
 	}
+
 	return 0;
 }
 
@@ -348,6 +467,16 @@ LRESULT CMainFrame::OnFileAddUrl(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWnd
 	CNewzflow::Instance()->nzbs.Add(nzb);
 	CNewzflow::Instance()->UpdateFile(nzb->files[0], kCompleted);
 */
+
+LRESULT CMainFrame::OnSaveNzb(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOOL& /*bHandled*/)
+{
+	CNzb* nzb = (CNzb*)wParam;
+	int errorCode = (int)lParam;
+	CSaveNzbDialog* dlg = new CSaveNzbDialog(nzb, errorCode);
+	dlg->Create(*this);
+
+	return 0;
+}
 
 LRESULT CMainFrame::OnNzbRemove(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 {

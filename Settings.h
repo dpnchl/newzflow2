@@ -29,6 +29,8 @@ public:
 
 	const CString& GetAppDataDir();
 
+	CAtlArray<CString> downloadDirHistory;
+
 protected:
 	CString m_appData, m_ini;
 };
