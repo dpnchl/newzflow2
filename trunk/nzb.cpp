@@ -387,7 +387,7 @@ bool CNzb::CreateFromPath(const CString& nzbPath)
 	if(!Parse(nzbPath))
 		return false;
 
-	status = kQueued;
+	status = kPaused;
 
 	// pause all PARs except for the smallest in each ParSet
 	for(size_t i = 0; i < parSets.GetCount(); i++) {
@@ -420,7 +420,7 @@ bool CNzb::CreateFromLocal()
 	if(!Parse(GetLocalPath()))
 		return false;
 
-	status = kQueued;
+	status = kPaused;
 
 	// pause all PARs except for the smallest in each ParSet
 	for(size_t i = 0; i < parSets.GetCount(); i++) {
@@ -453,15 +453,36 @@ CString CNzb::GetLocalPath()
 	return CNewzflow::Instance()->settings->GetAppDataDir() + CComBSTR(guid) + _T(".nzb");
 }
 
-void CNzb::SetPath(LPCTSTR _path, LPCTSTR _name)
+bool CNzb::SetPath(LPCTSTR _path, LPCTSTR _name, int* errorCode)
 {
+	CString tmpPath;
+
 	ASSERT(_path);
-	path = _path;
-	if(path.Right(1) != _T("\\")) path += '\\';
+	tmpPath = _path;
+	if(tmpPath.Right(1) != _T("\\")) tmpPath += '\\';
 	if(_name) 
-		path += _name;
+		tmpPath += _name;
 	else
-		path += name;
+		tmpPath += name;
+
+	// check if path is valid; try to create & remove (it will be re-created later by CDiskWriter)
+	int result = Util::TestCreateDirectory(tmpPath);
+	if(result != ERROR_SUCCESS && result != ERROR_ALREADY_EXISTS && result != ERROR_FILE_EXISTS) {
+		if(errorCode)
+			*errorCode = result;
+		return false;
+	}
+
+	if(errorCode)
+		*errorCode = ERROR_SUCCESS;
+
+	path = tmpPath;
+
+	if(status == kPaused) {
+		status = kQueued;
+		CNewzflow::Instance()->controlThread->CreateDownloaders();
+	}
+	return true;
 }
 
 CNzbFile* CNzb::FindFile(const CString& name)

@@ -8,6 +8,7 @@
 #include "Util.h"
 #include "Settings.h"
 #include "HttpDownloader.h"
+#include "MainFrm.h"
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
@@ -87,7 +88,9 @@ LRESULT CNewzflowThread::OnAddNzb(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL&
 			if(nzb->CreateFromLocal()) {
 				{ CNewzflow::CLock lock;
 					nzb->name = outFilename; // adjust the name
-					nzb->SetPath(CNewzflow::Instance()->settings->GetDownloadDir(), NULL);
+					int error = ERROR_SUCCESS;
+					if(CNewzflow::Instance()->settings->GetDownloadDir().IsEmpty() || !nzb->SetPath(CNewzflow::Instance()->settings->GetDownloadDir(), NULL, &error))
+						Util::GetMainWindow().PostMessage(CMainFrame::MSG_SAVE_NZB, (WPARAM)nzb, (LPARAM)error);
 					nzb->refCount--;
 				}
 				CNewzflow::Instance()->CreateDownloaders();
@@ -107,7 +110,9 @@ LRESULT CNewzflowThread::OnAddNzb(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL&
 		}
 	} else {
 		if(nzb->CreateFromPath(*nzbUrl)) {
-			nzb->SetPath(CNewzflow::Instance()->settings->GetDownloadDir(), NULL);
+			int error = ERROR_SUCCESS;
+			if(CNewzflow::Instance()->settings->GetDownloadDir().IsEmpty() || !nzb->SetPath(CNewzflow::Instance()->settings->GetDownloadDir(), NULL, &error))
+				Util::GetMainWindow().PostMessage(CMainFrame::MSG_SAVE_NZB, (WPARAM)nzb, (LPARAM)error);
 			{ CNewzflow::CLock lock;
 				CNewzflow::Instance()->nzbs.Add(nzb);
 			}
@@ -372,8 +377,8 @@ CNzbSegment* CNewzflow::GetSegment(bool bTestOnly /*= false*/)
 
 	for(size_t i = 0; i < nzbs.GetCount(); i++) {
 		CNzb* nzb = nzbs[i];
-		//if(nzb->status == kQueued && nzb->status != kDownloading)
-		//	continue;
+		if(nzb->status == kPaused)
+			continue;
 		for(size_t j = 0; j < nzb->files.GetCount(); j++) {
 			CNzbFile* file = nzb->files[j];
 			if(file->status != kQueued && file->status != kDownloading)
@@ -653,6 +658,11 @@ bool CNewzflow::ReadQueue()
 		}
 		{ CLock lock;
 			nzbs.Append(newNzbs);
+			// if there are NZBs that still don't have a path (user closed the app when "Save As..." dialog was shown), show the "Save As..." dialog again
+			for(size_t i = 0; i < newNzbs.GetCount(); i++) {
+				if(newNzbs[i]->path.IsEmpty())
+					Util::GetMainWindow().PostMessage(CMainFrame::MSG_SAVE_NZB, (WPARAM)newNzbs[i]);
+			}
 		}
 	}
 	return ret;

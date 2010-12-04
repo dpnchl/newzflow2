@@ -323,14 +323,7 @@ void CALLBACK CHttpDownloader::StatusCallback(HINTERNET hInternet, DWORD_PTR dwC
 CString CHttpDownloader::GetLastError()
 {
 	int errCode = ::GetLastError();
-
-	LPTSTR errString = NULL;  // will be allocated and filled by FormatMessage
-	FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, 0, errCode, 0, (LPTSTR)&errString, 0, 0);
-
-	CString s(errString);
-	LocalFree(errString);
-
-	return s;
+	return Util::GetErrorMessage(errCode);
 }
 
 CString CHttpDownloader::GetHeader(HINTERNET hRequest, DWORD infoLevel)

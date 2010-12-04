@@ -22,7 +22,6 @@ CSettingsServerPage::CSettingsServerPage()
 	m_nConnections = settings->GetConnections();
 	m_nSpeedLimit = min(60000, max(0, settings->GetSpeedLimit() / 1024));
 	m_bSpeedLimitActive = m_nSpeedLimit != 0;
-
 }
 
 CSettingsServerPage::~CSettingsServerPage()
@@ -54,7 +53,7 @@ BOOL CSettingsServerPage::OnKillActive()
 	return DoDataExchange(true) ? PSNRET_NOERROR : PSNRET_INVALID;
 }
 
-LRESULT CSettingsServerPage::OnChange(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
+LRESULT CSettingsServerPage::OnChange(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& bHandled)
 {
 	static bool bLocked = false;
 	if(bLocked) return 0;
@@ -69,6 +68,8 @@ LRESULT CSettingsServerPage::OnChange(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /
 
 	bLocked = false;
 	SetModified(TRUE);
+
+	bHandled = FALSE;
 	return 0;
 }
 
@@ -97,7 +98,7 @@ BOOL CSettingsDirectoriesPage::OnInitDialog(HWND hwndFocus, LPARAM lParam)
 	return TRUE;
 }
 
-LRESULT CSettingsDirectoriesPage::OnChange(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
+LRESULT CSettingsDirectoriesPage::OnChange(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& bHandled)
 {
 	static bool bLocked = false;
 	if(bLocked) return 0;
@@ -115,6 +116,9 @@ LRESULT CSettingsDirectoriesPage::OnChange(WORD /*wNotifyCode*/, WORD /*wID*/, H
 
 	bLocked = false;
 	SetModified(TRUE);
+
+	bHandled = FALSE;
+
 	return 0;
 }
 
@@ -133,7 +137,32 @@ int CSettingsDirectoriesPage::OnApply()
 
 BOOL CSettingsDirectoriesPage::OnKillActive()
 {
-	return DoDataExchange(true) ? PSNRET_NOERROR : PSNRET_INVALID;
+	if(DoDataExchange(true)) {
+		if(m_bDownloadDir) {
+			int result = Util::TestCreateDirectory(m_sDownloadDir);
+			if(result != ERROR_SUCCESS && result != ERROR_ALREADY_EXISTS && result != ERROR_FILE_EXISTS) {
+				OnDataCustomError(IDC_DOWNLOAD_DIR, Util::GetErrorMessage(result));
+				return PSNRET_INVALID;
+			}
+		}
+		if(m_bCompletedDir) {
+			int result = Util::TestCreateDirectory(m_sCompletedDir);
+			if(result != ERROR_SUCCESS && result != ERROR_ALREADY_EXISTS && result != ERROR_FILE_EXISTS) {
+				OnDataCustomError(IDC_COMPLETED_DIR, Util::GetErrorMessage(result));
+				return PSNRET_INVALID;
+			}
+		}
+		if(m_bWatchDir) {
+			int result = Util::TestCreateDirectory(m_sWatchDir);
+			if(result != ERROR_SUCCESS && result != ERROR_ALREADY_EXISTS && result != ERROR_FILE_EXISTS) {
+				OnDataCustomError(IDC_WATCH_DIR, Util::GetErrorMessage(result));
+				return PSNRET_INVALID;
+			}
+		}
+		return PSNRET_NOERROR;
+	} else {
+		return PSNRET_INVALID;
+	}
 }
 
 void CSettingsDirectoriesPage::OnDownloadDirButton(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/)
@@ -198,6 +227,7 @@ void CSettingsSheet::Show(HWND hWndParent)
 	}
 }
 
+// is also called from ~CMainFrame()
 void CSettingsSheet::Cleanup()
 {
 	if(s_pLastInstance) {

@@ -254,6 +254,43 @@ namespace Util
 				return initialDir;
 		}
 	}
+
+	static CWindow mainWindow;
+	CWindow GetMainWindow()
+	{
+		return mainWindow;
+	}
+
+	void SetMainWindow(CWindow wnd)
+	{
+		mainWindow = wnd;
+	}
+
+	CString GetErrorMessage(int errCode)
+	{
+		LPTSTR errString = NULL;  // will be allocated and filled by FormatMessage
+		FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, 0, errCode, 0, (LPTSTR)&errString, 0, 0);
+
+		CString s(errString);
+		LocalFree(errString);
+
+		return s;
+	}
+
+	int TestCreateDirectory(const CString& path)
+	{
+		// check if path is valid; try to create
+		int result = SHCreateDirectoryEx(NULL, path, NULL);
+		if(result != ERROR_SUCCESS && result != ERROR_ALREADY_EXISTS && result != ERROR_FILE_EXISTS) {
+			return result;
+		}
+
+		// if we created a new path, remove it
+		if(result != ERROR_ALREADY_EXISTS && result != ERROR_FILE_EXISTS)
+			RemoveDirectory(path);
+
+		return result;
+	}
 };
 
 // CToolBarImageList

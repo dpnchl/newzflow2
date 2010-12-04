@@ -15,6 +15,10 @@ namespace Util
 	void RegisterAssoc(HINSTANCE hInstance);
 	void UnregisterAssoc();
 	CString BrowseForFolder(HWND hwndParent, const TCHAR* title, const TCHAR* initialDir);
+	CWindow GetMainWindow();
+	void SetMainWindow(CWindow wnd);
+	CString GetErrorMessage(int error);
+	int TestCreateDirectory(const CString& path); // return: system error codes (ERROR_SUCCESS, ...)
 };
 
 class CToolBarImageList

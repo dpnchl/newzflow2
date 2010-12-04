@@ -9,7 +9,7 @@
 // We need _WIN32_WINNT 0x0600 for the CShellFileOpenDialog; CFolderDialog used on Windows XP
 #define WINVER			0x0600 // _WIN32_WINNT_VISTA
 #define _WIN32_WINNT	0x0600 // _WIN32_WINNT_VISTA
-#define _WIN32_IE		0x0501 // _WIN32_IE_IE501
+#define _WIN32_IE		0x0600 // _WIN32_IE_IE60
 #define _RICHEDIT_VER	0x0200
 
 /*
@@ -69,6 +69,9 @@ extern CAppModule _Module;
 #include <atltheme.h>
 #include <atlddx.h>
 #include <atlcrack.h>
+
+// Shell
+#include <Shlwapi.h>
 
 #include "atlwfile.h"
 #include "Thread.h"

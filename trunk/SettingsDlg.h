@@ -13,10 +13,10 @@ public:
 
 	// Maps
 	BEGIN_MSG_MAP(CSettingsServerPage)
-		CHAIN_MSG_MAP(CWinDataExchangeEx<CSettingsServerPage>) // must come first
 		MSG_WM_INITDIALOG(OnInitDialog)
 		COMMAND_CODE_HANDLER(EN_CHANGE, OnChange)
 		COMMAND_CODE_HANDLER(BN_CLICKED, OnChange)
+		CHAIN_MSG_MAP(CWinDataExchangeEx<CSettingsServerPage>)
 		CHAIN_MSG_MAP(CPropertyPageImplEx<CSettingsServerPage>)
 	END_MSG_MAP()
 
@@ -49,7 +49,7 @@ public:
 	int m_nSpeedLimit;
 };
 
-class CSettingsDirectoriesPage : public CPropertyPageImplEx<CSettingsDirectoriesPage>, public CWinDataExchange<CSettingsDirectoriesPage>
+class CSettingsDirectoriesPage : public CPropertyPageImplEx<CSettingsDirectoriesPage>, public CWinDataExchangeEx<CSettingsDirectoriesPage>
 {
 public:
 	enum { IDD = IDD_SETTINGS_DIRECTORIES };
@@ -66,6 +66,7 @@ public:
 		COMMAND_HANDLER_EX(IDC_COMPLETED_DIR_BUTTON, BN_CLICKED, OnCompletedDirButton)
 		COMMAND_HANDLER_EX(IDC_WATCH_DIR_BUTTON, BN_CLICKED, OnWatchDirButton)
 		COMMAND_CODE_HANDLER(BN_CLICKED, OnChange)
+		CHAIN_MSG_MAP(CWinDataExchangeEx<CSettingsDirectoriesPage>)
 		CHAIN_MSG_MAP(CPropertyPageImplEx<CSettingsDirectoriesPage>)
 	END_MSG_MAP()
 

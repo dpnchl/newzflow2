@@ -162,7 +162,7 @@ public:
 	bool CreateFromPath(const CString& path); // add new NZB to queue
 	bool CreateFromQueue(REFGUID guid, const CString& name); // restore from queue
 	bool CreateFromLocal();
-	void SetPath(LPCTSTR path, LPCTSTR name); // set the storage path to path\name (name=NULL => use nzb->name)
+	bool SetPath(LPCTSTR _path, LPCTSTR _name, int* errorCode); // set the storage path to path\name (name=NULL => use nzb->name)
 
 	CString GetLocalPath(); // location where .nzb is stored locally in %APPDATA%
 	void Cleanup(); // deletes local .nzb file and part files
@@ -199,7 +199,12 @@ public:
 	 from File	|	||
 	 or Queue]	|	|| [ParseNZB]
 				|	\/
-				.==>kQueued: NZB has just been parsed
+				`==>kPaused: NZB has just been parsed
+				    ||
+					|| (if no download directory is specified in Settings, ask CMainFrame to query the user for a directory)
+					|| [SetPath]
+					\/
+				.==>kQueued: NZB has a download directory
 				|	||
 				|	|| [downloading in progress]
 				|	\/

@@ -1,8 +1,8 @@
 #pragma once
 
 // use CPropertyPageImplEx instead of CPropertyPageImpl; CPropertyPageEx instead of CPropertyPage
-// and CPropertySheetImplEx instead of CPropertySheetImpl
-// use CDialogImplEx instead of CDialogImpl 
+// and CPropertySheetImplEx instead of CPropertySheetImpl (also adds support for keyboard navigation in modeless property sheets)
+// use CDialogImplEx instead of CDialogImpl (also adds support for keyboard navigation in modeless dialogs)
 // to automatically replace the property sheet's, property pages' and dialog's font with NONCLIENTMETRICS.MessageFont (Segoe UI on Vista/Win7)
 
 // use CWinDataExchangeEx instead of CWinDataExchange to enable balloon tips for data validation
@@ -34,9 +34,16 @@ namespace {
 }
 
 template <class T, class TBase = CWindow>
-class ATL_NO_VTABLE CDialogImplEx : public CDialogImplBaseT<TBase>
+class ATL_NO_VTABLE CDialogImplEx : public CDialogImplBaseT<TBase>, CMessageFilter
 {
 public:
+	~CDialogImplEx()
+	{
+		CMessageLoop* pLoop = _Module.GetMessageLoop();
+		ATLASSERT(pLoop != NULL);
+		pLoop->RemoveMessageFilter(this);
+	}
+
 	// modal dialogs
 	INT_PTR DoModal(HWND hWndParent = ::GetActiveWindow(), LPARAM dwInitParam = NULL)
 	{
@@ -89,6 +96,10 @@ public:
 		if(!pDlgTemplate)
 			return NULL;
 
+		CMessageLoop* pLoop = _Module.GetMessageLoop();
+		ATLASSERT(pLoop != NULL);
+		pLoop->AddMessageFilter(this);
+
 		_AtlWinModule.AddCreateWndData(&m_thunk.cd, (CDialogImplBaseT< TBase >*)this);
 		HWND hWnd = ::CreateDialogIndirectParam(_AtlBaseModule.GetResourceInstance(), pDlgTemplate, hWndParent, T::StartDialogProc, dwInitParam);
 		delete (char*)pDlgTemplate;
@@ -104,6 +115,16 @@ public:
 	{
 		ATLASSERT(::IsWindow(m_hWnd));
 		return ::DestroyWindow(m_hWnd);
+	}
+	BOOL PreTranslateMessage(MSG* pMsg)
+	{
+		if(pMsg && ((m_hWnd == pMsg->hwnd) || ::IsChild(m_hWnd, pMsg->hwnd))) {
+			// Only check keyboard message
+			if(pMsg->message >= WM_KEYFIRST && pMsg->message <= WM_KEYLAST) {
+				return IsDialogMessage(pMsg);
+			}
+		}
+		return FALSE;
 	}
 private:
 	DLGTEMPLATE* GetDlgTemplate(HWND hWndParent)
@@ -237,6 +258,8 @@ public:
 	BEGIN_MSG_MAP(CWinDataExchangeEx<T>)
 		COMMAND_CODE_HANDLER(EN_CHANGE, OnChange)
 		COMMAND_CODE_HANDLER(EN_KILLFOCUS, OnEnKillFocus);
+		COMMAND_CODE_HANDLER(CBN_EDITCHANGE, OnChange)
+		COMMAND_CODE_HANDLER(CBN_KILLFOCUS, OnEnKillFocus);
 		MESSAGE_RANGE_HANDLER(WM_MOUSEFIRST, WM_MOUSELAST, OnMouseMessage)
 	END_MSG_MAP()
 

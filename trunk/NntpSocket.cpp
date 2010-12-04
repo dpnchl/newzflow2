@@ -201,12 +201,7 @@ CString CNntpSocket::GetLastError()
 {
 	int errCode = WSAGetLastError();
 
-	LPTSTR errString = NULL;  // will be allocated and filled by FormatMessage
-	FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, 0, errCode, 0, (LPTSTR)&errString, 0, 0);
-
-	CString s(errString);
-	LocalFree(errString);
-
+	CString s = Util::GetErrorMessage(errCode);
 	Util::Print(s);
 
 	return s;

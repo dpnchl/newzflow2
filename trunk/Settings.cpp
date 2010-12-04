@@ -15,10 +15,23 @@ CSettings::CSettings()
 	m_appData += _T("\\Newzflow\\");
 	CreateDirectory(m_appData, NULL);
 	m_ini = m_appData + _T("Newzflow.ini");
+
+	for(int i = 0; i < 10; i++) {
+		CString sKey;
+		sKey.Format(_T("DownloadDir%d"), i);
+		CString sDir = GetIni(_T("History"), sKey);
+		if(!sDir.IsEmpty())
+			downloadDirHistory.Add(sDir);
+	}
 }
 
 CSettings::~CSettings()
 {
+	for(size_t i = 0; i < 10; i++) {
+		CString sKey;
+		sKey.Format(_T("DownloadDir%d"), i);
+		SetIni(_T("History"), sKey, i < downloadDirHistory.GetCount() ? downloadDirHistory[i] : _T(""));
+	}
 }
 
 CRect CSettings::GetWindowPos(int& showCmd)
@@ -153,5 +166,8 @@ void CSettings::SetConnections(int connections)
 
 CString CSettings::GetDownloadDir()
 {
-	return GetIni(_T("Directories"), _T("Download"), _T(""));
+	if(GetIni(_T("Directories"), _T("UseDownload"), _T("0")) != _T("0"))
+		return GetIni(_T("Directories"), _T("Download"), _T(""));
+	else
+		return _T("");
 }
