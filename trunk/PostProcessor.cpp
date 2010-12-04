@@ -219,7 +219,8 @@ LRESULT CPostProcessor::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 		}
 
 		if(finished) {
-			nzb->status = kUnpacking;
+			nzb->status = kPostProcessing;
+			nzb->postProcStatus = kUnpacking;
 			nzb->refCount++;
 		} else
 			nzb->status = kQueued;
@@ -290,7 +291,10 @@ LRESULT CPostProcessor::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 	return 0;
 }
 
-void CPostProcessor::Par2Repair(CParFile* par2file)
+// verify & repair par2file
+// if allowJoin, split files are detected, joined, and par2file is verified & repaired again
+// (used to prevent infinite recursion)
+void CPostProcessor::Par2Repair(CParFile* par2file, bool allowJoin /*= true*/)
 {
 	CNzb* nzb = par2file->parent->parent;
 
@@ -316,6 +320,9 @@ void CPostProcessor::Par2Repair(CParFile* par2file)
 	tregex reRepairing(_T("Repairing: ([0-9]+(\\.[0-9]+)?)%"));
 	tregex reTarget(_T("Target: \"([^\"]+)\" - (.*)+$"));
 	tcmatch match;
+
+	typedef CAtlArray<std::pair<CNzbFile*, int> > CSplitArray;
+	CAtlArray<CSplitArray*> splits;
 
 	while(tool.Process()) {
 		CString line;
@@ -352,27 +359,59 @@ void CPostProcessor::Par2Repair(CParFile* par2file)
 						file->parStatus = kFound;
 					else if(status.Find(_T("damaged")) >= 0) // "damaged. Found %d of %d data blocks"; TODO: parse number
 						file->parStatus = kDamaged;
+				} else {
+					// file not in nzb
+					if(status.Find(_T("missing")) >= 0) {
+						if(allowJoin) {
+							// check if we have split versions of the file
+							tregex reSplit(_T("\\.(\\d{3})$"));
+
+							CSplitArray* split = new CSplitArray;
+							for(size_t i = 0; i < nzb->files.GetCount(); i++) {
+								CNzbFile* file = nzb->files[i];
+								if(regex_search((const TCHAR*)file->fileName, match, reSplit)) {
+									split->Add(std::make_pair(file, _ttoi(match[1].first)));
+								}
+							}
+							if(!split->IsEmpty()) {
+								struct splitSorter {
+									bool operator()(const std::pair<CNzbFile*, int>& _Left, const std::pair<CNzbFile*, int>& _Right) const
+									{
+										return (_Left.second < _Right.second);
+									}
+								};
+								std::sort(&split->GetData()[0], &split->GetData()[split->GetCount()], splitSorter());
+								splits.Add(split);
+							} else {
+								delete split;
+							}
+						}
+					}
 				}
 				numFilesDone++;
 				if(numFiles > 0) {
 					nzb->done = 100.f * (float)numFilesDone / (float)numFiles;
 				}
 			} else if(regex_search((const TCHAR*)line, match, reMatrix)) {
-				nzb->status = kRepairing;
+				nzb->status = kPostProcessing;
+				nzb->postProcStatus = kRepairing;
 				nzb->done = 0.f;
 				repairing = true;
 			} else if(regex_match((const TCHAR*)line, match, reRepairing)) {
 				float percent = (float)_tstof(match[1].first);
-				nzb->status = kRepairing;
+				nzb->status = kPostProcessing;
+				nzb->postProcStatus = kRepairing;
 				nzb->done = percent;
 				repairing = true;
 			} else {
 				if(line.Find(_T("Verifying source files")) >= 0) {
-					nzb->status = kVerifying;
+					nzb->status = kPostProcessing;
+					nzb->postProcStatus = kVerifying;
 					nzb->done = 0.f;
 					numFilesDone = 0;
 				} else if(line.Find(_T("Verifying repaired files")) >= 0) {
-					nzb->status = kVerifying;
+					nzb->status = kPostProcessing;
+					nzb->postProcStatus = kVerifying;
 					nzb->done = 0.f;
 					numFilesDone = 0;
 				}
@@ -389,7 +428,55 @@ void CPostProcessor::Par2Repair(CParFile* par2file)
 				}
 			}
 		}
-	} 
+	}
+
+	if(!splits.IsEmpty()) {
+		// count split files for progress
+		nzb->status = kPostProcessing;
+		nzb->postProcStatus = kJoining;
+		nzb->done = 0.f;
+
+		__int64 totalBytes = 0;
+		__int64 doneBytes = 0;
+		for(size_t i = 0; i < splits.GetCount(); i++) {
+			CSplitArray& split = *splits[i];
+			for(size_t j = 0; j < split.GetCount(); j++) {
+				CString splitPath = nzb->path + _T("\\") + split[j].first->fileName;
+				totalBytes += CFile::GetFileSize(splitPath);
+			}
+		}
+
+		if(totalBytes > 0) {
+			// join split files
+			for(size_t i = 0; i < splits.GetCount(); i++) {
+				CSplitArray& split = *splits[i];
+				CString joinedPath = nzb->path + _T("\\") + split[0].first->fileName.Left(split[0].first->fileName.GetLength() - 4);
+				CFile joinedFile;
+				if(joinedFile.Open(joinedPath, GENERIC_WRITE, 0, CREATE_ALWAYS)) { // TODO: Error check
+					for(size_t j = 0; j < split.GetCount(); j++) {
+						CFile splitFile;
+						CString splitPath = nzb->path + _T("\\") + split[j].first->fileName;
+						if(splitFile.Open(splitPath, GENERIC_READ, 0, OPEN_ALWAYS)) {
+							// TODO: limit buffer size to 4MB
+							int size = (int)splitFile.GetSize();
+							char* buffer = new char [size];
+							splitFile.Read(buffer, size);
+							splitFile.Close();
+							//CFile::Delete(splitPath); // TODO: do only if writing everything succeeded
+							joinedFile.Write(buffer, size);
+							delete buffer;
+							doneBytes += size;
+							nzb->done = 100.f * (float)doneBytes / (float)totalBytes;
+						}
+					}
+					joinedFile.Close();
+				}
+				delete splits[i];
+			}
+			Par2Repair(par2file, false);
+		}
+	}
+
 	TRACE(_T("PostProcessing finished\n"));
 }
 

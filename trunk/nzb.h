@@ -15,10 +15,15 @@ enum ENzbStatus {
 	kCached = 'c',
 	kCompleted = 'C',
 	kError = 'E',
+	kPostProcessing = 'O',
+	kFinished = 'F',
+};
+
+enum EPostProcStatus {
 	kVerifying = 'V',
+	kJoining = 'J',
 	kRepairing = 'R',
 	kUnpacking = 'U',
-	kFinished = 'F',
 };
 
 enum EParStatus {
@@ -29,7 +34,7 @@ enum EParStatus {
 	kDamaged,
 };
 
-CString GetNzbStatusString(ENzbStatus status, float done = 0.f, int setDone = 0, int setTotal = 0);
+CString GetNzbStatusString(ENzbStatus status, EPostProcStatus postProcStatus = kVerifying, float done = 0.f, int setDone = 0, int setTotal = 0);
 CString GetParStatusString(EParStatus status, float done);
 
 class CParFile {
@@ -170,6 +175,7 @@ protected:
 
 public:
 	ENzbStatus status;
+	EPostProcStatus postProcStatus;
 	int setDone, setTotal; // used for status = [kVerifying, kUnpacking]
 	float done; // percentage completed; used for status = [kVerifying, kUnpacking]
 

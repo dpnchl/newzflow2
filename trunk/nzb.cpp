@@ -303,7 +303,7 @@ HRESULT STDMETHODCALLTYPE CErrorHandler::ignorableWarning(
 
 } // namespace
 
-CString GetNzbStatusString(ENzbStatus status, float done /*= 0.f*/, int setDone /*= 0*/, int setTotal /*= 0*/)
+CString GetNzbStatusString(ENzbStatus status, EPostProcStatus postProcStatus /*= 0*/, float done /*= 0.f*/, int setDone /*= 0*/, int setTotal /*= 0*/)
 {
 	CString t;
 	if(setTotal > 1) 
@@ -318,9 +318,14 @@ CString GetNzbStatusString(ENzbStatus status, float done /*= 0.f*/, int setDone 
 	case kCached:		return _T("Cached");
 	case kCompleted:	return _T("Completed");
 	case kError:		return _T("Error");
-	case kVerifying:	{ CString s; s.Format(_T("Verifying %s%.1f%%"), t, done); return s; }
-	case kRepairing:	{ CString s; s.Format(_T("Repairing %s%.1f%%"), t, done); return s; }
-	case kUnpacking:	{ CString s; s.Format(_T("Unpacking %s%.1f%%"), t, done); return s; }
+	case kPostProcessing:
+		switch(postProcStatus) {
+		case kVerifying:	{ CString s; s.Format(_T("Verifying %s%.1f%%"), t, done); return s; }
+		case kJoining:		{ CString s; s.Format(_T("Joining %s%.1f%%"), t, done); return s; }
+		case kRepairing:	{ CString s; s.Format(_T("Repairing %s%.1f%%"), t, done); return s; }
+		case kUnpacking:	{ CString s; s.Format(_T("Unpacking %s%.1f%%"), t, done); return s; }
+		default:			return _T("???");
+		}
 	case kFinished:		return _T("Finished");
 	default:			return _T("???");
 	}

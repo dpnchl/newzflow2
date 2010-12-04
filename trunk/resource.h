@@ -13,6 +13,9 @@
 #define IDD_SETTINGS_SERVER             206
 #define IDD_SETTINGS_DIRECTORIES        207
 #define IDD_ADD_NZB_URL                 208
+#define IDR_FILEVIEW                    209
+#define IDR_MENU1                       210
+#define IDR_NZBVIEW                     210
 #define IDC_PROGRESS                    1000
 #define IDC_TEXT                        1001
 #define IDC_HOSTNAME                    1002
@@ -47,13 +50,18 @@
 #define ID_SETTINGS                     32786
 #define ID_SETTINGS_SETTINGS            32787
 #define ID_FILE_ADD_NZB                 32788
+#define ID_POPUP_PAUSE                  32789
+#define ID_POPUP_UNPAUSE                32790
+#define ID_FILE_PAUSE                   32791
+#define ID_FILE_UNPAUSE                 32792
+#define ID_DEBUG_POSTPROCESS            32793
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        209
-#define _APS_NEXT_COMMAND_VALUE         32789
+#define _APS_NEXT_RESOURCE_VALUE        211
+#define _APS_NEXT_COMMAND_VALUE         32794
 #define _APS_NEXT_CONTROL_VALUE         1020
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

@@ -49,7 +49,7 @@ public:
 	static CNewzflow* Instance();
 
 	bool HasSegment();
-	CNzbSegment* GetSegment();
+	CNzbSegment* GetSegment(bool bTestOnly = false);
 	bool IsShuttingDown();
 	void UpdateSegment(CNzbSegment* s, ENzbStatus newStatus);
 	void UpdateFile(CNzbFile* f, ENzbStatus newStatus);
@@ -61,6 +61,7 @@ public:
 	void FreeDeletedNzbs();
 	void OnServerSettingsChanged();
 	void SetSpeedLimit(int limit);
+	void AddPostProcessor(CNzb* nzb);
 	CAtlArray<CNzb*> nzbs, deletedNzbs;
 	CAtlArray<CDownloader*> downloaders, finishedDownloaders;
 	CDiskWriter* diskWriter;
