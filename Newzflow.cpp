@@ -18,6 +18,7 @@
 // - CNzbView/CFileView: implement progress bar with no theming
 // - CNewzflowThread:: AddFile(): what to do when a file is added that is already in the queue. can it be detected? should it be skipped or renamed (add counter) and added anyway?
 // - during shut down, it should be avoided to add jobs to the disk writer or post processor; have to check if queue states are correctly restored if we just skip adding jobs.
+// - CDiskWriter: try to run disk writer parallel to downloading to improve performance on big unsplit files: e.g. when all parts up to number 10 have been either downloaded or errored, we can write up to number 10.
 
 // CNewzflowThread
 //////////////////////////////////////////////////////////////////////////
