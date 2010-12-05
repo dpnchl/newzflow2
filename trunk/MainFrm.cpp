@@ -354,12 +354,14 @@ public:
 		ShowWindow(SW_SHOW);
 		CComboBoxEx wDirectory(GetDlgItem(IDC_DIRECTORY));
 
+		// fill combo box from history array
 		CAtlArray<CString>& history = CNewzflow::Instance()->settings->downloadDirHistory;
 		for(size_t i = 0; i < history.GetCount(); i++) {
 			wDirectory.AddItem(history[i], 0, 0, 0);
 		}
-
+		// enable Shell autocomplete
 		SHAutoComplete(wDirectory.GetEditCtrl(), SHACF_FILESYS_DIRS);
+
 		if(errorCode != ERROR_SUCCESS) {
 			OnDataCustomError(IDC_DIRECTORY, Util::GetErrorMessage(errorCode));
 			return FALSE;
@@ -380,16 +382,15 @@ public:
 	{
 		DoDataExchange(true);
 		if(nzb->SetPath(m_sDirectory, NULL, &errorCode)) {
+			// insert directory at top of history array
 			CAtlArray<CString>& history = CNewzflow::Instance()->settings->downloadDirHistory;
-			bool dupe = false;
 			for(size_t i = 0; i < history.GetCount(); i++) {
-				if(m_sDirectory == history[i]) {
-					dupe = true;
+				if(!m_sDirectory.CompareNoCase(history[i])) {
+					history.RemoveAt(i);
 					break;
 				}
 			}
-			if(!dupe)
-				history.InsertAt(0, m_sDirectory);
+			history.InsertAt(0, m_sDirectory);
 			CNewzflow::Instance()->controlThread->CreateDownloaders();
 			DestroyWindow();
 		} else {

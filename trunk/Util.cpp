@@ -222,7 +222,7 @@ namespace Util
 	CString BrowseForFolder(HWND hwndParent, const TCHAR* title, const TCHAR* initialDir)
 	{
 		// first try new Vista dialog
-		CShellFileOpenDialog dlg(NULL, FOS_PICKFOLDERS);
+		CShellFileOpenDialog dlg(NULL, FOS_PICKFOLDERS | FOS_PATHMUSTEXIST);
 		if(dlg.GetPtr()) {
 			CComPtr<IShellItem> psiFolder;
 			// dynamically load SHCreateItemFromParsingName from shell32.dll; if we would just use the statically imported version, we couldn't run on Windows XP anymore
@@ -240,6 +240,12 @@ namespace Util
 				CStringW sReturnW;
 				dlg.GetFilePath(sReturnW.GetBuffer(_MAX_PATH), _MAX_PATH);
 				sReturnW.ReleaseBuffer();
+				// partial workaround for Vista http://support.microsoft.com/kb/969885/en-us
+				if(GetFileAttributesW(sReturnW) == INVALID_FILE_ATTRIBUTES) {
+					int slash = sReturnW.ReverseFind('\\');
+					if(slash >= 0)
+						sReturnW = sReturnW.Left(slash);
+				}
 				return CString(sReturnW);
 			} else
 				return initialDir;
