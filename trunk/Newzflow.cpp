@@ -381,14 +381,14 @@ CNzbSegment* CNewzflow::GetSegment(bool bTestOnly /*= false*/)
 			continue;
 		for(size_t j = 0; j < nzb->files.GetCount(); j++) {
 			CNzbFile* file = nzb->files[j];
-			if(file->status != kQueued && file->status != kDownloading)
+			if(file->status != kQueued)
 				continue;
 			for(size_t k = 0; k < file->segments.GetCount(); k++) {
 				CNzbSegment* segment = file->segments[k];
 				if(segment->status != kQueued)
 					continue;
 				if(!bTestOnly) {
-					segment->status = file->status = nzb->status = kDownloading;
+					segment->status = kDownloading;
 					nzb->refCount++;
 				}
 				return segment;
@@ -607,8 +607,6 @@ bool CNewzflow::ReadQueue()
 				nzb->doUnpack = !!mf.Read<char>();
 				nzb->doDelete = !!mf.Read<char>();
 				nzb->status = (ENzbStatus)mf.Read<char>();
-				if(nzb->status == kDownloading)
-					nzb->status = kQueued;
 				size_t fileCount = mf.Read<size_t>();
 				ASSERT(fileCount == nzb->files.GetCount());
 				for(size_t j = 0; j < fileCount; j++) {
@@ -623,8 +621,6 @@ bool CNewzflow::ReadQueue()
 						if(seg->status == kDownloading)
 							seg->status = kQueued;
 					}
-					if(file->status == kDownloading)
-						file->status = kQueued;
 					if(file->status == kQueued) // there's a queued file, downloaders need to be created
 						ret = true;
 				}

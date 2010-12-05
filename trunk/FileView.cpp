@@ -81,10 +81,13 @@ int CFileView::OnRefresh()
 			AddItemEx(i, (DWORD_PTR)file);
 			SetItemTextEx(i, kName, s);
 			__int64 size = 0, done = 0;
+			ENzbStatus status = file->status;
 			for(size_t j = 0; j < file->segments.GetCount(); j++) {
 				size += file->segments[j]->bytes;
 				if(file->segments[j]->status == kCompleted || file->segments[j]->status == kCached)
 					done += file->segments[j]->bytes;
+				if(file->segments[j]->status == kDownloading) // check if any segment is downloading
+					status = kDownloading;
 			}
 			SetItemTextEx(i, kSize, Util::FormatSize(size));
 			SetItemTextEx(i, kDone, Util::FormatSize(done));
@@ -92,7 +95,7 @@ int CFileView::OnRefresh()
 			SetItemTextEx(i, kProgress, s);
 			s.Format(_T("%d"), file->segments.GetCount());
 			SetItemTextEx(i, kSegments, s);
-			SetItemTextEx(i, kStatus, GetNzbStatusString(file->status));
+			SetItemTextEx(i, kStatus, GetNzbStatusString(status));
 			SetItemTextEx(i, kParStatus, GetParStatusString(file->parStatus, file->parDone));
 		}
 		return count;
@@ -124,7 +127,7 @@ LRESULT CFileView::OnRClick(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/
 	{ CNewzflow::CLock lock;
 		for(int item = GetNextItem(-1, LVNI_SELECTED); item != -1; item = GetNextItem(item, LVNI_SELECTED)) {
 			CNzbFile* file = (CNzbFile*)GetItemData(item);
-			if(file->status == kQueued || file->status == kDownloading)
+			if(file->status == kQueued)
 				canPause = true;
 			if(file->status == kPaused)
 				canUnpause = true;
@@ -143,7 +146,7 @@ LRESULT CFileView::OnFilePause(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCt
 	{ CNewzflow::CLock lock;
 		for(int item = GetNextItem(-1, LVNI_SELECTED); item != -1; item = GetNextItem(item, LVNI_SELECTED)) {
 			CNzbFile* file = (CNzbFile*)GetItemData(item);
-			if(file->status == kQueued || file->status == kDownloading)
+			if(file->status == kQueued)
 				file->status = kPaused;
 		}
 	}
