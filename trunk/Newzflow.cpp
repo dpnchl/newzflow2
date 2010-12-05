@@ -11,6 +11,7 @@
 #include "DirWatcher.h"
 #include "MainFrm.h"
 #include "MemFile.h"
+#include "DialogEx.h"
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
@@ -179,7 +180,7 @@ LRESULT CNewzflowThread::OnCreateDownloaders(UINT uMsg, WPARAM wParam, LPARAM lP
 	return 0;	
 }
 
-class CShutdownDialog : public CDialogImpl<CShutdownDialog>
+class CShutdownDialog : public CDialogImplEx<CShutdownDialog>
 {
 public:
 	enum { IDD = IDD_SHUTDOWN };
@@ -245,6 +246,7 @@ CNewzflow::~CNewzflow()
 
 	dlg.text.SetWindowText(_T("Waiting for downloads..."));
 	Util::Print("waiting for downloaders to finish...\n");
+	CNntpSocket::CloseAllSockets(); // close all downloader sockets for immediate shutdown
 	for(size_t i = 0; i < downloaders.GetCount(); i++) {
 		downloaders[i]->JoinWithMessageLoop();
 		delete downloaders[i];

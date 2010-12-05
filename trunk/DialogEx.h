@@ -40,8 +40,8 @@ public:
 	~CDialogImplEx()
 	{
 		CMessageLoop* pLoop = _Module.GetMessageLoop();
-		ATLASSERT(pLoop != NULL);
-		pLoop->RemoveMessageFilter(this);
+		if(pLoop)
+			pLoop->RemoveMessageFilter(this);
 	}
 
 	// modal dialogs
@@ -97,8 +97,8 @@ public:
 			return NULL;
 
 		CMessageLoop* pLoop = _Module.GetMessageLoop();
-		ATLASSERT(pLoop != NULL);
-		pLoop->AddMessageFilter(this);
+		if(pLoop)
+			pLoop->AddMessageFilter(this);
 
 		_AtlWinModule.AddCreateWndData(&m_thunk.cd, (CDialogImplBaseT< TBase >*)this);
 		HWND hWnd = ::CreateDialogIndirectParam(_AtlBaseModule.GetResourceInstance(), pDlgTemplate, hWndParent, T::StartDialogProc, dwInitParam);
