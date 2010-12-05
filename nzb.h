@@ -97,7 +97,6 @@ public:
 	|	\/
 	|
 	`==>kError: Error downloading or decoding this segment
-
 */
 };
 
@@ -130,7 +129,7 @@ public:
 	||
 	|| @CNewzflow::GetSegment()
 	\/
-	kDownloading: busy downloading segments from this file
+	         busy downloading segments from this file
 	||
 	||
 	\/
@@ -206,12 +205,8 @@ public:
 					\/
 				.==>kQueued: NZB has a download directory
 				|	||
-				|	|| [downloading in progress]
-				|	\/
-	[need more	^	kDownloading: Files are currently being downloaded
-	 PAR files]	|	||
-				|	||
-				|	\/
+	[need more	^	|| [downloading in progress]
+	 PAR files]	|	\/
 				|	kCompleted: All Files of the NZB are either completed, paused (PAR files), or errored
 				|	||
 				`===|| [postprocessor: PAR2 verify/repair]
@@ -221,7 +216,5 @@ public:
 					|| [postprocessor: RAR unpacking]
 					\/
 					kFinished: Processing completed
-
 */
-
 };

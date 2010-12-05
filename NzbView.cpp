@@ -99,8 +99,23 @@ int CNzbView::OnRefresh()
 			CNzb* nzb = theApp->nzbs[i];
 			AddItemEx(i, (DWORD_PTR)nzb);
 			SetItemTextEx(i, kName, nzb->name);
+			ENzbStatus status = nzb->status;
+			if(nzb->status == kQueued) { // check if a queued NZB currently has any segments downloading
+				for(size_t j = 0; j < nzb->files.GetCount(); j++) {
+					CNzbFile* f = nzb->files[j];
+					for(size_t k = 0; k < f->segments.GetCount(); k++) {
+						CNzbSegment* s = f->segments[k];
+						if(s->status == kDownloading) {
+							status = kDownloading;
+							break;
+						}
+					}
+					if(status == kDownloading)
+						break;
+				}
+			}
 			int image;
-			switch(nzb->status) {
+			switch(status) {
 			case kEmpty:			image = ilQueued; break;
 			case kFetching:			image = ilQueued; break;
 			case kQueued:			image = ilQueued; break;
@@ -138,7 +153,7 @@ int CNzbView::OnRefresh()
 				SetItemTextEx(i, kSize, _T(""));
 				SetItemTextEx(i, kDone, _T(""));
 			}
-			SetItemTextEx(i, kStatus, GetNzbStatusString(nzb->status, nzb->postProcStatus, nzb->done, nzb->setDone, nzb->setTotal));
+			SetItemTextEx(i, kStatus, GetNzbStatusString(status, nzb->postProcStatus, nzb->done, nzb->setDone, nzb->setTotal));
 			if(left > 0) {
 				if(speed > 1024) {
 					eta += left / speed;
