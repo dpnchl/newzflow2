@@ -171,3 +171,16 @@ CString CSettings::GetDownloadDir()
 	else
 		return _T("");
 }
+
+CString CSettings::GetWatchDir()
+{
+	if(GetIni(_T("Directories"), _T("UseWatch"), _T("0")) != _T("0"))
+		return GetIni(_T("Directories"), _T("Watch"), _T(""));
+	else
+		return _T("");
+}
+
+bool CSettings::GetDeleteWatch()
+{
+	return GetIni(_T("Directories"), _T("DeleteWatch"), _T("0")) != _T("0");
+}

@@ -206,6 +206,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\DirWatcher.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\DiskWriter.cpp"
 				>
 			</File>
@@ -308,6 +312,10 @@
 			</File>
 			<File
 				RelativePath=".\DialogTemplate.h"
+				>
+			</File>
+			<File
+				RelativePath=".\DirWatcher.h"
 				>
 			</File>
 			<File

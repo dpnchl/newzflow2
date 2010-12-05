@@ -8,7 +8,9 @@
 #include "Util.h"
 #include "Settings.h"
 #include "HttpDownloader.h"
+#include "DirWatcher.h"
 #include "MainFrm.h"
+#include "MemFile.h"
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
@@ -19,6 +21,9 @@
 // - CNzbView/CFileView: implement progress bar with no theming
 // - CNewzflowThread:: AddFile(): what to do when a file is added that is already in the queue. can it be detected? should it be skipped or renamed (add counter) and added anyway?
 // - during shut down, it should be avoided to add jobs to the disk writer or post processor; have to check if queue states are correctly restored if we just skip adding jobs.
+// - investigate why .nzb files are not deleted in %appdata% soometimes
+// - DirWatcher: add support for .nzb.gz and .zip, .rar
+// - Centralize calls to WriteQueue()
 
 // CNewzflowThread
 //////////////////////////////////////////////////////////////////////////
@@ -45,27 +50,58 @@ void CNewzflowThread::AddFile(const CString& nzbPath)
 		nzbUrl = nzbPath;
 	}
 
-	PostThreadMessage(MSG_ADD_NZB, (WPARAM)new CString(nzbUrl));
+	if(::GetCurrentThread() != GetHandle())
+		PostThreadMessage(MSG_ADD_FILE, (WPARAM)new CString(nzbUrl));
+	else {
+		BOOL b;
+		OnAddFile(MSG_ADD_FILE, (WPARAM)new CString(nzbUrl), 0, b);
+	}
 }
 
 void CNewzflowThread::AddURL(const CString& nzbUrl)
 {
-	PostThreadMessage(MSG_ADD_NZB, (WPARAM)new CString(nzbUrl));
+	if(::GetCurrentThread() != GetHandle())
+		PostThreadMessage(MSG_ADD_FILE, (WPARAM)new CString(nzbUrl));
+	else {
+		BOOL b;
+		OnAddFile(MSG_ADD_FILE, (WPARAM)new CString(nzbUrl), 0, b);
+	}
+}
+
+void CNewzflowThread::AddNZB(CNzb* nzb)
+{
+	if(::GetCurrentThread() != GetHandle())
+		PostThreadMessage(MSG_ADD_NZB, (WPARAM)nzb);
+	else {
+		BOOL b;
+		OnAddNZB(MSG_ADD_NZB, (WPARAM)nzb, 0, b);
+	}
 }
 
 void CNewzflowThread::WriteQueue()
 {
-	PostThreadMessage(MSG_WRITE_QUEUE);
+	if(::GetCurrentThread() != GetHandle())
+		PostThreadMessage(MSG_WRITE_QUEUE);
+	else {
+		BOOL b;
+		OnWriteQueue(MSG_WRITE_QUEUE, 0, 0, b);
+	}
 }
 
 void CNewzflowThread::CreateDownloaders()
 {
-	PostThreadMessage(MSG_CREATE_DOWNLOADERS);
+	if(::GetCurrentThread() != GetHandle())
+		PostThreadMessage(MSG_CREATE_DOWNLOADERS);
+	else {
+		BOOL b;
+		OnCreateDownloaders(MSG_CREATE_DOWNLOADERS, 0, 0, b);
+	}
 }
 
-LRESULT CNewzflowThread::OnAddNzb(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
+LRESULT CNewzflowThread::OnAddFile(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
 {
 	CString* nzbUrl = (CString*)wParam;
+	Util::Print(*nzbUrl);
 
 	CNzb* nzb = new CNzb;
 
@@ -87,13 +123,9 @@ LRESULT CNewzflowThread::OnAddNzb(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL&
 			if(nzb->CreateFromLocal()) {
 				{ CNewzflow::CLock lock;
 					nzb->name = outFilename; // adjust the name
-					int error = ERROR_SUCCESS;
-					if(CNewzflow::Instance()->settings->GetDownloadDir().IsEmpty() || !nzb->SetPath(CNewzflow::Instance()->settings->GetDownloadDir(), NULL, &error))
-						Util::GetMainWindow().PostMessage(CMainFrame::MSG_SAVE_NZB, (WPARAM)nzb, (LPARAM)error);
+					AddNZB(nzb);
 					nzb->refCount--;
 				}
-				CNewzflow::Instance()->CreateDownloaders();
-				WriteQueue();
 			} else {
 				// error during parsing, so remove NZB from queue
 				{ CNewzflow::CLock lock;
@@ -109,14 +141,7 @@ LRESULT CNewzflowThread::OnAddNzb(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL&
 		}
 	} else {
 		if(nzb->CreateFromPath(*nzbUrl)) {
-			int error = ERROR_SUCCESS;
-			if(CNewzflow::Instance()->settings->GetDownloadDir().IsEmpty() || !nzb->SetPath(CNewzflow::Instance()->settings->GetDownloadDir(), NULL, &error))
-				Util::GetMainWindow().PostMessage(CMainFrame::MSG_SAVE_NZB, (WPARAM)nzb, (LPARAM)error);
-			{ CNewzflow::CLock lock;
-				CNewzflow::Instance()->nzbs.Add(nzb);
-			}
-			CNewzflow::Instance()->CreateDownloaders();
-			WriteQueue();
+			AddNZB(nzb);
 		} else {
 			delete nzb;
 		}
@@ -126,113 +151,21 @@ LRESULT CNewzflowThread::OnAddNzb(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL&
 	return 0;
 }
 
-class CMemFile
+LRESULT CNewzflowThread::OnAddNZB(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
 {
-public:
-	CMemFile()
-	{
-		m_buffer = NULL;
-		m_bufferFull = m_bufferSize = m_bufferGrow = 0;
-	}
-	CMemFile(int bufferSize, int bufferGrow) 
-	{
-		m_buffer = NULL;
-		Create(bufferSize, bufferGrow);
-	}
-	CMemFile(void* buffer, int bufferSize)
-	{
-		m_buffer = NULL;
-		Attach(buffer, bufferSize);
-	}
-	~CMemFile()
-	{
-		delete m_buffer;
-	}
-	void Create(int bufferSize, int bufferGrow) 
-	{
-		delete m_buffer;
-		m_buffer = new char [bufferSize];
-		m_bufferSize = bufferSize;
-		m_bufferGrow = bufferGrow;
-		m_bufferFull = 0;
-	}
-	void Attach(void* buffer, int bufferSize)
-	{
-		delete m_buffer;
-		m_buffer = buffer;
-		m_bufferSize = bufferSize;
-		m_bufferFull = 0;
-		m_bufferGrow = 0;
-	}
-	template <class T>
-	void Write(const T& data)
-	{
-		WriteBinary(&data, sizeof(T));
-	}
-	void WriteString(const CString& str)
-	{
-		WriteBinary((const TCHAR*)str, str.GetLength() * sizeof(TCHAR));
-		Write<TCHAR>(0);
-	}
-	void WriteBinary(const void* data, int size)
-	{
-		if(m_bufferSize - m_bufferFull < size)
-			Grow();
-		memcpy((char*)m_buffer + m_bufferFull, data, size);
-		m_bufferFull += size;
-	}
-	template <class T>
-	T Read()
-	{
-		T data;
-		ReadBinary(&data, sizeof(T));
-		return data;
-	}
-	CString ReadString()
-	{
-		TCHAR* str = (TCHAR*)((char*)m_buffer + m_bufferFull);
-		int start = m_bufferFull;
-		while(*(TCHAR*)((char*)m_buffer + m_bufferFull) != 0 && m_bufferFull < m_bufferSize) {
-			m_bufferFull += sizeof(TCHAR);
-		}
-		if(*(TCHAR*)((char*)m_buffer + m_bufferFull) == 0) {
-			m_bufferFull += sizeof(TCHAR);
-			return CString(str, (m_bufferFull - start) / sizeof(TCHAR) - 1);
-		} else
-			return _T(""); // error
-	}
-	void ReadBinary(void* data, int size)
-	{
-		memcpy(data, (char*)m_buffer + m_bufferFull, min(size, m_bufferSize - m_bufferFull));
-		m_bufferFull += size;
-	}
-	void* GetBuffer()
-	{
-		return m_buffer;
-	}
-	int GetSize()
-	{
-		return m_bufferFull;
-	}
+	CNzb* nzb = (CNzb*)wParam;
 
-protected:
-	void Grow() 
-	{
-		ASSERT(m_buffer);
-		ASSERT(m_bufferGrow > 0);
-		m_bufferSize += m_bufferGrow;
-		void* newBuffer = new char [m_bufferSize];
-		memcpy(newBuffer, m_buffer, m_bufferFull);
-		delete m_buffer;
-		m_buffer = newBuffer;
+	int error = ERROR_SUCCESS;
+	if(CNewzflow::Instance()->settings->GetDownloadDir().IsEmpty() || !nzb->SetPath(CNewzflow::Instance()->settings->GetDownloadDir(), NULL, &error))
+		Util::GetMainWindow().PostMessage(CMainFrame::MSG_SAVE_NZB, (WPARAM)nzb, (LPARAM)error);
+	{ CNewzflow::CLock lock;
+		CNewzflow::Instance()->nzbs.Add(nzb);
 	}
+	CNewzflow::Instance()->CreateDownloaders();
+	WriteQueue();
 
-protected:
-	void* m_buffer;
-	int m_bufferFull;
-	int m_bufferSize;
-	int m_bufferGrow;
-};
+	return 0;
+}
 
 LRESULT CNewzflowThread::OnWriteQueue(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
 {
@@ -293,6 +226,7 @@ CNewzflow::CNewzflow()
 	}
 	// no downloaders have been created so far, so we don't need to propagate the speed limit to downloaders
 	CNntpSocket::speedLimiter.SetLimit(settings->GetSpeedLimit());
+	dirWatcher = new CDirWatcher; // create after speed limiter intialization
 }
 
 CNewzflow::~CNewzflow()
@@ -340,6 +274,11 @@ CNewzflow::~CNewzflow()
 		}
 	}
 	delete postProcessor;
+
+	dlg.text.SetWindowText(_T("Waiting for dir watcher..."));
+	Util::Print("waiting for dir watcher to finish...\n");
+	dirWatcher->JoinWithMessageLoop();
+	delete dirWatcher;
 
 	WriteQueue();
 
