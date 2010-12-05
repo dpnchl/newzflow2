@@ -89,14 +89,17 @@ public:
 		\/
 		kDownloading: a downloader is assigned to download this segment
 	.===||
-	|	||
+	|	||  [write segment to TEMP dir]
 	|	\/
-	|	kCached: all segments of this file have either been downloaded or errored
+	|	kCached: segment has been downloaded 
 	|	||
-	|	|| [write segment to TEMP dir]
+	|	||  [DiskWriter writes segments to real file]
 	|	\/
+	|   kCompleted: segment was written to file by disk writer
+	|   
 	|
 	`==>kError: Error downloading or decoding this segment
+
 */
 };
 
