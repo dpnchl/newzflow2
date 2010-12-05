@@ -19,7 +19,6 @@
 // - CNzbView/CFileView: implement progress bar with no theming
 // - CNewzflowThread:: AddFile(): what to do when a file is added that is already in the queue. can it be detected? should it be skipped or renamed (add counter) and added anyway?
 // - during shut down, it should be avoided to add jobs to the disk writer or post processor; have to check if queue states are correctly restored if we just skip adding jobs.
-// - CDiskWriter: try to run disk writer parallel to downloading to improve performance on big unsplit files: e.g. when all parts up to number 10 have been either downloaded or errored, we can write up to number 10.
 
 // CNewzflowThread
 //////////////////////////////////////////////////////////////////////////
@@ -403,7 +402,7 @@ bool CNewzflow::HasSegment()
 	return GetSegment(true) != NULL;
 }
 
-// Downloader/DiskWriter is finished with a segment
+// Downloader is finished with a segment
 void CNewzflow::UpdateSegment(CNzbSegment* s, ENzbStatus newStatus)
 {
 	// kError: a permanent error has occured (article not found)
@@ -417,19 +416,7 @@ void CNewzflow::UpdateSegment(CNzbSegment* s, ENzbStatus newStatus)
 	CNzb* nzb = file->parent;
 	nzb->refCount--;
 	TRACE(_T("UpdateSegment(%s, %s): refCount=%d\n"), s->msgId, GetNzbStatusString(newStatus), nzb->refCount);
-	// check if all segments of the file are cached or error / completed or error
-	bool bCached = true;
-	bool bCompleted = true;
-	for(size_t i = 0; i < file->segments.GetCount(); i++) {
-		CNzbSegment* segment = file->segments[i];
-		if(segment->status != kCached && segment->status != kError)
-			bCached = false;
-		if(segment->status != kCompleted && segment->status != kError)
-			bCompleted = false;
-	}
-	// if all segments of a file are either cached or errored, tell the disk writer to join them together
-	if(bCached) {
-		file->status = kCached;
+	if(newStatus == kCached) {
 		CNewzflow::Instance()->diskWriter->Add(file);
 		return;
 	}
