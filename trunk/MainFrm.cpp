@@ -401,6 +401,7 @@ public:
 	void Cancel()
 	{
 		CNewzflow::Instance()->RemoveNzb(nzb);
+		CNewzflow::Instance()->WriteQueue();
 		DestroyWindow();
 	}
 	LRESULT OnCancel(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
@@ -487,6 +488,7 @@ LRESULT CMainFrame::OnNzbRemove(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndC
 			CNzb* nzb = (CNzb*)m_list.GetItemData(item);
 			CNewzflow::Instance()->RemoveNzb(nzb);
 		}
+		CNewzflow::Instance()->WriteQueue();
 	}
 	SendMessage(WM_TIMER);
 

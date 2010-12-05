@@ -377,6 +377,12 @@ bool CNzb::Parse(const CString& path)
 		Init();
 	}
 
+	if(!retCode) {
+		CString s;
+		s.Format(_T("CNzb::Parse(%s) failed"), path);
+		Util::Print(s);
+	}
+
 	return retCode;
 }
 

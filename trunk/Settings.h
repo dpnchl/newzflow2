@@ -22,6 +22,8 @@ public:
 	void SetListViewColumns(const CString& name, CListViewCtrl lv, int* columnsVisibility, int maxColumns);
 
 	CString GetDownloadDir();
+	CString GetWatchDir();
+	bool GetDeleteWatch();
 
 	CString GetIni(LPCTSTR section, LPCTSTR key, LPCTSTR def = NULL);
 	void SetIni(LPCTSTR section, LPCTSTR key, LPCTSTR value);

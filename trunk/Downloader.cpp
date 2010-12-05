@@ -46,13 +46,21 @@ CYDecoder::~CYDecoder()
 void CYDecoder::ProcessLine(const char* line)
 {
 	//=ybegin part=10 line=128 size=5120000 name=VW Sharan-Technik.part1.rar
+	//=ybegin line=128 size=174 name=Ubuntu-XBMC-IDE_12Nov2010.list.nfo
 	//=ypart begin=2304001 end=2560000
 	//=yend size=256000 part=10 pcrc32=D183E6B9
 	if(!strncmp(line, "=ybegin ", strlen("=ybegin "))) {
 		const char* nameBegin = strstr(line, "name=") + strlen("name=");
 		const char* nameEnd = strpbrk(nameBegin, "\r\n");
 		fileName = CString(nameBegin, nameEnd - nameBegin);
+		if(!strstr(line, "part=")) {
+			const char* sizeStr = strstr(line, "size=") + strlen("size=");
+			size = atoi(sizeStr);
+			offset = 0;
+			buffer = ptr = new char [size];
+		}
 	} else if(!strncmp(line, "=ypart", strlen("=ypart"))) {
+		ASSERT(buffer == NULL);
 		const char* beginStr = strstr(line, "begin=") + strlen("begin=");
 		offset = _strtoi64(beginStr, NULL, 10) - 1;
 		const char* endStr = strstr(line, "end=") + strlen("end=");
@@ -247,7 +255,8 @@ CDownloader::EStatus CDownloader::DownloadSegment(CNzbSegment* segment)
 		segFileName.Format(_T("%s\\%s_part%05d"), nzbDir, segment->parent->fileName, segment->number);
 		CFile fout;
 		fout.Open(segFileName, GENERIC_WRITE, 0, CREATE_ALWAYS);
-		fout.Write(yd.buffer, yd.size);
+		if(yd.buffer) // hmm.. is empty when no yEnc encoded file
+			fout.Write(yd.buffer, yd.size);
 		fout.Close();
 	}
 	CNewzflow::Instance()->UpdateSegment(segment, status);
