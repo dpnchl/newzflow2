@@ -173,6 +173,7 @@ CDownloader::EStatus CDownloader::Connect()
 
 void CDownloader::Disconnect()
 {
+	sock.SetTimeout(3); // set low timeout because recv may already have timed out once, and we don't want to wait so long again
 	sock.Request("QUIT\n");
 	sock.Close();
 	connected = false;

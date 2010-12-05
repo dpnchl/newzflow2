@@ -83,11 +83,17 @@ public:
 	static bool InitWinsock();
 	static void CloseWinsock();
 
+	static void CloseAllSockets();
+
 	void SetLimit();
+	void SetTimeout(int secs);
 
 	bool Connect(const CString& host, const CString& service, const CString& user, const CString& passwd);
+
+	void AddSocketToArray();
 	void Close();
 
+	void RemoveSocketFromArray();
 	CStringA Request(const char* fmt, ...);
 
 	bool Send(const char* fmt, ...);
@@ -102,7 +108,6 @@ public:
 
 protected:
 	CString GetLastError();
-
 	SOCKET sock;
 	int defaultRcvbufSize;
 
@@ -121,4 +126,7 @@ public:
 protected:
 	CComAutoCriticalSection cs; // protects lastCommand and lastReply
 	CString lastCommand, lastReply;
+
+	static CAtlArray<SOCKET> socketArray;
+	static CComAutoCriticalSection socketArrayLock;
 };

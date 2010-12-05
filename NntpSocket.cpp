@@ -237,6 +237,15 @@ void CNntpSocket::SetLimit()
 		setsockopt(sock, SOL_SOCKET, SO_RCVBUF, (const char*)&defaultRcvbufSize, sizeof(defaultRcvbufSize)); // when speed is unlimited, restore original rcvbuf size
 }
 
+void CNntpSocket::SetTimeout(int secs)
+{
+	if(sock == INVALID_SOCKET)
+		return;
+
+	DWORD timeout = (secs > 0 ? secs : 120) * 1000; // set 120 seconds as default; TODO: make configurable
+	setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout));
+}
+
 bool CNntpSocket::Connect(const CString& host, const CString& service, const CString& _user, const CString& _passwd)
 {
 	SetLastCommand(_T("Connecting to %s:%s..."), host, service);
@@ -266,12 +275,15 @@ bool CNntpSocket::Connect(const CString& host, const CString& service, const CSt
 			FreeAddrInfo(result);
 			return false;
 		}
+		AddSocketToArray();
 		SetLimit();
+		SetTimeout(0); // set default timeout
 		iResult = connect(sock, ptr->ai_addr, (int)ptr->ai_addrlen);
 		if(iResult == SOCKET_ERROR) {
 			// connect failed, try next address
 			reply = GetLastError();
 			closesocket(sock);
+			RemoveSocketFromArray();
 			sock = INVALID_SOCKET;
 		} else {
 			// connect succeeded
@@ -287,6 +299,7 @@ bool CNntpSocket::Connect(const CString& host, const CString& service, const CSt
 		return false;
 	} else {
 		SetLastReply(_T("Connected to %s:%s"), host, service);
+		AddSocketToArray();
 		return true;
 	}
 }
@@ -398,9 +411,39 @@ void CNntpSocket::Close()
 
 	shutdown(sock, SD_SEND);
 	closesocket(sock);
+
+	RemoveSocketFromArray();
+
 	sock = INVALID_SOCKET;
 }
 
+/*static*/ void CNntpSocket::CloseAllSockets()
+{
+	CComCritSecLock<CComAutoCriticalSection> lock(socketArrayLock);
+	for(size_t i = 0; i < socketArray.GetCount(); i++) {
+		closesocket(socketArray[i]);
+	}
+}
+
+void CNntpSocket::AddSocketToArray()
+{
+	CComCritSecLock<CComAutoCriticalSection> lock(socketArrayLock);
+	socketArray.Add(sock);
+}
+
+void CNntpSocket::RemoveSocketFromArray()
+{
+	CComCritSecLock<CComAutoCriticalSection> lock(socketArrayLock);
+	for(size_t i = 0; i < socketArray.GetCount(); i++) {
+		if(socketArray[i] == sock) {
+			socketArray.RemoveAt(i);
+			break;
+		}
+	}
+}
+
+/*static*/ CAtlArray<SOCKET> CNntpSocket::socketArray;
+/*static*/ CComAutoCriticalSection CNntpSocket::socketArrayLock;
 /*static*/ CSpeedMonitor CNntpSocket::totalSpeed(3);
 /*static*/ CSpeedLimiter CNntpSocket::speedLimiter(0);
 
