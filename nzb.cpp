@@ -321,6 +321,7 @@ CString GetNzbStatusString(ENzbStatus status, EPostProcStatus postProcStatus /*=
 	case kPostProcessing:
 		switch(postProcStatus) {
 		case kVerifying:	{ CString s; s.Format(_T("Verifying %s%.1f%%"), t, done); return s; }
+		case kQuickCheck:	return _T("QuickCheck");
 		case kJoining:		{ CString s; s.Format(_T("Joining %s%.1f%%"), t, done); return s; }
 		case kRepairing:	{ CString s; s.Format(_T("Repairing %s%.1f%%"), t, done); return s; }
 		case kUnpacking:	{ CString s; s.Format(_T("Unpacking %s%.1f%%"), t, done); return s; }

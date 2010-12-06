@@ -183,6 +183,7 @@ namespace ATL
 			return TRUE;
 		}
 
+		// nFrom = FILE_BEGIN, FILE_CURRENT, FILE_END
 		LONGLONG Seek(LONGLONG lOff, UINT nFrom)
 		{
 			_ASSERTE(m_hFile!=INVALID_HANDLE_VALUE);

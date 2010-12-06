@@ -1,5 +1,7 @@
 #pragma once
 
+#include "md5.h"
+
 // forwards
 class CParSet;
 class CNzbFile;
@@ -21,6 +23,7 @@ enum ENzbStatus {
 
 enum EPostProcStatus {
 	kVerifying = 'V',
+	kQuickCheck = 'Q',
 	kJoining = 'J',
 	kRepairing = 'R',
 	kUnpacking = 'U',
@@ -54,17 +57,19 @@ public:
 		parent = _parent;
 		needBlocks = 0;
 		completed = false;
+		quickCheckFailed = false;
 	}
 	~CParSet() {
 		for(size_t i = 0; i < pars.GetCount(); i++) delete pars[i];
 	}
 	CString baseName;
 	CAtlArray<CParFile*> pars;
-	CAtlArray<CNzbFile*> files; // just a reference to target files of par set (information retrieved from par2 tool)
+	CAtlArray<CNzbFile*> files; // just a reference to target files of par set (information retrieved from par2 tool) used to cleanup any excess backup files Par2CmdLine may have left behind (not used in QuickCheck)
 	CNzb* parent;
 
 	int needBlocks;
 	bool completed;
+	bool quickCheckFailed;
 };
 
 class CNzbSegment {
@@ -109,6 +114,7 @@ public:
 		parent = _parent;
 		status = kQueued;
 		parStatus = kUnknown;
+		ZeroMemory(&md5, sizeof(md5));
 	}
 	~CNzbFile() {
 		for(size_t i = 0; i < segments.GetCount(); i++) delete segments[i];
@@ -125,6 +131,8 @@ public:
 	CAtlArray<CString> groups; // from nzb
 	CAtlArray<CNzbSegment*> segments; // from nzb
 	CNzb* parent;
+	MD5_CTX md5;
+
 
 /*	File Status flow chart:
 
