@@ -3,6 +3,7 @@
 #include "DiskWriter.h"
 #include "Newzflow.h"
 #include "Settings.h"
+#include "md5.h"
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
@@ -20,6 +21,9 @@ void CDiskWriter::Add(CNzbFile* file)
 LRESULT CDiskWriter::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
 {
 	CNzbFile* file = (CNzbFile*)wParam;
+
+	// calculate a MD5 hash during writing if there is a ParSet for QuickCheck
+	bool wantMD5 = !file->parent->parSets.IsEmpty();
 
 	// we can only append consecutive segments to the destination file
 	int maxSegment = -1;
@@ -42,6 +46,7 @@ LRESULT CDiskWriter::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandl
 		if(!fileExists) {
 			SHCreateDirectoryEx(NULL, file->parent->path, NULL);
 			fout.Open(file->parent->path + _T("\\") + file->fileName, GENERIC_WRITE, 0, CREATE_ALWAYS);
+			MD5Init(&file->md5);
 		} else {
 			fout.Open(file->parent->path + _T("\\") + file->fileName, FILE_APPEND_DATA, 0, OPEN_ALWAYS);
 		}
@@ -60,6 +65,7 @@ LRESULT CDiskWriter::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandl
 						fin.Close();
 						CFile::Delete(segFileName); // TODO: do only if writing everything succeeded
 						s->status = kCompleted;
+						MD5Update(&file->md5, buffer, size);
 						fout.Write(buffer, size);
 						delete buffer;
 					}
@@ -73,6 +79,16 @@ LRESULT CDiskWriter::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandl
 
 		// file finished?
 		if(maxSegment == file->segments.GetCount()-1) {
+			MD5Final(&file->md5);
+/*
+			CString md5Str;
+			for(size_t i = 0; i < sizeof(file->md5.digest); i++) {
+				CString s;
+				s.Format(_T("%02x"), file->md5.digest[i]);
+				md5Str += s;
+			}
+			Util::Print(md5Str);
+*/
 			CNewzflow::Instance()->UpdateFile(file, kCompleted);
 			return 0; // UpdateFile() decrements refCount
 		}

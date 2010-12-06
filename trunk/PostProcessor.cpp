@@ -298,6 +298,17 @@ void CPostProcessor::Par2Repair(CParFile* par2file, bool allowJoin /*= true*/)
 {
 	CNzb* nzb = par2file->parent->parent;
 
+	// try a quick check first
+	if(allowJoin && !par2file->parent->quickCheckFailed) {
+		if(Par2QuickCheck(par2file)) {
+			Util::Print("Par2QuickCheck succeeded");
+			return;
+		} else {
+			par2file->parent->quickCheckFailed = true; // so we don't try again
+			Util::Print("Par2QuickCheck failed");
+		}
+	}
+
 	CExternalTool tool;
 	CString cmdline;
 	cmdline.Format(_T("test\\par2\\par2.exe r \"%s\\%s\""), nzb->path, par2file->file->fileName);
@@ -462,7 +473,7 @@ void CPostProcessor::Par2Repair(CParFile* par2file, bool allowJoin /*= true*/)
 							char* buffer = new char [size];
 							splitFile.Read(buffer, size);
 							splitFile.Close();
-							//CFile::Delete(splitPath); // TODO: do only if writing everything succeeded
+							CFile::Delete(splitPath); // TODO: do only if writing everything succeeded
 							joinedFile.Write(buffer, size);
 							delete buffer;
 							doneBytes += size;
@@ -479,6 +490,103 @@ void CPostProcessor::Par2Repair(CParFile* par2file, bool allowJoin /*= true*/)
 
 	TRACE(_T("PostProcessing finished\n"));
 }
+
+// QuickCheck works by comparing the MD5 of each file created in CDiskWriter with the MD5 stored in the PAR2 file
+// If the PAR2 file seems corrupt, this will fail, and the normal Par2Repair will continue
+// see http://parchive.sourceforge.net/docs/specifications/parity-volume-spec/article-spec.html for a description of the PAR2 file format
+bool CPostProcessor::Par2QuickCheck(CParFile* par2file)
+{
+	CNzb* nzb = par2file->parent->parent;
+
+	nzb->status = kPostProcessing;
+	nzb->postProcStatus = kQuickCheck;
+	nzb->done = 0.f;
+
+	CFile f;
+	if(!f.Open(nzb->path + _T("\\") + par2file->file->fileName))
+		return false;
+
+	DWORD read;
+
+	int correctFiles = 0;
+
+	for(;;) {
+		char header[8];
+		if(!f.Read(header, 8, &read) || read != 8)
+			break;
+
+		if(memcmp(header, "PAR2\0PKT", 8))
+			return false;
+
+		unsigned __int64 packetLength;
+		if(!f.Read(&packetLength, 8, &read) || read != 8)
+			return false;
+
+		if((packetLength & 3) || packetLength < 20)
+			return false;
+
+		// skip packets larger than 32kb (can't be FileDesc packets)
+		if(packetLength > 32768) {
+			f.Seek(packetLength - 16, FILE_CURRENT);
+			continue;
+		}
+
+		char md5Packet[16];
+		if(!f.Read(&md5Packet, 16, &read) || read != 16)
+			return false;
+
+		char* data = new char [(size_t)packetLength - 32];
+		if(!f.Read(data, (size_t)packetLength - 32, &read) || read != packetLength - 32) {
+			delete data;
+			return false;
+		}
+
+		if(memcmp(&data[16], "PAR 2.0\0FileDesc", 16)) {
+			delete data;
+			continue;
+		}
+
+		// check MD5 of PAR Packet
+		MD5_CTX md5;
+		MD5Init(&md5);
+		MD5Update(&md5, data, (size_t)packetLength - 32);
+		MD5Final(&md5);
+
+		if(memcmp(md5.digest, md5Packet, 16)) {
+			delete data;
+			return false;
+		}
+
+		char* md5File = &data[48];
+		unsigned __int64 nameLen = *(unsigned __int64*)&data[80];
+		char* nameFile = &data[88];
+
+		CStringA nameString(nameFile, (size_t)packetLength - 32 - 88);
+		// find target file in NZB
+		CNzbFile* file = nzb->FindFile(CString(nameString));
+		if(!file) {
+			delete data;
+			return false;
+		}
+
+		// check MD5 of target file
+		if(memcmp(md5File, file->md5.digest, 16)) {
+			file->parStatus = kDamaged;
+			delete data;
+			return false;
+		}
+
+		correctFiles++;
+		file->parStatus = kFound;
+
+		delete data;
+	}
+
+	nzb->done = 100.f;
+
+	return correctFiles > 0;
+}
+
 
 void CPostProcessor::Par2Cleanup(CParSet* parSet)
 {

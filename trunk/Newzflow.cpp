@@ -19,6 +19,7 @@
 
 // TODO:
 // - investigate why downloads get corrupted during testing (forcibly shutting down Newzbin lots of times)
+// - investigate why sometimes no downloaders are created when par2 failed and asks for more blocks
 // - CNzbView/CFileView: implement progress bar with no theming
 // - CNewzflowThread:: AddFile(): what to do when a file is added that is already in the queue. can it be detected? should it be skipped or renamed (add counter) and added anyway?
 // - during shut down, it should be avoided to add jobs to the disk writer or post processor; have to check if queue states are correctly restored if we just skip adding jobs.
@@ -464,7 +465,7 @@ void CNewzflow::WriteQueue()
 	{ CNewzflow::CLock lock;
 		size_t nzbCount = nzbs.GetCount();
 		mf.Write<unsigned>('NFQ!'); // ID
-		mf.Write<unsigned>(1); // Version
+		mf.Write<unsigned>(2); // Version
 		mf.Write<size_t>(nzbCount);
 		for(size_t i = 0; i < nzbCount; i++) {
 			CNzb* nzb = nzbs[i];
@@ -480,6 +481,8 @@ void CNewzflow::WriteQueue()
 			for(size_t j = 0; j < fileCount; j++) {
 				CNzbFile* file = nzb->files[j];
 				mf.Write<char>(file->status);
+				mf.Write<char>(file->parStatus);
+				mf.Write<MD5_CTX>(file->md5);
 				size_t segCount = file->segments.GetCount();
 				mf.Write<size_t>(segCount);
 				for(size_t k = 0; k < segCount; k++) {
@@ -520,7 +523,7 @@ bool CNewzflow::ReadQueue()
 			return false;
 		}
 		unsigned version = mf.Read<unsigned>();
-		if(version != 1) {
+		if(version != 2) {
 			return false;
 		}
 		CAtlArray<CNzb*> newNzbs;
@@ -540,6 +543,8 @@ bool CNewzflow::ReadQueue()
 				for(size_t j = 0; j < fileCount; j++) {
 					CNzbFile* file = nzb->files[j];
 					file->status = (ENzbStatus)mf.Read<char>();
+					file->parStatus = (EParStatus)mf.Read<char>();
+					file->md5 = mf.Read<MD5_CTX>();
 					size_t segCount = mf.Read<size_t>();
 					ASSERT(segCount == file->segments.GetCount());
 					for(size_t k = 0; k < segCount; k++) {

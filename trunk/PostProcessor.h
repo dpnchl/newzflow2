@@ -53,4 +53,5 @@ public:
 	void Par2Cleanup(CParSet* parSet);
 	bool UncompressRAR(CNzbFile* file);
 	__int64 GetRarTotalSize(const CString& rarfile);
+	bool Par2QuickCheck(CParFile* par2file);
 };
