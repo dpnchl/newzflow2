@@ -8,7 +8,7 @@
 // Generated from the TEXTINCLUDE 2 resource.
 //
 #include "atlres.h"
-
+#include "Version.h"
 /////////////////////////////////////////////////////////////////////////////
 #undef APSTUDIO_READONLY_SYMBOLS
 
@@ -157,15 +157,16 @@ IDR_MAINFRAME           BITMAP                  "res\\toolbar16.bmp"
 // Dialog
 //
 
-IDD_ABOUTBOX DIALOGEX 0, 0, 187, 102
+IDD_ABOUTBOX DIALOGEX 0, 0, 274, 147
 STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "About"
+CAPTION "About Newzflow"
 FONT 8, "MS Sans Serif", 0, 0, 0x0
 BEGIN
-    DEFPUSHBUTTON   "OK",IDOK,130,81,50,14
-    CTEXT           "Newzflow Application v1.0\n\n(c) Copyright 2010",IDC_STATIC,25,57,78,32
-    ICON            IDR_MAINFRAME,IDC_STATIC,55,26,21,20,SS_CENTERIMAGE | SS_REALSIZEIMAGE
-    GROUPBOX        "",IDC_STATIC,7,7,115,88
+    DEFPUSHBUTTON   "OK",IDOK,217,126,50,14
+    CTEXT           "",IDC_ABOUT,7,7,260,8
+    EDITTEXT        IDC_LICENSE,7,20,260,101,ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY | WS_VSCROLL
+    CONTROL         "Official website: <a href=""http://code.google.com/p/newzflow2/"">code.google.com/p/newzflow2/</a>",IDC_URL,
+                    "SysLink",WS_TABSTOP,7,129,195,9
 END
 
 IDD_SHUTDOWN DIALOGEX 0, 0, 187, 35
@@ -200,9 +201,9 @@ BEGIN
     IDD_ABOUTBOX, DIALOG
     BEGIN
         LEFTMARGIN, 7
-        RIGHTMARGIN, 180
+        RIGHTMARGIN, 267
         TOPMARGIN, 7
-        BOTTOMMARGIN, 95
+        BOTTOMMARGIN, 140
     END
 
     IDD_SHUTDOWN, DIALOG
@@ -238,7 +239,7 @@ END
 2 TEXTINCLUDE 
 BEGIN
     "#include ""atlres.h""\r\n"
-    "\0"
+    "#include ""Version.h""\r\n\0"
 END
 
 3 TEXTINCLUDE 
@@ -375,12 +376,12 @@ BEGIN
     BEGIN
         BLOCK "040904B0"
         BEGIN
-            VALUE "FileDescription", "Newzflow Module"
+            VALUE "FileDescription", "Newzflow build 40"
             VALUE "FileVersion", "1, 0, 0, 1"
             VALUE "InternalName", "Newzflow"
             VALUE "LegalCopyright", "Copyright 2010"
             VALUE "OriginalFilename", "Newzflow.exe"
-            VALUE "ProductName", "Newzflow Module"
+            VALUE "ProductName", "Newzflow"
             VALUE "ProductVersion", "1, 0, 0, 1"
         END
     END

@@ -4,7 +4,9 @@
 
 #pragma once
 
-class CAboutDlg : public CDialogImpl<CAboutDlg>
+#include "DialogEx.h"
+
+class CAboutDlg : public CDialogImplEx<CAboutDlg>
 {
 public:
 	enum { IDD = IDD_ABOUTBOX };
@@ -13,6 +15,7 @@ public:
 		MESSAGE_HANDLER(WM_INITDIALOG, OnInitDialog)
 		COMMAND_ID_HANDLER(IDOK, OnCloseCmd)
 		COMMAND_ID_HANDLER(IDCANCEL, OnCloseCmd)
+		NOTIFY_HANDLER(IDC_URL, NM_CLICK, OnClickURL)
 	END_MSG_MAP()
 
 // Handler prototypes (uncomment arguments if needed):
@@ -22,4 +25,9 @@ public:
 
 	LRESULT OnInitDialog(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
 	LRESULT OnCloseCmd(WORD /*wNotifyCode*/, WORD wID, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
+	LRESULT OnClickURL(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/);
+
+private:
+	CFont m_font;
+	CImage m_image;
 };

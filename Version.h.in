@@ -1,0 +1,2 @@
+#define NEWZFLOW_REVISION "$WCREV$"
+#define NEWZFLOW_DATE "$WCDATE$"

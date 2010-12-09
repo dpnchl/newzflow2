@@ -2,6 +2,17 @@
 Microsoft Visual Studio Solution File, Format Version 10.00
 # Visual Studio 2008
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Newzflow", "Newzflow.vcproj", "{7FFA03C5-9C8B-40F9-8AB6-E3E7ECE21075}"
+	ProjectSection(ProjectDependencies) = postProject
+		{272567C0-0A39-4DD2-A9D2-C3436F42FE1A} = {272567C0-0A39-4DD2-A9D2-C3436F42FE1A}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Setup", "Setup.vcproj", "{A25A812D-7EF5-4C60-A10D-3DB1AE5CAF54}"
+	ProjectSection(ProjectDependencies) = postProject
+		{272567C0-0A39-4DD2-A9D2-C3436F42FE1A} = {272567C0-0A39-4DD2-A9D2-C3436F42FE1A}
+		{7FFA03C5-9C8B-40F9-8AB6-E3E7ECE21075} = {7FFA03C5-9C8B-40F9-8AB6-E3E7ECE21075}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Version", "Version.vcproj", "{272567C0-0A39-4DD2-A9D2-C3436F42FE1A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -13,6 +24,12 @@ Global
 		{7FFA03C5-9C8B-40F9-8AB6-E3E7ECE21075}.Debug|Win32.Build.0 = Debug|Win32
 		{7FFA03C5-9C8B-40F9-8AB6-E3E7ECE21075}.Release|Win32.ActiveCfg = Release|Win32
 		{7FFA03C5-9C8B-40F9-8AB6-E3E7ECE21075}.Release|Win32.Build.0 = Release|Win32
+		{A25A812D-7EF5-4C60-A10D-3DB1AE5CAF54}.Debug|Win32.ActiveCfg = Debug|Win32
+		{A25A812D-7EF5-4C60-A10D-3DB1AE5CAF54}.Release|Win32.ActiveCfg = Release|Win32
+		{A25A812D-7EF5-4C60-A10D-3DB1AE5CAF54}.Release|Win32.Build.0 = Release|Win32
+		{272567C0-0A39-4DD2-A9D2-C3436F42FE1A}.Debug|Win32.ActiveCfg = Debug|Win32
+		{272567C0-0A39-4DD2-A9D2-C3436F42FE1A}.Release|Win32.ActiveCfg = Release|Win32
+		{272567C0-0A39-4DD2-A9D2-C3436F42FE1A}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
