@@ -4,6 +4,7 @@
 
 #include "stdafx.h"
 #include "resource.h"
+#include "Version.h"
 
 #include "aboutdlg.h"
 #include "MainFrm.h"
@@ -580,7 +581,7 @@ LRESULT CMainFrame::OnTimer(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& /*bHa
 		left = total - completed;
 	}
 
-	CString s = _T("Newzflow");
+	CString s = _T("Newzflow r") _T(NEWZFLOW_REVISION);
 	if(left > 0)
 		s += _T(" - ") + Util::FormatSize(left);
 	if(speed > 0)

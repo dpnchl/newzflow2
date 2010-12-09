@@ -40,6 +40,11 @@
 #define IDC_DIRECTORY                   1020
 #define IDC_DIRECTORY_BUTTON            1021
 #define IDC_COMBOBOXEX1                 1025
+#define IDC_EDIT1                       1026
+#define IDC_LICENSE                     1026
+#define IDC_RICHEDIT21                  1027
+#define IDC_SYSLINK1                    1028
+#define IDC_ABOUT                       1029
 #define ID_FILE_ADD                     32775
 #define ID_FILE_ADD_URL                 32776
 #define ID_CREATE                       32777
@@ -66,7 +71,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        211
 #define _APS_NEXT_COMMAND_VALUE         32794
-#define _APS_NEXT_CONTROL_VALUE         1026
+#define _APS_NEXT_CONTROL_VALUE         1030
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif
