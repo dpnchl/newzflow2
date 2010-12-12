@@ -495,7 +495,7 @@ LRESULT CMainFrame::OnNzbFinished(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lParam*
 
 	if(m_trayIcon.IsHidden())
 		m_trayIcon.Show();
-	m_trayIcon.SetBalloonDetails(nzb->name, _T("Download Finished"), CTrayNotifyIcon::Info, 10000);
+	m_trayIcon.SetBalloonDetails(nzb->name, _T("Download Finished"), nzb->status == kError ? CTrayNotifyIcon::Error : CTrayNotifyIcon::Info, 10000);
 
 	nzb->refCount--;
 

@@ -54,7 +54,32 @@ void CLogView::Refresh()
 		log = nzb->log;
 	}
 	if(log != oldLog) {
-		SetWindowText(log);
+		CString s;
+		CString rtfLog;
+		int logLen = log.GetLength();
+		// split log by lines; convert "newline" and color failures
+		for(int i = 0; i < logLen; ) {
+			int next = log.Find(_T("\r\n"), i);
+			if(next == -1)
+				next = log.GetLength();
+
+			CString line = log.Mid(i, next - i);
+			if(line.Find(_T("failed")) >= 0)
+				rtfLog += _T("\\cf2 ");
+			else
+				rtfLog += _T("\\cf1 ");
+			rtfLog += line;
+			rtfLog += _T("\\par ");
+
+			i = next + 2;
+		}
+		s = _T("{\\rtf1\\ansi\\deff0{\\colortbl;\\red0\\green0\\blue0;\\red128\\green0\\blue0;}") + rtfLog + _T("}");
+		// convert RTF from Unicode to UTF8.
+		int utfLen = s.GetLength() * 4;
+		char* utf = new char[utfLen];
+		::WideCharToMultiByte(CP_UTF8, 0, (LPCTSTR)s, -1, utf, utfLen-1, NULL, NULL);
+		SetTextEx((LPCTSTR)utf, ST_DEFAULT, CP_UTF8);
+		delete utf;
 		oldLog = log;
 	}
 }

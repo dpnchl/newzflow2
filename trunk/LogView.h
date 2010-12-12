@@ -6,7 +6,7 @@
 
 class CNzb;
 
-class CLogView : public CWindowImpl<CLogView, CRichEditCtrl>
+class CLogView : public CWindowImpl<CLogView, CRichEditCtrl>, public CRichEditCommands<CLogView>
 {
 public:
 	DECLARE_WND_SUPERCLASS(_T("CLogView"), CRichEditCtrl::GetWndClassName())
@@ -17,6 +17,7 @@ public:
 		MESSAGE_HANDLER(WM_TIMER, OnTimer)
 		//REFLECTED_NOTIFY_CODE_HANDLER(NM_RCLICK, OnRClick)
 		//REFLECT_NOTIFICATIONS()
+		CHAIN_MSG_MAP_ALT(CRichEditCommands<CLogView>, 1)
 	END_MSG_MAP()
 
 	CLogView();
