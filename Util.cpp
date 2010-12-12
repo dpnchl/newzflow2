@@ -66,9 +66,9 @@ namespace Util
 				dsize /= 1024.0;
 			}
 			if(dsize < 10.0)
-				s.Format(_T("%.2f %cB"), dsize, prefix[idx]);
+				s.Format(_T("%.2f %cB"), floor(dsize * 100.0) / 100.0, prefix[idx]);
 			else if(dsize < 100.0)
-				s.Format(_T("%.1f %cB"), dsize, prefix[idx]);
+				s.Format(_T("%.1f %cB"), floor(dsize * 10.0) / 10.0, prefix[idx]);
 			else
 				s.Format(_T("%.0f %cB"), dsize, prefix[idx]);
 		}

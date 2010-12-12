@@ -495,6 +495,13 @@ void CNewzflow::WriteQueue()
 				CParSet* parSet = nzb->parSets[j];
 				mf.Write<char>(parSet->completed);
 			}
+			if(!nzb->log.IsEmpty()) {
+				CTextFile tf;
+				if(tf.Open(nzb->GetLogPath(), CTextFile::kWrite))
+					tf.Write(nzb->log);
+			} else {
+				CFile::Delete(nzb->GetLogPath());
+			}
 		}
 	}
 	CFile f;
@@ -563,6 +570,9 @@ bool CNewzflow::ReadQueue()
 					parSet->completed = !!mf.Read<char>();
 				}
 				newNzbs.Add(nzb);
+				CTextFile tf;
+				if(tf.Open(nzb->GetLogPath(), CTextFile::kRead))
+					tf.Read(nzb->log);
 			} else { // NZB-file in %appdir% doesn't exist, so we need to skip all the data for this NZB in the queue file
 				delete nzb;
 				mf.ReadString(); // path

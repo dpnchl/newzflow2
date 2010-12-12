@@ -91,7 +91,7 @@ int CFileView::OnRefresh()
 		for(size_t i = 0; i < count; i++) {
 			CNzbFile* file = nzb->files[i];
 			CLine line;
-			line.name = file->subject;
+			line.name = file->fileName;
 			line.file = (DWORD_PTR)file;
 			line.size = 0; 
 			line.done = 0;

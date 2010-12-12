@@ -95,6 +95,7 @@ CheckOtherInstance:
 	::DefWindowProc(NULL, 0, 0, 0L);
 
 	AtlInitCommonControls(ICC_BAR_CLASSES | ICC_LINK_CLASS); // add flags to support other controls
+	HINSTANCE hInstRich = ::LoadLibrary(CRichEditCtrl::GetLibraryName());
 
 	hRes = _Module.Init(NULL, hInstance);
 	ATLASSERT(SUCCEEDED(hRes));
@@ -106,6 +107,7 @@ CheckOtherInstance:
 	}
 
 	_Module.Term();
+	::FreeLibrary(hInstRich);
 	::CoUninitialize();
 
 	return nRet;

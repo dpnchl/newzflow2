@@ -107,3 +107,63 @@ protected:
 	int m_bufferSize;
 	int m_bufferGrow;
 };
+
+class CTextFile
+{
+public:
+	enum EOpenMode {
+		kRead,
+		kWrite
+	};
+
+	bool Open(LPCTSTR fileName, EOpenMode openMode)
+	{
+		if(openMode == kRead) {
+			if(!m_file.Open(fileName))
+				return false;
+		} else {
+			if(!m_file.Open(fileName, GENERIC_WRITE, 0, CREATE_ALWAYS))
+				return false;
+		}
+		return true;
+	}
+	bool Read(CString& outString)
+	{
+		ASSERT(m_file.IsOpen());
+		__int64 size64 = m_file.GetSize();
+		if(size64 > 32*1024*1024) // limit to 32MB
+			return false;
+		int size = (int)size64;
+		unsigned char bom[2] = { 0, 0 };
+		if(!m_file.Read(bom, 2))
+			return false;
+		if(bom[0] == 0xff && bom[1] == 0xfe) {
+			CStringW wString;
+			int strLen = (size-2)/sizeof(wchar_t);
+			m_file.Read(wString.GetBuffer(strLen), size-2);
+			wString.ReleaseBuffer(strLen);
+			outString = wString;
+			return true;
+		} else {
+			CStringA aString;
+			m_file.Seek(0, FILE_BEGIN);
+			int strLen = size;
+			m_file.Read(aString.GetBuffer(strLen), size);
+			aString.ReleaseBuffer(strLen);
+			outString = aString;
+			return true;
+		}
+	}
+	void Write(const CString& inString)
+	{
+		ASSERT(m_file.IsOpen());
+		if(sizeof(TCHAR) == 2) {
+			unsigned char bom[2] = { 0xff, 0xfe };
+			m_file.Write(bom, 2);
+		}
+		m_file.Write((LPCTSTR)inString, inString.GetLength() * sizeof(TCHAR));
+	}
+
+protected:
+	CFile m_file;
+};

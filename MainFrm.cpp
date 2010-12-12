@@ -155,11 +155,17 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 
 	m_connections.Init(m_tab);
 	m_files.Init(m_tab);
+	m_log.Init(m_tab);
 
 	m_tab.AddPage(m_connections, _T("Connections"));
+	m_tab.AddPage(m_log, _T("Log"));
 	m_tab.AddPage(m_files, _T("Files"));
 	m_tab.SetActivePage(0);
 
+	// tray notification
+	m_trayIcon.Create(this, IDR_MAINFRAME, _T("Newzflow"), LoadIcon(_Module.GetResourceInstance(), MAKEINTRESOURCE(IDR_MAINFRAME)), MSG_TRAY_NOTIFY, 0, FALSE);
+
+	// get system message font
 	NONCLIENTMETRICS ncm = { sizeof(NONCLIENTMETRICS) };
 	#if(WINVER >= 0x0600)
 		OSVERSIONINFO osvi;
@@ -172,6 +178,7 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 		m_font.CreateFontIndirect(&ncm.lfMessageFont);
 
 	m_tab.SetFont(m_font);
+	m_log.SetFont(m_font);
 	
 	UpdateLayout();
 
@@ -481,9 +488,34 @@ LRESULT CMainFrame::OnSaveNzb(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOOL&
 	return 0;
 }
 
+LRESULT CMainFrame::OnNzbFinished(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lParam*/, BOOL& /*bHandled*/)
+{
+	CNzb* nzb = (CNzb*)wParam;
+	NEWZFLOW_LOCK;
+
+	if(m_trayIcon.IsHidden())
+		m_trayIcon.Show();
+	m_trayIcon.SetBalloonDetails(nzb->name, _T("Download Finished"), CTrayNotifyIcon::Info, 10000);
+
+	nzb->refCount--;
+
+	return 0;
+}
+
+LRESULT CMainFrame::OnTrayNotify(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOOL& /*bHandled*/)
+{
+	if(lParam == NIN_BALLOONTIMEOUT || lParam == NIN_BALLOONUSERCLICK) {
+		if(m_trayIcon.IsShowing())
+			m_trayIcon.Hide();
+	}
+	m_trayIcon.OnTrayNotification(wParam, lParam);
+	return 0;
+}
+
 LRESULT CMainFrame::OnNzbRemove(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 {
 	{ NEWZFLOW_LOCK;
+		m_log.SetNzb(NULL);
 		m_files.SetNzb(NULL);
 		for(int item = m_list.GetNextItem(-1, LVNI_SELECTED); item != -1; item = m_list.GetNextItem(item, LVNI_SELECTED)) {
 			CNzb* nzb = (CNzb*)m_list.GetItemData(item);
@@ -615,6 +647,7 @@ LRESULT CMainFrame::OnNzbChanged(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled*
 			int iSelItem = m_list.GetNextItem(-1, LVNI_SELECTED);
 			if(iSelItem >= 0)
 				nzb = (CNzb*)m_list.GetItemData(iSelItem);
+			m_log.SetNzb(nzb);
 			m_files.SetNzb(nzb);
 			UpdateNzbButtons();
 		}

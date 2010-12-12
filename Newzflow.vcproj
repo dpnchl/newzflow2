@@ -109,7 +109,6 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				Description=""
 				CommandLine=""
 			/>
 			<Tool
@@ -228,6 +227,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\LogView.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\main.cpp"
 				>
 			</File>
@@ -245,6 +248,10 @@
 			</File>
 			<File
 				RelativePath=".\NntpSocket.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\NTray.cpp"
 				>
 			</File>
 			<File
@@ -345,6 +352,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\LogView.h"
+				>
+			</File>
+			<File
 				RelativePath=".\MainFrm.h"
 				>
 			</File>
@@ -358,6 +369,10 @@
 			</File>
 			<File
 				RelativePath=".\NntpSocket.h"
+				>
+			</File>
+			<File
+				RelativePath=".\NTray.h"
 				>
 			</File>
 			<File
