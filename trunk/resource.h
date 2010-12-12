@@ -4,6 +4,7 @@
 //
 #define IDD_ABOUTBOX                    100
 #define IDD_SHUTDOWN                    101
+#define IDD_QUIT                        101
 #define IDR_MAINFRAME                   128
 #define IDR_PAUSE                       129
 #define IDR_SHUTDOWN                    130
@@ -18,6 +19,7 @@
 #define IDR_FILEVIEW                    209
 #define IDD_SAVE_NZB                    209
 #define IDR_NZBVIEW                     210
+#define IDD_POWEROFF                    211
 #define IDC_PROGRESS                    1000
 #define IDC_TEXT                        1001
 #define IDC_HOSTNAME                    1002
@@ -47,6 +49,7 @@
 #define IDC_RICHEDIT21                  1027
 #define IDC_SYSLINK1                    1028
 #define IDC_ABOUT                       1029
+#define IDC_IMAGE                       1031
 #define ID_FILE_ADD                     32775
 #define ID_FILE_ADD_URL                 32776
 #define ID_CREATE                       32777
@@ -71,9 +74,9 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        211
+#define _APS_NEXT_RESOURCE_VALUE        212
 #define _APS_NEXT_COMMAND_VALUE         32794
-#define _APS_NEXT_CONTROL_VALUE         1030
+#define _APS_NEXT_CONTROL_VALUE         1032
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

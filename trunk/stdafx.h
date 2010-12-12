@@ -84,6 +84,11 @@ extern CAppModule _Module;
 #include <msxml2.h>
 #pragma comment(lib, "msxml2.lib")
 
+// PowrProf
+#include <powrprof.h>
+#pragma comment(lib, "powrprof.lib")
+
+
 #undef min
 #undef max
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nzb.h"
+#include "Util.h"
 
 class CDownloader;
 class CDiskWriter;
@@ -71,6 +72,10 @@ public:
 	bool IsPaused();
 	void Pause(bool pause, int length = INT_MAX);
 	CString GetPauseStatus();
+
+	bool IsDownloading();
+	void SetShutdownMode(Util::EShutdownMode mode);
+	Util::EShutdownMode GetShutdownMode();
 	void UpdateSegment(CNzbSegment* s, ENzbStatus newStatus);
 	void UpdateFile(CNzbFile* f, ENzbStatus newStatus);
 	void RemoveDownloader(CDownloader* dl);
@@ -99,6 +104,7 @@ protected:
 
 	bool paused;
 	time_t pauseEnd;
+	Util::EShutdownMode shutdownMode;
 
 	volatile bool shuttingDown;
 };
