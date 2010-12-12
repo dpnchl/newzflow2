@@ -358,16 +358,13 @@ void CNewzflow::UpdateSegment(CNzbSegment* s, ENzbStatus newStatus)
 	CNzb* nzb = file->parent;
 	nzb->refCount--;
 	TRACE(_T("UpdateSegment(%s, %s): refCount=%d\n"), s->msgId, GetNzbStatusString(newStatus), nzb->refCount);
-	if(newStatus == kCached) {
-		CNewzflow::Instance()->diskWriter->Add(file);
-		return;
-	}
+	CNewzflow::Instance()->diskWriter->Add(file);
 }
 
 // DiskWriter is finished joining a file
 void CNewzflow::UpdateFile(CNzbFile* file, ENzbStatus newStatus)
 {
-	ASSERT(newStatus == kCompleted);
+	ASSERT(newStatus == kCompleted || newStatus == kError);
 
 	NEWZFLOW_LOCK;
 	CNzb* nzb = file->parent;

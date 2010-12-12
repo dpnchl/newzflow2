@@ -47,6 +47,7 @@ LRESULT CDiskWriter::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandl
 			SHCreateDirectoryEx(NULL, file->parent->path, NULL);
 			fout.Open(file->parent->path + _T("\\") + file->fileName, GENERIC_WRITE, 0, CREATE_ALWAYS);
 			MD5Init(&file->md5);
+			fileExists = true;
 		} else {
 			fout.Open(file->parent->path + _T("\\") + file->fileName, FILE_APPEND_DATA, 0, OPEN_ALWAYS);
 		}
@@ -76,23 +77,37 @@ LRESULT CDiskWriter::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandl
 			s.Format(_T("DiskWriter: processed until segment %d for %s"), maxSegment+1, file->fileName);
 			Util::Print(s);
 		}
+	}
 
-		// file finished?
-		if(maxSegment == file->segments.GetCount()-1) {
-			MD5Final(&file->md5);
-/*
-			CString md5Str;
-			for(size_t i = 0; i < sizeof(file->md5.digest); i++) {
-				CString s;
-				s.Format(_T("%02x"), file->md5.digest[i]);
-				md5Str += s;
-			}
-			Util::Print(md5Str);
-*/
-			CNewzflow::Instance()->UpdateFile(file, kCompleted);
-			return 0; // UpdateFile() decrements refCount
+	// check if file is finished
+	bool bFinished = true;
+	for(size_t i = 0; i < file->segments.GetCount(); i++) {
+		if(file->segments[i]->status != kError && file->segments[i]->status != kCompleted) {
+			bFinished = false;
+			break;
 		}
 	}
+
+	// file finished?
+	if(bFinished) {
+		if(fileExists) {
+			MD5Final(&file->md5);
+		} else {
+			// all segments of this file errored; md5 is ZERO
+		}
+/*
+		CString md5Str;
+		for(size_t i = 0; i < sizeof(file->md5.digest); i++) {
+			CString s;
+			s.Format(_T("%02x"), file->md5.digest[i]);
+			md5Str += s;
+		}
+		Util::Print(md5Str);
+*/
+		CNewzflow::Instance()->UpdateFile(file, fileExists ? kCompleted : kError);
+		return 0; // UpdateFile() decrements refCount
+	}
+
 	NEWZFLOW_LOCK;
 	file->parent->refCount--;
 	return 0;

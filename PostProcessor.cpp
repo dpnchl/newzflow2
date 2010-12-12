@@ -169,10 +169,14 @@ LRESULT CPostProcessor::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 		if(parFile) {
 			nzb->setDone = i+1;
 			Par2Repair(parFile);
+		} else {
+			// no PAR downloaded (all segments error'd); need to unpause one more PAR file
+			parSet->needBlocks = 1;
 		}
 	}
 
 	bool finished = true;
+	bool parCorrupt = false;
 	{
 		NEWZFLOW_LOCK;
 		nzb->refCount--;
@@ -217,6 +221,21 @@ LRESULT CPostProcessor::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 					}
 				} else {
 					parSet->completed = true;
+				}
+			}
+			if(parSet->needBlocks) {
+				parCorrupt = true;
+				// check if all PAR files are unpaused but all errored
+				bool allError = true;
+				for(size_t j = 0; j < parSet->pars.GetCount() && parSet->needBlocks > 0; j++) {
+					CParFile* parFile = parSet->pars[j];
+					if(parFile->file->status != kError) {
+						allError = false;
+						break;
+					}
+				}
+				if(allError) {
+					CString s; s.Format(_T("%s.par2: Verification failed\r\n"), parSet->baseName); nzb->log += s;
 				}
 			}
 		}
@@ -268,28 +287,33 @@ LRESULT CPostProcessor::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 
 		// process all RarSets
 		nzb->setTotal = rars.GetCount();
-		for(size_t i = 0; i < rars.GetCount(); i++) {
-			CNzbFile* file = rars[i].first;
-			CString sBase = rars[i].second;
+		ENzbStatus newStatus = parCorrupt ? kError : kFinished;
+		if(nzb->setTotal) {
+			newStatus = kFinished;
+			for(size_t i = 0; i < rars.GetCount(); i++) {
+				CNzbFile* file = rars[i].first;
+				CString sBase = rars[i].second;
 
-			nzb->setDone = i+1;
-			time_t timeStart = time(NULL);
-			if(UncompressRAR(file)) {
-				CString s; s.Format(_T("%s: Unpacked in %s\r\n"), file->fileName, Util::FormatTimeSpan(time(NULL) - timeStart)); nzb->log += s;
-				// unrar succeeded, so delete all rar files of thie rar set
-				for(size_t j = 0; j < nzb->files.GetCount(); j++) {
-					CNzbFile* file2 = nzb->files[j];
-					if(!sBase.CompareNoCase(file2->fileName.Left(sBase.GetLength()))) {
-						CFile::Delete(nzb->path + _T("\\") + file2->fileName);
-						//TRACE(_T("Delete(%s)\n"), nzb->path + file2->fileName);
+				nzb->setDone = i+1;
+				time_t timeStart = time(NULL);
+				if(UncompressRAR(file)) {
+					CString s; s.Format(_T("%s: Unpacked in %s\r\n"), file->fileName, Util::FormatTimeSpan(time(NULL) - timeStart)); nzb->log += s;
+					// unrar succeeded, so delete all rar files of thie rar set
+					for(size_t j = 0; j < nzb->files.GetCount(); j++) {
+						CNzbFile* file2 = nzb->files[j];
+						if(!sBase.CompareNoCase(file2->fileName.Left(sBase.GetLength()))) {
+							CFile::Delete(nzb->path + _T("\\") + file2->fileName);
+							//TRACE(_T("Delete(%s)\n"), nzb->path + file2->fileName);
+						}
 					}
+				} else {
+					CString s; s.Format(_T("%s: Unpacking failed\r\n"), file->fileName); nzb->log += s;
+					newStatus = kError;
 				}
-			} else {
-				CString s; s.Format(_T("%s: Unpacking failed\r\n"), file->fileName); nzb->log += s;
 			}
 		}
 		NEWZFLOW_LOCK;
-		nzb->status = kFinished;
+		nzb->status = newStatus;
 		Util::GetMainWindow().PostMessage(CMainFrame::MSG_NZB_FINISHED, (WPARAM)nzb); // handler decreases nzb->refCount
 
 		CNewzflow::Instance()->WriteQueue();
@@ -442,7 +466,7 @@ void CPostProcessor::Par2Repair(CParFile* par2file, bool allowJoin /*= true*/)
 				else if(line.Find(_T("Repair is possible")) >= 0) repairPossible = true;
 				else if(line.Find(_T("Repair complete")) >= 0) {
 					nzb->done = 100.f;
-					CString s; s.Format(_T("%s.par2: Repaired in %s\n"), par2file->parent->baseName, Util::FormatTimeSpan(time(NULL) - timeStart)); nzb->log += s;
+					CString s; s.Format(_T("%s.par2: Repaired in %s\r\n"), par2file->parent->baseName, Util::FormatTimeSpan(time(NULL) - timeStart)); nzb->log += s;
 					Par2Cleanup(par2file->parent);
 				} else if(line.Find(_T("repair is not required")) >= 0) {
 					nzb->done = 100.f;

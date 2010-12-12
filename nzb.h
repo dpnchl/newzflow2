@@ -144,11 +144,8 @@ public:
 	||
 	||
 	\/
-	kCached: all segments of this file have either been downloaded or errored
-	||
-	|| @CDiskWriter::OnJob() [Diskwriter assembles segments of this file and writes it to the destination directory]
-	\/
-	kCompleted: file has been assembled on disk
+	kCompleted: file has been assembled on disk (at least 1 segment could be downloaded)
+	kError: all segments failed to download
 */
 };
 
