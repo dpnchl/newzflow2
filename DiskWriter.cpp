@@ -11,7 +11,7 @@
 
 void CDiskWriter::Add(CNzbFile* file)
 {
-	{ CNewzflow::CLock lock;
+	{ NEWZFLOW_LOCK;
 		file->parent->refCount++;
 	}
 
@@ -93,7 +93,7 @@ LRESULT CDiskWriter::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandl
 			return 0; // UpdateFile() decrements refCount
 		}
 	}
-	CNewzflow::CLock lock;
+	NEWZFLOW_LOCK;
 	file->parent->refCount--;
 	return 0;
 }

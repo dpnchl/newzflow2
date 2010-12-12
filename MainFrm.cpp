@@ -318,7 +318,7 @@ public:
 	// Construction
 	CSaveNzbDialog(CNzb* _nzb, int _errorCode)
 	{
-		{ CNewzflow::CLock lock;
+		{ NEWZFLOW_LOCK;
 		nzb = _nzb;
 		nzb->refCount++; // so it doesn't get deleted while we're displaying this dialog
 		}
@@ -326,7 +326,7 @@ public:
 	}
 	~CSaveNzbDialog()
 	{
-		{ CNewzflow::CLock lock;
+		{ NEWZFLOW_LOCK;
 		nzb->refCount--;
 		}
 	}
@@ -483,7 +483,7 @@ LRESULT CMainFrame::OnSaveNzb(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOOL&
 
 LRESULT CMainFrame::OnNzbRemove(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 {
-	{ CNewzflow::CLock lock;
+	{ NEWZFLOW_LOCK;
 		m_files.SetNzb(NULL);
 		for(int item = m_list.GetNextItem(-1, LVNI_SELECTED); item != -1; item = m_list.GetNextItem(item, LVNI_SELECTED)) {
 			CNzb* nzb = (CNzb*)m_list.GetItemData(item);
@@ -498,7 +498,7 @@ LRESULT CMainFrame::OnNzbRemove(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndC
 
 LRESULT CMainFrame::OnNzbMoveUp(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 {
-	{ CNewzflow::CLock lock;
+	{ NEWZFLOW_LOCK;
 		for(int item = m_list.GetNextItem(-1, LVNI_SELECTED); item != -1; item = m_list.GetNextItem(item, LVNI_SELECTED)) {
 			CNzb* nzb = (CNzb*)m_list.GetItemData(item);
 			ASSERT(CNewzflow::Instance()->nzbs[item] == nzb);
@@ -559,7 +559,7 @@ LRESULT CMainFrame::OnTimer(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& /*bHa
 	__int64 eta = 0;
 	__int64 completed = 0, total = 0, left = 0;
 	if(speed > 1024) {
-		CNewzflow::CLock lock;
+		NEWZFLOW_LOCK;
 		size_t count = theApp->nzbs.GetCount();
 		for(size_t i = 0; i < count; i++) {
 			CNzb* nzb = theApp->nzbs[i];

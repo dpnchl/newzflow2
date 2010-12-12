@@ -3,6 +3,7 @@
 #include "PostProcessor.h"
 #include "nzb.h"
 #include "Newzflow.h"
+#include "Settings.h"
 #include "NntpSocket.h"
 #include "Compress.h"
 
@@ -133,7 +134,7 @@ CString CExternalTool::GetLine()
 
 void CPostProcessor::Add(CNzb* nzb)
 {
-	{ CNewzflow::CLock lock;
+	{ NEWZFLOW_LOCK;
 		nzb->refCount++;
 	}
 
@@ -171,7 +172,7 @@ LRESULT CPostProcessor::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 
 	bool finished = true;
 	{
-		CNewzflow::CLock lock;
+		NEWZFLOW_LOCK;
 		nzb->refCount--;
 
 		// now unpause needed par files
@@ -281,7 +282,7 @@ LRESULT CPostProcessor::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 				}
 			}
 		}
-		CNewzflow::CLock lock;
+		NEWZFLOW_LOCK;
 		nzb->status = kFinished;
 		nzb->refCount--;
 		CNewzflow::Instance()->WriteQueue();
@@ -311,7 +312,7 @@ void CPostProcessor::Par2Repair(CParFile* par2file, bool allowJoin /*= true*/)
 
 	CExternalTool tool;
 	CString cmdline;
-	cmdline.Format(_T("test\\par2\\par2.exe r \"%s\\%s\""), nzb->path, par2file->file->fileName);
+	cmdline.Format(_T("%s\\par2.exe r \"%s\\%s\""), CNewzflow::Instance()->settings->GetProgramDir(), nzb->path, par2file->file->fileName);
 	if(!tool.Run(cmdline))
 		return;
 

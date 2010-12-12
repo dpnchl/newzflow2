@@ -72,12 +72,43 @@ int CFileView::OnRefresh()
 	if(!nzb || nzb->status == kEmpty || nzb->status == kFetching)
 		return 0;
 
-	{ CNewzflow::CLock lock;
+	class CLine {
+	public:
+		CString name;
+		DWORD_PTR file;
+		__int64 size, done;
+		int segments;
+		ENzbStatus status;
+		EParStatus parStatus;
+		float parDone;
+	};
+
+	CAtlArray<CLine> lines;
+
+	{ NEWZFLOW_LOCK;
 		CNewzflow* theApp = CNewzflow::Instance();
 		size_t count = nzb->files.GetCount();
 		for(size_t i = 0; i < count; i++) {
 			CNzbFile* file = nzb->files[i];
-			CString s = file->subject;
+			CLine line;
+			line.name = file->subject;
+			line.file = (DWORD_PTR)file;
+			line.size = 0; 
+			line.done = 0;
+			line.status = file->status;
+			for(size_t j = 0; j < file->segments.GetCount(); j++) {
+				line.size += file->segments[j]->bytes;
+				if(file->segments[j]->status == kCompleted || file->segments[j]->status == kCached)
+					line.done += file->segments[j]->bytes;
+				if(file->segments[j]->status == kDownloading) // check if any segment is downloading
+					line.status = kDownloading;
+			}
+			line.segments = file->segments.GetCount();
+			line.parStatus = file->parStatus;
+			line.parDone = file->parDone;
+			lines.Add(line);
+
+/*			CString s = file->subject;
 			AddItemEx(i, (DWORD_PTR)file);
 			SetItemTextEx(i, kName, s);
 			__int64 size = 0, done = 0;
@@ -97,7 +128,24 @@ int CFileView::OnRefresh()
 			SetItemTextEx(i, kSegments, s);
 			SetItemTextEx(i, kStatus, GetNzbStatusString(status));
 			SetItemTextEx(i, kParStatus, GetParStatusString(file->parStatus, file->parDone));
+*/
 		}
+
+		for(size_t i = 0; i < lines.GetCount(); i++) {
+			CLine& line = lines[i];
+			AddItemEx(i, line.file);
+			SetItemTextEx(i, kName, line.name);
+			SetItemTextEx(i, kSize, Util::FormatSize(line.size));
+			SetItemTextEx(i, kDone, Util::FormatSize(line.done));
+			CString s;
+			s.Format(_T("%.1f %%"), 100.f * (float)line.done / (float)line.size);
+			SetItemTextEx(i, kProgress, s);
+			s.Format(_T("%d"), line.segments);
+			SetItemTextEx(i, kSegments, s);
+			SetItemTextEx(i, kStatus, GetNzbStatusString(line.status));
+			SetItemTextEx(i, kParStatus, GetParStatusString(line.parStatus, line.parDone));
+		}
+
 		return count;
 	}
 }
@@ -124,7 +172,7 @@ LRESULT CFileView::OnRClick(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/
 
 	bool canPause = false, canUnpause = false;
 
-	{ CNewzflow::CLock lock;
+	{ NEWZFLOW_LOCK;
 		for(int item = GetNextItem(-1, LVNI_SELECTED); item != -1; item = GetNextItem(item, LVNI_SELECTED)) {
 			CNzbFile* file = (CNzbFile*)GetItemData(item);
 			if(file->status == kQueued)
@@ -143,7 +191,7 @@ LRESULT CFileView::OnRClick(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/
 
 LRESULT CFileView::OnFilePause(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 {
-	{ CNewzflow::CLock lock;
+	{ NEWZFLOW_LOCK;
 		for(int item = GetNextItem(-1, LVNI_SELECTED); item != -1; item = GetNextItem(item, LVNI_SELECTED)) {
 			CNzbFile* file = (CNzbFile*)GetItemData(item);
 			if(file->status == kQueued)
@@ -157,7 +205,7 @@ LRESULT CFileView::OnFilePause(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCt
 
 LRESULT CFileView::OnFileUnpause(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 {
-	{ CNewzflow::CLock lock;
+	{ NEWZFLOW_LOCK;
 		for(int item = GetNextItem(-1, LVNI_SELECTED); item != -1; item = GetNextItem(item, LVNI_SELECTED)) {
 			CNzbFile* file = (CNzbFile*)GetItemData(item);
 			if(file->status == kPaused)
@@ -232,6 +280,10 @@ DWORD CFileView::OnSubItemPrePaint(int /*idCtrl*/, LPNMCUSTOMDRAW lpNMCustomDraw
 		m_thmProgress.DrawThemeBackground(dcOk, PP_FILL, PBFS_NORMAL, rcProgress, NULL);
 		m_thmProgress.DrawThemeBackground(dcErr, PP_FILL, PBFS_ERROR, rcProgress, NULL);
 
+		if(rcProgress.Width() == 0)
+			return CDRF_DODEFAULT;
+
+
 /*
 
 bytesPerSlice = 10;
@@ -251,18 +303,23 @@ bytesInStartSlice =
 
 */
 
-		{ CNewzflow::CLock lock;
+		int width = rcProgress.Width();
+		float* slicesOk = NULL, *slicesErr = NULL;
+		float bytesPerSlice = 0.f;
+		{ NEWZFLOW_LOCK;
 			CNzbFile* file = (CNzbFile*)GetItemData(cd->nmcd.dwItemSpec);
-			int width = rcProgress.Width();
-			float* slicesOk = new float [width], *slicesErr = new float[width];
-			for(int i = 0; i < width; i++) {
-				slicesOk[i] = slicesErr[i] = 0.f;
-			}
 			__int64 totalSize = 0;
 			for(size_t i = 0; i < file->segments.GetCount(); i++) {
 				totalSize += file->segments[i]->bytes;
 			}
-			float bytesPerSlice = (float)totalSize / (float)width;
+			bytesPerSlice = (float)totalSize / (float)width;
+			if(bytesPerSlice < 1.f)
+				return CDRF_DODEFAULT;
+			slicesOk = new float[width];
+			slicesErr = new float[width];
+			for(int i = 0; i < width; i++) {
+				slicesOk[i] = slicesErr[i] = 0.f;
+			}
 			__int64 offset = 0;
 			for(size_t i = 0; i < file->segments.GetCount(); i++) {
 				CNzbSegment* seg = file->segments[i];
@@ -272,7 +329,7 @@ bytesInStartSlice =
 					int sliceStartIndex = (int)((float)internalOffset / bytesPerSlice);
 					int sliceEndIndex = (int)((float)(internalOffset + internalBytes) / bytesPerSlice);
 					float sliceEndOffset = ((sliceStartIndex + 1) * bytesPerSlice);
-					while(sliceEndIndex >= sliceStartIndex && internalBytes > 0) {
+					while(sliceEndIndex >= sliceStartIndex && internalBytes > 0 && sliceStartIndex < width) {
 						float bytesInStartSlice = min(sliceEndOffset - internalOffset, internalBytes);
 						slicesOk[sliceStartIndex] += bytesInStartSlice;
 						internalOffset += bytesInStartSlice;
@@ -286,7 +343,7 @@ bytesInStartSlice =
 					int sliceStartIndex = (int)((float)internalOffset / bytesPerSlice);
 					int sliceEndIndex = (int)((float)(internalOffset + internalBytes) / bytesPerSlice);
 					float sliceEndOffset = ((sliceStartIndex + 1) * bytesPerSlice);
-					while(sliceEndIndex >= sliceStartIndex && internalBytes > 0) {
+					while(sliceEndIndex >= sliceStartIndex && internalBytes > 0 && sliceStartIndex < width) {
 						float bytesInStartSlice = min(sliceEndOffset - internalOffset, internalBytes);
 						slicesErr[sliceStartIndex] += bytesInStartSlice;
 						internalOffset += bytesInStartSlice;
@@ -297,23 +354,23 @@ bytesInStartSlice =
 				}
 				offset += seg->bytes;
 			}
-
-			for(int i = 0; i < width; i++) {
-				slicesOk[i] /= bytesPerSlice;
-				slicesErr[i] /= bytesPerSlice;
-				BLENDFUNCTION bf;
-				bf.BlendOp = AC_SRC_OVER;
-				bf.BlendFlags = 0;
-				bf.SourceConstantAlpha = min(255, (int)(slicesOk[i] * 255.f));
-				bf.AlphaFormat = 0;
-				dcMem.AlphaBlend(rcProgress.left + i, rcProgress.top, 1, rcProgress.Height(), dcOk, rcProgress.left + i, rcProgress.top, 1, rcProgress.Height(), bf);
-				bf.SourceConstantAlpha = min(255, (int)(slicesErr[i] * 255.f));
-				dcMem.AlphaBlend(rcProgress.left + i, rcProgress.top, 1, rcProgress.Height(), dcErr, rcProgress.left + i, rcProgress.top, 1, rcProgress.Height(), bf);
-			}
-
-			delete[] slicesOk;
-			delete[] slicesErr;
 		}
+
+		for(int i = 0; i < width; i++) {
+			slicesOk[i] /= bytesPerSlice;
+			slicesErr[i] /= bytesPerSlice;
+			BLENDFUNCTION bf;
+			bf.BlendOp = AC_SRC_OVER;
+			bf.BlendFlags = 0;
+			bf.SourceConstantAlpha = min(255, (int)(slicesOk[i] * 255.f));
+			bf.AlphaFormat = 0;
+			dcMem.AlphaBlend(rcProgress.left + i, rcProgress.top, 1, rcProgress.Height(), dcOk, rcProgress.left + i, rcProgress.top, 1, rcProgress.Height(), bf);
+			bf.SourceConstantAlpha = min(255, (int)(slicesErr[i] * 255.f));
+			dcMem.AlphaBlend(rcProgress.left + i, rcProgress.top, 1, rcProgress.Height(), dcErr, rcProgress.left + i, rcProgress.top, 1, rcProgress.Height(), bf);
+		}
+
+		delete[] slicesOk;
+		delete[] slicesErr;
 
 		return CDRF_SKIPDEFAULT;
 	}

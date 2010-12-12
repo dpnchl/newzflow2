@@ -38,7 +38,7 @@ LRESULT CConnectionView::OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lPar
 {
 	int lvCount = GetItemCount();
 
-	{ CNewzflow::CLock lock;
+	{ NEWZFLOW_LOCK;
 		size_t count = CNewzflow::Instance()->downloaders.GetCount();
 		for(size_t i = 0; i < count; i++) {
 			CDownloader* dl = CNewzflow::Instance()->downloaders[i];
