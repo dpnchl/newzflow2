@@ -84,6 +84,9 @@ extern CAppModule _Module;
 #include <msxml2.h>
 #pragma comment(lib, "msxml2.lib")
 
+#undef min
+#undef max
+
 // STL
 #include <utility>
 #include <regex>
@@ -93,6 +96,8 @@ namespace std {
 		typedef match_results<const TCHAR*> tcmatch;
 	}
 }
+using std::min;
+using std::max;
 
 #ifdef _DEBUG
    #define DEBUG_CLIENTBLOCK   new( _CLIENT_BLOCK, __FILE__, __LINE__)

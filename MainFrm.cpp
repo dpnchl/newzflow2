@@ -41,10 +41,9 @@ BOOL CMainFrame::PreTranslateMessage(MSG* pMsg)
 BOOL CMainFrame::OnIdle()
 {
 	CString s;
-	s.Format(_T("Connections: %d"), CNewzflow::Instance()->settings->GetConnections());
-	UISetText(1, s);
-	s.Format(_T("Max. Speed: %s"), CNntpSocket::speedLimiter.GetLimit() > 0 ? Util::FormatSpeed(CNntpSocket::speedLimiter.GetLimit()) : _T("Unlimited"));
-	UISetText(2, s);
+	UISetText(2, _T("On Finish: ---"));
+	s.Format(_T("Connections: %d"), CNewzflow::Instance()->settings->GetConnections()); UISetText(3, s);
+	s.Format(_T("Max. Speed: %s"), CNntpSocket::speedLimiter.GetLimit() > 0 ? Util::FormatSpeed(CNntpSocket::speedLimiter.GetLimit()) : _T("Unlimited")); UISetText(4, s);
 
 	UIUpdateToolBar();
 	UIUpdateStatusBar();
@@ -60,7 +59,7 @@ void CMainFrame::UpdateLayout(BOOL bResizeBars)
 	UpdateBarsPosition(rect, bResizeBars);
 
 	CRect r1(rect), r2(rect);
-	m_vertSplitYReal = max(100, rect.bottom - max(100, m_vertSplitY));
+	m_vertSplitYReal = max<int>(100, rect.bottom - max<int>(100, m_vertSplitY));
 	r1.bottom = m_vertSplitYReal - 3;
 	r2.top = m_vertSplitYReal + 3;
 
@@ -93,7 +92,7 @@ LRESULT CMainFrame::OnMouseMove(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOO
 		lParam = GetMessagePos();
 		CPoint ptMouseCur(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
 		CRect r; GetClientRect(r);
-		m_vertSplitY = max(100, min(r.Height() - 100, m_ptSplit.y - (ptMouseCur.y - m_ptMouse.y)));
+		m_vertSplitY = max<int>(100, min<int>(r.Height() - 100, m_ptSplit.y - (ptMouseCur.y - m_ptMouse.y)));
 		UpdateLayout();
 		SetCursor(LoadCursor(NULL, IDC_SIZENS));
 		return 1;
@@ -144,7 +143,7 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 
 	m_hWndStatusBar = m_statusBar.Create(*this);
 	UIAddStatusBar(m_hWndStatusBar);
-	int nPanes[] = { ID_DEFAULT_PANE, IDR_CONNECTIONS, IDR_SPEEDLIMIT };
+	int nPanes[] = { ID_DEFAULT_PANE, IDR_PAUSE, IDR_SHUTDOWN, IDR_CONNECTIONS, IDR_SPEEDLIMIT };
 	m_statusBar.SetPanes(nPanes, countof(nPanes), false);
 
 	m_vertSplitY = CNewzflow::Instance()->settings->GetSplitPos();
@@ -590,7 +589,7 @@ LRESULT CMainFrame::OnTimer(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& /*bHa
 	int speed = CNntpSocket::totalSpeed.Get();
 	__int64 eta = 0;
 	__int64 completed = 0, total = 0, left = 0;
-	if(speed > 1024) {
+	{
 		NEWZFLOW_LOCK;
 		size_t count = theApp->nzbs.GetCount();
 		for(size_t i = 0; i < count; i++) {
@@ -609,10 +608,13 @@ LRESULT CMainFrame::OnTimer(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& /*bHa
 				}
 			}
 		}
-		eta = (total - completed) / speed;
-		left = total - completed;
+		if(speed > 1024) {
+			eta = (total - completed) / speed;
+			left = total - completed;
+		}
 	}
 
+	// update window title
 	CString s = _T("Newzflow r") _T(NEWZFLOW_REVISION);
 	if(left > 0)
 		s += _T(" - ") + Util::FormatSize(left);
@@ -621,6 +623,9 @@ LRESULT CMainFrame::OnTimer(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& /*bHa
 	if(eta > 0)
 		s += _T(" - ") + Util::FormatTimeSpan(eta);
 	SetWindowText(s);
+
+	// update status bar
+	UISetText(1, CNewzflow::Instance()->GetPauseStatus());
 
 	// update taskbar progress list (Windows 7 only)
 	if(m_pTaskbarList) {
@@ -634,6 +639,7 @@ LRESULT CMainFrame::OnTimer(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& /*bHa
 
 	// pass on the message to all child windows to update them
 	SendMessageToDescendants(uMsg, wParam, lParam);
+	CNewzflow::Instance()->OnTimer();
 	UpdateNzbButtons();
 	return 0;
 }
@@ -729,6 +735,16 @@ LRESULT CNewzflowStatusBarCtrl::OnRButtonUp(UINT /*uMsg*/, WPARAM /*wParam*/, LP
 	CPoint ptScreen(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)), pt(ptScreen);
 	ScreenToClient(&pt);
 	CRect rPane;
+	GetPaneRect(IDR_PAUSE, rPane);
+	if(rPane.PtInRect(pt)) {
+		OnRClickPause(ptScreen);
+		return 0;
+	}
+	GetPaneRect(IDR_SHUTDOWN, rPane);
+	if(rPane.PtInRect(pt)) {
+		OnRClickShutdown(ptScreen);
+		return 0;
+	}
 	GetPaneRect(IDR_CONNECTIONS, rPane);
 	if(rPane.PtInRect(pt)) {
 		OnRClickConnections(ptScreen);
@@ -837,5 +853,43 @@ void CNewzflowStatusBarCtrl::OnRClickConnections(const CPoint &ptScreen)
 	if(ret != 0) {
 		CNewzflow::Instance()->settings->SetConnections(ret);
 		CNewzflow::Instance()->OnServerSettingsChanged();
+	}
+}
+
+void CNewzflowStatusBarCtrl::OnRClickPause(const CPoint &ptScreen)
+{
+	CMenu menu;
+	menu.CreatePopupMenu();
+	menu.AppendMenu((!CNewzflow::Instance()->IsPaused() ? MF_CHECKED : 0) | MF_STRING, 1, _T("Resume"));
+	menu.AppendMenu(MF_SEPARATOR);
+	menu.AppendMenu((CNewzflow::Instance()->IsPaused() ? MF_CHECKED : 0) | MF_STRING, 2, _T("Pause"));
+	menu.AppendMenu(MF_STRING, 5*60, _T("Pause for 5 minutes"));
+	menu.AppendMenu(MF_STRING, 10*60, _T("Pause for 10 minutes"));
+	menu.AppendMenu(MF_STRING, 15*60, _T("Pause for 15 minutes"));
+	menu.AppendMenu(MF_STRING, 30*60, _T("Pause for 30 minutes"));
+	menu.AppendMenu(MF_STRING, 1*60*60, _T("Pause for 1 hour"));
+	menu.AppendMenu(MF_STRING, 3*60*60, _T("Pause for 3 hours"));
+	menu.AppendMenu(MF_STRING, 6*60*60, _T("Pause for 6 hours"));
+	int ret = (int)menu.TrackPopupMenu(TPM_RIGHTBUTTON | TPM_RETURNCMD, ptScreen.x, ptScreen.y, *this);
+	if(ret != 0) {
+		CNewzflow::Instance()->Pause(ret > 1, ret > 2 ? ret : INT_MAX);
+		Util::GetMainWindow().SendMessage(WM_TIMER);
+	}
+}
+
+void CNewzflowStatusBarCtrl::OnRClickShutdown(const CPoint &ptScreen)
+{
+	CMenu menu;
+	menu.CreatePopupMenu();
+	menu.AppendMenu(MF_STRING, 1, _T("Do nothing"));
+	menu.AppendMenu(MF_SEPARATOR);
+	menu.AppendMenu(MF_STRING, 2, _T("Quit Newzflow"));
+	menu.AppendMenu(MF_SEPARATOR);
+	menu.AppendMenu(MF_STRING, 3, _T("Shutdown Computer"));
+	menu.AppendMenu(MF_STRING, 3, _T("Standby Computer"));
+	menu.AppendMenu(MF_STRING, 3, _T("Hibernate Computer"));
+	int ret = (int)menu.TrackPopupMenu(TPM_RIGHTBUTTON | TPM_RETURNCMD, ptScreen.x, ptScreen.y, *this);
+	if(ret != 0) {
+		//CNewzflow::Instance()->Pause(ret > 1, ret > 2 ? ret : INT_MAX);
 	}
 }

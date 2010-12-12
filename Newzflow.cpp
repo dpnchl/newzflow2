@@ -216,6 +216,8 @@ CNewzflow::CNewzflow()
 
 	VERIFY(CNntpSocket::InitWinsock());
 
+	paused = false;
+	pauseEnd = std::numeric_limits<time_t>::max();
 	shuttingDown = false;
 	diskWriter = new CDiskWriter;
 	postProcessor = new CPostProcessor;
@@ -418,13 +420,13 @@ void CNewzflow::CreateDownloaders()
 	}
 	finishedDownloaders.RemoveAll();
 
-	if(!HasSegment())
+	if(paused || !HasSegment())
 		return;
 
 	int maxDownloaders = min(100, max(0, _ttoi(settings->GetIni(_T("Server"), _T("Connections"), _T("10")))));
 
 	// create enough downloaders
-	int numDownloaders = max(0, maxDownloaders - downloaders.GetCount());
+	int numDownloaders = max<int>(0, maxDownloaders - downloaders.GetCount());
 
 	CString s;
 	s.Format(_T("CreateDownloaders(): Have %d, need %d, creating %d.\n"), downloaders.GetCount(), maxDownloaders, numDownloaders);
@@ -661,6 +663,80 @@ void CNewzflow::AddPostProcessor(CNzb* nzb)
 {
 	postProcessor->Add(nzb);
 }
+
+bool CNewzflow::IsPaused()
+{
+	return paused;
+}
+
+void CNewzflow::Pause(bool pause, int length)
+{
+	paused = pause;
+	pauseEnd = std::numeric_limits<time_t>::max();
+	if(pause && length != INT_MAX)
+		pauseEnd = time(NULL) + (time_t)length;
+
+	if(pause) {
+		NEWZFLOW_LOCK;
+
+		// shut down all downloaders; TODO: move somewhere else
+		for(size_t i = 0; i < downloaders.GetCount(); i++) {
+			CString s;
+			downloaders[i]->shutDown = true;
+		}
+		Util::Print("Finished shutting down downloaders\n");
+	} else {
+		controlThread->CreateDownloaders();
+	}
+}
+
+CString CNewzflow::GetPauseStatus()
+{
+	if(paused) {
+		if(pauseEnd == std::numeric_limits<time_t>::max()) {
+			return _T("Paused");
+		} else {
+			return CString(_T("Paused for ")) + Util::FormatTimeSpan(pauseEnd - time(NULL));
+		}
+	} else {
+		bool bDownloading = false;
+		{
+			NEWZFLOW_LOCK;
+			size_t count = nzbs.GetCount();
+			for(size_t i = 0; i < count; i++) {
+				CNzb* nzb = nzbs[i];
+				for(size_t j = 0; j < nzb->files.GetCount(); j++) {
+					CNzbFile* f = nzb->files[j];
+					if(f->status == kPaused)
+						continue;
+					for(size_t k = 0; k < f->segments.GetCount(); k++) {
+						CNzbSegment* s = f->segments[k];
+						if(s->status == kPaused)
+							continue;
+						if(s->status == kDownloading)
+							bDownloading = true;
+					}
+					if(bDownloading)
+						break;
+				}
+				if(bDownloading)
+					break;
+			}
+		}
+		if(bDownloading)
+			return _T("Downloading");
+		else
+			return _T("Idle");
+	}
+}
+
+void CNewzflow::OnTimer()
+{
+	if(paused && time(NULL) >= pauseEnd) {
+		Pause(false);
+	}
+}
+
 
 /*static*/ const char* CNewzflow::CLock::file = NULL;
 /*static*/ int CNewzflow::CLock::line = NULL;

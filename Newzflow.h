@@ -20,6 +20,7 @@ class CNewzflowThread : public CGuiThreadImpl<CNewzflowThread>
 
 	BEGIN_MSG_MAP(CNewzflowThread)
 		MESSAGE_HANDLER(MSG_ADD_FILE, OnAddFile)
+		MESSAGE_HANDLER(MSG_ADD_FILE, OnAddFile)
 		MESSAGE_HANDLER(MSG_ADD_NZB, OnAddNZB)
 		MESSAGE_HANDLER(MSG_WRITE_QUEUE, OnWriteQueue)
 		MESSAGE_HANDLER(MSG_CREATE_DOWNLOADERS, OnCreateDownloaders)
@@ -67,6 +68,9 @@ public:
 	bool HasSegment();
 	CNzbSegment* GetSegment(bool bTestOnly = false);
 	bool IsShuttingDown();
+	bool IsPaused();
+	void Pause(bool pause, int length = INT_MAX);
+	CString GetPauseStatus();
 	void UpdateSegment(CNzbSegment* s, ENzbStatus newStatus);
 	void UpdateFile(CNzbFile* f, ENzbStatus newStatus);
 	void RemoveDownloader(CDownloader* dl);
@@ -76,6 +80,7 @@ public:
 	void RemoveNzb(CNzb* nzb);
 	void FreeDeletedNzbs();
 	void OnServerSettingsChanged();
+	void OnTimer();
 	void SetSpeedLimit(int limit);
 	void AddPostProcessor(CNzb* nzb);
 	CAtlArray<CNzb*> nzbs, deletedNzbs;
@@ -91,6 +96,9 @@ public:
 
 protected:
 	static CNewzflow* s_pInstance;
+
+	bool paused;
+	time_t pauseEnd;
 
 	volatile bool shuttingDown;
 };

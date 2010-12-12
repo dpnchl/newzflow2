@@ -8,7 +8,8 @@
 // Generated from the TEXTINCLUDE 2 resource.
 //
 #include "atlres.h"
-#include "Version.h"
+#include "Version.h"
+
 /////////////////////////////////////////////////////////////////////////////
 #undef APSTUDIO_READONLY_SYMBOLS
 
@@ -239,7 +240,8 @@ END
 2 TEXTINCLUDE 
 BEGIN
     "#include ""atlres.h""\r\n"
-    "#include ""Version.h""\r\n\0"
+    "#include ""Version.h""\r\n"
+    "\0"
 END
 
 3 TEXTINCLUDE 
@@ -400,6 +402,8 @@ END
 STRINGTABLE 
 BEGIN
     IDR_MAINFRAME           "Newzflow"
+    IDR_PAUSE               "Paused for 99h 99m"
+    IDR_SHUTDOWN            "On Finish: Shutdown Computer"
     IDR_CONNECTIONS         "Connections: 999"
     IDR_SPEEDLIMIT          "Max. Speed: Unlimited@@@"
 END
