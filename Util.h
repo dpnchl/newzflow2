@@ -19,6 +19,14 @@ namespace Util
 	void SetMainWindow(CWindow wnd);
 	CString GetErrorMessage(int error);
 	int TestCreateDirectory(const CString& path); // return: system error codes (ERROR_SUCCESS, ...)
+	enum EShutdownMode {
+		shutdown_nothing,
+		shutdown_exit,
+		shutdown_poweroff,
+		shutdown_suspend,
+		shutdown_hibernate,
+	};
+	bool Shutdown(EShutdownMode mode);
 };
 
 class CToolBarImageList

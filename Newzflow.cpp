@@ -181,12 +181,12 @@ LRESULT CNewzflowThread::OnCreateDownloaders(UINT uMsg, WPARAM wParam, LPARAM lP
 	return 0;	
 }
 
-class CShutdownDialog : public CDialogImplEx<CShutdownDialog>
+class CQuitDialog : public CDialogImplEx<CQuitDialog>
 {
 public:
-	enum { IDD = IDD_SHUTDOWN };
+	enum { IDD = IDD_QUIT };
 
-	BEGIN_MSG_MAP(CShutdownDialog)
+	BEGIN_MSG_MAP(CQuitDialog)
 		MESSAGE_HANDLER(WM_INITDIALOG, OnInitDialog)
 	END_MSG_MAP()
 
@@ -218,6 +218,7 @@ CNewzflow::CNewzflow()
 
 	paused = false;
 	pauseEnd = std::numeric_limits<time_t>::max();
+	shutdownMode = Util::shutdown_nothing;
 	shuttingDown = false;
 	diskWriter = new CDiskWriter;
 	postProcessor = new CPostProcessor;
@@ -237,7 +238,7 @@ CNewzflow::~CNewzflow()
 {
 	shuttingDown = true;
 
-	CShutdownDialog dlg;
+	CQuitDialog dlg;
 	dlg.Create(NULL);
 
 	dlg.text.SetWindowText(_T("Waiting for control thread..."));
@@ -699,31 +700,7 @@ CString CNewzflow::GetPauseStatus()
 			return CString(_T("Paused for ")) + Util::FormatTimeSpan(pauseEnd - time(NULL));
 		}
 	} else {
-		bool bDownloading = false;
-		{
-			NEWZFLOW_LOCK;
-			size_t count = nzbs.GetCount();
-			for(size_t i = 0; i < count; i++) {
-				CNzb* nzb = nzbs[i];
-				for(size_t j = 0; j < nzb->files.GetCount(); j++) {
-					CNzbFile* f = nzb->files[j];
-					if(f->status == kPaused)
-						continue;
-					for(size_t k = 0; k < f->segments.GetCount(); k++) {
-						CNzbSegment* s = f->segments[k];
-						if(s->status == kPaused)
-							continue;
-						if(s->status == kDownloading)
-							bDownloading = true;
-					}
-					if(bDownloading)
-						break;
-				}
-				if(bDownloading)
-					break;
-			}
-		}
-		if(bDownloading)
+		if(IsDownloading())
 			return _T("Downloading");
 		else
 			return _T("Idle");
@@ -737,6 +714,44 @@ void CNewzflow::OnTimer()
 	}
 }
 
+bool CNewzflow::IsDownloading()
+{
+	bool bDownloading = false;
+	{
+		NEWZFLOW_LOCK;
+		size_t count = nzbs.GetCount();
+		for(size_t i = 0; i < count; i++) {
+			CNzb* nzb = nzbs[i];
+			for(size_t j = 0; j < nzb->files.GetCount(); j++) {
+				CNzbFile* f = nzb->files[j];
+				if(f->status == kPaused)
+					continue;
+				for(size_t k = 0; k < f->segments.GetCount(); k++) {
+					CNzbSegment* s = f->segments[k];
+					if(s->status == kPaused)
+						continue;
+					if(s->status == kDownloading)
+						bDownloading = true;
+				}
+				if(bDownloading)
+					break;
+			}
+			if(bDownloading)
+				break;
+		}
+	}
+	return bDownloading;
+}
+
+void CNewzflow::SetShutdownMode(Util::EShutdownMode mode)
+{
+	shutdownMode = mode;
+}
+
+Util::EShutdownMode CNewzflow::GetShutdownMode()
+{
+	return shutdownMode;
+}
 
 /*static*/ const char* CNewzflow::CLock::file = NULL;
 /*static*/ int CNewzflow::CLock::line = NULL;

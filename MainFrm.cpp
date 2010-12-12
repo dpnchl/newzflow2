@@ -41,7 +41,6 @@ BOOL CMainFrame::PreTranslateMessage(MSG* pMsg)
 BOOL CMainFrame::OnIdle()
 {
 	CString s;
-	UISetText(2, _T("On Finish: ---"));
 	s.Format(_T("Connections: %d"), CNewzflow::Instance()->settings->GetConnections()); UISetText(3, s);
 	s.Format(_T("Max. Speed: %s"), CNntpSocket::speedLimiter.GetLimit() > 0 ? Util::FormatSpeed(CNntpSocket::speedLimiter.GetLimit()) : _T("Unlimited")); UISetText(4, s);
 
@@ -487,16 +486,93 @@ LRESULT CMainFrame::OnSaveNzb(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOOL&
 	return 0;
 }
 
+class CPowerOffDialog : public CDialogImplEx<CPowerOffDialog>
+{
+public:
+	CPowerOffDialog(Util::EShutdownMode _mode)
+	{
+		mode = _mode;
+	}
+
+	enum { IDD = IDD_POWEROFF };
+
+	BEGIN_MSG_MAP(CPowerOffDialog)
+		MESSAGE_HANDLER(WM_INITDIALOG, OnInitDialog)
+		MESSAGE_HANDLER(WM_TIMER, OnTimer)
+		COMMAND_ID_HANDLER(IDCANCEL, OnCloseCmd)
+	END_MSG_MAP()
+
+	LRESULT OnInitDialog(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)
+	{
+		image = GetDlgItem(IDC_IMAGE);
+		image.SetIcon(LoadIcon(LoadLibrary(_T("shell32.dll")), MAKEINTRESOURCE(28)));
+		text = GetDlgItem(IDC_TEXT);
+		progress = GetDlgItem(IDC_PROGRESS);
+		progress.SetRange32(0, 30);
+		countdown = 30;
+		SetTimer(1234, 1000, NULL);
+		BOOL b;
+		OnTimer(0, 0, 0, b);
+		return TRUE;
+	}
+
+	LRESULT OnTimer(WORD /*wNotifyCode*/, WPARAM, LPARAM, BOOL& /*bHandled*/)
+	{
+		CString s;
+		switch(mode) {
+		case Util::shutdown_poweroff: s.Format(_T("The computer will power off in %d seconds."), countdown); break;
+		case Util::shutdown_suspend: s.Format(_T("The computer will enter standby mode in %d seconds."), countdown); break;
+		case Util::shutdown_hibernate: s.Format(_T("The computer will hibernate in %d seconds."), countdown); break;
+		}
+
+		text.SetWindowText(CString(_T("All downloads have finished. Auto-Shutdown initiated.\n")) + s);
+
+		if(countdown <= 0)
+			EndDialog(IDOK);
+		countdown--;
+		progress.SetPos(30 - countdown);
+		return 0;
+	}
+
+	LRESULT OnCloseCmd(WORD /*wNotifyCode*/, WORD wID, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
+	{
+		EndDialog(IDCANCEL);
+		return 0;
+	}
+
+public:
+	Util::EShutdownMode mode;
+	int countdown;
+	CStatic text;
+	CStatic image;
+	CProgressBarCtrl progress;
+};
+
 LRESULT CMainFrame::OnNzbFinished(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lParam*/, BOOL& /*bHandled*/)
 {
-	CNzb* nzb = (CNzb*)wParam;
-	NEWZFLOW_LOCK;
-
+	CString nzbName;
+	ENzbStatus nzbStatus;
+	{ NEWZFLOW_LOCK;
+		CNzb* nzb = (CNzb*)wParam;
+		nzbName = nzb->name;
+		nzbStatus = nzb->status;
+		nzb->refCount--;
+	}
 	if(m_trayIcon.IsHidden())
 		m_trayIcon.Show();
-	m_trayIcon.SetBalloonDetails(nzb->name, _T("Download Finished"), nzb->status == kError ? CTrayNotifyIcon::Error : CTrayNotifyIcon::Info, 10000);
+	m_trayIcon.SetBalloonDetails(nzbName, _T("Download Finished"), nzbStatus == kError ? CTrayNotifyIcon::Error : CTrayNotifyIcon::Info, 10000);
 
-	nzb->refCount--;
+	Util::EShutdownMode mode = CNewzflow::Instance()->GetShutdownMode();
+	if(mode != Util::shutdown_nothing) {
+		CNewzflow::Instance()->SetShutdownMode(Util::shutdown_nothing);
+		if(mode != Util::shutdown_exit) {
+			CPowerOffDialog dlg(mode);
+			if(dlg.DoModal(*this) == IDOK)
+				Util::Shutdown(mode);
+		} else {
+			Util::Shutdown(mode);
+		}
+	}
 
 	return 0;
 }
@@ -626,6 +702,16 @@ LRESULT CMainFrame::OnTimer(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& /*bHa
 
 	// update status bar
 	UISetText(1, CNewzflow::Instance()->GetPauseStatus());
+
+	switch(CNewzflow::Instance()->GetShutdownMode()) {
+	case Util::shutdown_nothing: s = _T("(Do nothing)"); break;
+	case Util::shutdown_exit: s = _T("Exit"); break;
+	case Util::shutdown_poweroff: s = _T("Power off"); break;
+	case Util::shutdown_suspend: s = _T("Standby mode"); break;
+	case Util::shutdown_hibernate: s = _T("Hibernate"); break;
+	default: ASSERT(FALSE);
+	}
+	UISetText(2, CString(_T("On Finish: ")) + s);
 
 	// update taskbar progress list (Windows 7 only)
 	if(m_pTaskbarList) {
@@ -881,15 +967,16 @@ void CNewzflowStatusBarCtrl::OnRClickShutdown(const CPoint &ptScreen)
 {
 	CMenu menu;
 	menu.CreatePopupMenu();
-	menu.AppendMenu(MF_STRING, 1, _T("Do nothing"));
+	menu.AppendMenu(MF_STRING, Util::shutdown_nothing + 1, _T("Do nothing"));
 	menu.AppendMenu(MF_SEPARATOR);
-	menu.AppendMenu(MF_STRING, 2, _T("Quit Newzflow"));
+	menu.AppendMenu(MF_STRING, Util::shutdown_exit + 1, _T("Exit Newzflow"));
 	menu.AppendMenu(MF_SEPARATOR);
-	menu.AppendMenu(MF_STRING, 3, _T("Shutdown Computer"));
-	menu.AppendMenu(MF_STRING, 3, _T("Standby Computer"));
-	menu.AppendMenu(MF_STRING, 3, _T("Hibernate Computer"));
+	menu.AppendMenu(MF_STRING, Util::shutdown_poweroff + 1, _T("Power off Computer"));
+	menu.AppendMenu(MF_STRING, Util::shutdown_suspend + 1, _T("Standby Computer"));
+	menu.AppendMenu(MF_STRING, Util::shutdown_hibernate + 1, _T("Hibernate Computer"));
 	int ret = (int)menu.TrackPopupMenu(TPM_RIGHTBUTTON | TPM_RETURNCMD, ptScreen.x, ptScreen.y, *this);
 	if(ret != 0) {
-		//CNewzflow::Instance()->Pause(ret > 1, ret > 2 ? ret : INT_MAX);
+		CNewzflow::Instance()->SetShutdownMode((Util::EShutdownMode)(ret-1));
+		Util::GetMainWindow().SendMessage(WM_TIMER);
 	}
 }
