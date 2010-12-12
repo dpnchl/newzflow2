@@ -36,8 +36,11 @@ void CNewzflowThread::AddFile(const CString& nzbPath)
 		return;
 
 	CString nzbUrl;
-	// make a full path (incl. drive and directory) for XML Parser's URL
-	if(!(nzbPath.GetLength() > 1 && nzbPath[1] == ':')) {
+	if(nzbPath.GetLength() >= 3 && ((nzbPath[1] == ':' && nzbPath[2] == '\\') || (nzbPath[0] == '\\' && nzbPath[1] == '\\'))) {
+		// full path specified
+		nzbUrl = nzbPath;
+	} else {
+		// make a full path (incl. drive and directory) for XML Parser's URL
 		CString curDir;
 		::GetCurrentDirectory(512, curDir.GetBuffer(512)); curDir.ReleaseBuffer();
 		if(nzbPath[0] == '\\') {
@@ -47,9 +50,6 @@ void CNewzflowThread::AddFile(const CString& nzbPath)
 			// relative file/directory specified
 			nzbUrl = curDir + _T("\\") + nzbPath;
 		}
-	} else {
-		// full path specified
-		nzbUrl = nzbPath;
 	}
 
 	if(::GetCurrentThread() != GetHandle())
@@ -112,7 +112,7 @@ LRESULT CNewzflowThread::OnAddFile(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 		// create a new empty CNzb
 		nzb->name = *nzbUrl;
 		nzb->status = kFetching;
-		{ CNewzflow::CLock lock;
+		{ NEWZFLOW_LOCK;
 			nzb->refCount++; // so it doesn't get deleted while we're still downloading
 			CNewzflow::Instance()->nzbs.Add(nzb); // add it to the queue so it shows up in CNzbView
 		}
@@ -123,14 +123,14 @@ LRESULT CNewzflowThread::OnAddFile(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 		if(CNewzflow::Instance()->httpDownloader->Download(*nzbUrl, nzb->GetLocalPath(), outFilename, &nzb->done)) {
 			// parse the NZB 
 			if(nzb->CreateFromLocal()) {
-				{ CNewzflow::CLock lock;
+				{ NEWZFLOW_LOCK;
 					nzb->name = outFilename; // adjust the name
 					AddNZB(nzb);
 					nzb->refCount--;
 				}
 			} else {
 				// error during parsing, so remove NZB from queue
-				{ CNewzflow::CLock lock;
+				{ NEWZFLOW_LOCK;
 					nzb->refCount--;
 				}
 				CNewzflow::Instance()->RemoveNzb(nzb);
@@ -160,7 +160,7 @@ LRESULT CNewzflowThread::OnAddNZB(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL&
 	int error = ERROR_SUCCESS;
 	if(CNewzflow::Instance()->settings->GetDownloadDir().IsEmpty() || !nzb->SetPath(CNewzflow::Instance()->settings->GetDownloadDir(), NULL, &error))
 		Util::GetMainWindow().PostMessage(CMainFrame::MSG_SAVE_NZB, (WPARAM)nzb, (LPARAM)error);
-	{ CNewzflow::CLock lock;
+	{ NEWZFLOW_LOCK;
 		CNewzflow::Instance()->nzbs.Add(nzb);
 	}
 	CNewzflow::Instance()->CreateDownloaders();
@@ -312,7 +312,7 @@ CNewzflow* CNewzflow::Instance()
 // to check if there's a segment, set bTestOnly = true, but don't do anything with the returning pointer except checking for NULL
 CNzbSegment* CNewzflow::GetSegment(bool bTestOnly /*= false*/)
 {
-	CLock lock;
+	NEWZFLOW_LOCK;
 	if(shuttingDown)
 		return NULL;
 
@@ -352,7 +352,7 @@ void CNewzflow::UpdateSegment(CNzbSegment* s, ENzbStatus newStatus)
 	// kQueued: a temporary error has occured in the downloader. Segment needs to be tried again later
 	ASSERT(newStatus == kError || newStatus == kCached || newStatus == kQueued);
 
-	CLock lock;
+	NEWZFLOW_LOCK;
 	s->status = newStatus;
 	CNzbFile* file = s->parent;
 	CNzb* nzb = file->parent;
@@ -369,7 +369,7 @@ void CNewzflow::UpdateFile(CNzbFile* file, ENzbStatus newStatus)
 {
 	ASSERT(newStatus == kCompleted);
 
-	CLock lock;
+	NEWZFLOW_LOCK;
 	CNzb* nzb = file->parent;
 	nzb->refCount--;
 	TRACE(_T("UpdateFile(%s, %s): refCount=%d\n"), file->fileName, GetNzbStatusString(newStatus), nzb->refCount);
@@ -389,7 +389,7 @@ void CNewzflow::UpdateFile(CNzbFile* file, ENzbStatus newStatus)
 // unfortunately a thread cannot delete itself.
 void CNewzflow::RemoveDownloader(CDownloader* dl)
 {
-	CLock lock;
+	NEWZFLOW_LOCK;
 
 	// if we're shutting down, do nothing. ~CNewzflow will wait for all downloaders and delete them
 	if(shuttingDown)
@@ -413,7 +413,7 @@ void CNewzflow::RemoveDownloader(CDownloader* dl)
 // To avoid this, RemoveDownloader() now checks the queue and calls CreateDownloaders() from controlThread if necessary
 void CNewzflow::CreateDownloaders()
 {
-	CLock lock;
+	NEWZFLOW_LOCK;
 
 	// delete any finished downloaders (they can't delete themselves)
 	for(size_t i = 0; i < finishedDownloaders.GetCount(); i++) {
@@ -441,7 +441,7 @@ void CNewzflow::CreateDownloaders()
 // called by settings dialog when server settings have changed
 void CNewzflow::OnServerSettingsChanged()
 {
-	CLock lock;
+	NEWZFLOW_LOCK;
 
 	// set new speed limit; don't need to propagate to downloaders, because they will be recreated anyway
 	CNntpSocket::speedLimiter.SetLimit(settings->GetSpeedLimit());
@@ -456,13 +456,12 @@ void CNewzflow::OnServerSettingsChanged()
 	// when downloaders are shutting down, CreateDownloaders will be called to recreate new downloaders
 }
 
-
 // write the queue to disk so it can be restored later
 // called from CNewzflowThread
 void CNewzflow::WriteQueue()
 {
 	CMemFile mf(128*1024, 128*1024);
-	{ CNewzflow::CLock lock;
+	{ NEWZFLOW_LOCK;
 		size_t nzbCount = nzbs.GetCount();
 		mf.Write<unsigned>('NFQ!'); // ID
 		mf.Write<unsigned>(2); // Version
@@ -585,7 +584,7 @@ bool CNewzflow::ReadQueue()
 				}
 			}
 		}
-		{ CLock lock;
+		{ NEWZFLOW_LOCK;
 			nzbs.Append(newNzbs);
 			// if there are NZBs that still don't have a path (user closed the app when "Save As..." dialog was shown), show the "Save As..." dialog again
 			for(size_t i = 0; i < newNzbs.GetCount(); i++) {
@@ -600,7 +599,7 @@ bool CNewzflow::ReadQueue()
 // called from main thread (CMainFrame::OnNzbRemove) or CNewzflowThread
 void CNewzflow::RemoveNzb(CNzb* nzb)
 {
-	CLock lock; // CMainframe already locked, but it's the same thread, so no deadlock here
+	NEWZFLOW_LOCK; // CMainframe already locked, but it's the same thread, so no deadlock here
 	for(size_t i = 0; i < nzbs.GetCount(); i++) {
 		if(nzbs[i] == nzb) {
 			nzbs.RemoveAt(i);
@@ -622,7 +621,7 @@ void CNewzflow::RemoveNzb(CNzb* nzb)
 void CNewzflow::FreeDeletedNzbs()
 {
 	// check if we can remove some of the deleted NZBs
-	CLock lock;
+	NEWZFLOW_LOCK;
 	for(size_t i = 0; i < deletedNzbs.GetCount(); i++) {
 		if(deletedNzbs[i]->refCount == 0) {
 			TRACE(_T("Finally can remove %s.\n"), deletedNzbs[i]->name);
@@ -641,7 +640,7 @@ bool CNewzflow::IsShuttingDown()
 
 void CNewzflow::SetSpeedLimit(int limit)
 {
-	CLock lock;
+	NEWZFLOW_LOCK;
 	CNntpSocket::speedLimiter.SetLimit(limit);
 	CNewzflow::Instance()->settings->SetSpeedLimit(limit);
 
@@ -655,3 +654,6 @@ void CNewzflow::AddPostProcessor(CNzb* nzb)
 {
 	postProcessor->Add(nzb);
 }
+
+/*static*/ const char* CNewzflow::CLock::file = NULL;
+/*static*/ int CNewzflow::CLock::line = NULL;

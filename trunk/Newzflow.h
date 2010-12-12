@@ -44,9 +44,20 @@ protected:
 class CNewzflow
 {
 public:
+	#ifdef _DEBUG
+		#define NEWZFLOW_LOCK CNewzflow::CLock lock(__FILE__, __LINE__)
+	#else
+		#define NEWZFLOW_LOCK CNewzflow::CLock lock
+	#endif
 	class CLock : public CComCritSecLock<CComAutoCriticalSection> {
 	public:
-		CLock() : CComCritSecLock<CComAutoCriticalSection>(CNewzflow::Instance()->cs) {}
+		CLock(const char* _file = NULL, int _line = 0) : CComCritSecLock<CComAutoCriticalSection>(CNewzflow::Instance()->cs) 
+		{
+			file = _file;
+			line = _line;
+		}
+		static const char* file;
+		static int line;
 	};
 
 	CNewzflow();

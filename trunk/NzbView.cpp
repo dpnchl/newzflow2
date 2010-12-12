@@ -87,7 +87,7 @@ void CNzbView::Init(HWND hwndParent)
 int CNzbView::OnRefresh()
 {
 	int speed = CNntpSocket::totalSpeed.Get();
-	{ CNewzflow::CLock lock;
+	{ NEWZFLOW_LOCK;
 		CNewzflow* theApp = CNewzflow::Instance();
 		size_t count = theApp->nzbs.GetCount();
 		__int64 eta = 0;
@@ -240,7 +240,7 @@ LRESULT CNzbView::OnRClick(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/)
 
 LRESULT CNzbView::OnDebugPostprocess(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 {
-	{ CNewzflow::CLock lock;
+	{ NEWZFLOW_LOCK;
 		for(int item = GetNextItem(-1, LVNI_SELECTED); item != -1; item = GetNextItem(item, LVNI_SELECTED)) {
 			CNzb* nzb = (CNzb*)GetItemData(item);
 			if(nzb->status != kPostProcessing) {

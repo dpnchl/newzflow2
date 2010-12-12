@@ -30,9 +30,12 @@ public:
 	void SetIni(LPCTSTR section, LPCTSTR key, int value);
 
 	const CString& GetAppDataDir();
+	const CString& GetProgramDir();
 
 	CAtlArray<CString> downloadDirHistory;
 
 protected:
-	CString m_appData, m_ini;
+	CString m_appData; // %appdata%\Newzflow
+	CString m_ini; // %appdata%\Newzflow\Newzflow.ini
+	CString m_programDir; // programDir (no trailing backslash)
 };

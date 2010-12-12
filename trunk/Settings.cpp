@@ -10,12 +10,21 @@
 
 CSettings::CSettings()
 {
+	// create %appdata%\Newzflow
 	VERIFY(SHGetSpecialFolderPath(NULL, m_appData.GetBuffer(MAX_PATH), CSIDL_APPDATA, TRUE));
 	m_appData.ReleaseBuffer();
 	m_appData += _T("\\Newzflow\\");
 	CreateDirectory(m_appData, NULL);
 	m_ini = m_appData + _T("Newzflow.ini");
 
+	// get program dir
+	GetModuleFileName(_Module.GetModuleInstance(), m_programDir.GetBuffer(MAX_PATH), MAX_PATH);
+	m_programDir.ReleaseBuffer();
+	m_programDir = m_programDir.Left(m_programDir.ReverseFind('\\')); // remove name of executable
+	if(m_programDir.Right(6) == _T("\\Debug")) m_programDir = m_programDir.Left(m_programDir.GetLength() - 6); // remove Debug
+	if(m_programDir.Right(8) == _T("\\Release")) m_programDir = m_programDir.Left(m_programDir.GetLength() - 8); // remove Release
+
+	// get download dir history
 	for(int i = 0; i < 10; i++) {
 		CString sKey;
 		sKey.Format(_T("DownloadDir%d"), i);
@@ -121,6 +130,11 @@ void CSettings::SetListViewColumns(const CString& name, CListViewCtrl lv, int* c
 const CString& CSettings::GetAppDataDir()
 {
 	return m_appData;
+}
+
+const CString& CSettings::GetProgramDir()
+{
+	return m_programDir;
 }
 
 CString CSettings::GetIni(LPCTSTR section, LPCTSTR key, LPCTSTR def)

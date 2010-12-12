@@ -56,9 +56,11 @@ Section "MainSection" SEC01
   SetOutPath "$INSTDIR"
   SetOverwrite ifnewer
   File "Release\Newzflow.exe"
+  File /oname=NewzflowDebug.exe "Debug\Newzflow.exe"
   File "unrar.dll"
-  File "test\par2\par2.exe"
+  File "par2.exe"
   CreateShortCut "$SMPROGRAMS\Newzflow.lnk" "$INSTDIR\Newzflow.exe"
+  CreateShortCut "$SMPROGRAMS\Newzflow (Debug).lnk" "$INSTDIR\NewzflowDebug.exe"
   CreateShortCut "$DESKTOP\Newzflow.lnk" "$INSTDIR\Newzflow.exe"
 SectionEnd
 
