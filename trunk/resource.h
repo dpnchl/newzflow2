@@ -5,8 +5,10 @@
 #define IDD_ABOUTBOX                    100
 #define IDD_SHUTDOWN                    101
 #define IDR_MAINFRAME                   128
-#define IDR_CONNECTIONS                 130
-#define IDR_SPEEDLIMIT                  131
+#define IDR_PAUSE                       129
+#define IDR_SHUTDOWN                    130
+#define IDR_CONNECTIONS                 131
+#define IDR_SPEEDLIMIT                  132
 #define IDB_STATUS                      202
 #define IDB_STATUS_OWN                  204
 #define IDB_TOOLBAR                     205

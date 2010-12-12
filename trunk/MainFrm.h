@@ -23,6 +23,8 @@ public:
 
 	LRESULT OnRButtonUp(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
 
+	void OnRClickPause(const CPoint &ptScreen);
+	void OnRClickShutdown(const CPoint &ptScreen);
 	void OnRClickSpeedLimit(const CPoint &ptScreen);
 	void OnRClickConnections(const CPoint &ptScreen);
 };
@@ -66,6 +68,8 @@ public:
 		UPDATE_ELEMENT(ID_NZB_MOVE_DOWN, UPDUI_TOOLBAR)
 		UPDATE_ELEMENT(1, UPDUI_STATUSBAR)
 		UPDATE_ELEMENT(2, UPDUI_STATUSBAR)
+		UPDATE_ELEMENT(3, UPDUI_STATUSBAR)
+		UPDATE_ELEMENT(4, UPDUI_STATUSBAR)
 	END_UPDATE_UI_MAP()
 
 	enum {
