@@ -6,6 +6,8 @@
 #include "Settings.h"
 #include "NntpSocket.h"
 #include "Compress.h"
+#include "resource.h"
+#include "MainFrm.h"
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
@@ -271,7 +273,9 @@ LRESULT CPostProcessor::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 			CString sBase = rars[i].second;
 
 			nzb->setDone = i+1;
+			time_t timeStart = time(NULL);
 			if(UncompressRAR(file)) {
+				CString s; s.Format(_T("%s: Unpacked in %s\r\n"), file->fileName, Util::FormatTimeSpan(time(NULL) - timeStart)); nzb->log += s;
 				// unrar succeeded, so delete all rar files of thie rar set
 				for(size_t j = 0; j < nzb->files.GetCount(); j++) {
 					CNzbFile* file2 = nzb->files[j];
@@ -280,11 +284,14 @@ LRESULT CPostProcessor::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 						//TRACE(_T("Delete(%s)\n"), nzb->path + file2->fileName);
 					}
 				}
+			} else {
+				CString s; s.Format(_T("%s: Unpacking failed\r\n"), file->fileName); nzb->log += s;
 			}
 		}
 		NEWZFLOW_LOCK;
 		nzb->status = kFinished;
-		nzb->refCount--;
+		Util::GetMainWindow().PostMessage(CMainFrame::MSG_NZB_FINISHED, (WPARAM)nzb); // handler decreases nzb->refCount
+
 		CNewzflow::Instance()->WriteQueue();
 	}
 	currentNzb = NULL;
@@ -302,14 +309,18 @@ void CPostProcessor::Par2Repair(CParFile* par2file, bool allowJoin /*= true*/)
 	// try a quick check first
 	if(allowJoin && !par2file->parent->quickCheckFailed) {
 		if(Par2QuickCheck(par2file)) {
+			CString s; s.Format(_T("%s.par2: Quick check succeeded\r\n"), par2file->parent->baseName); nzb->log += s;
 			Util::Print("Par2QuickCheck succeeded");
+			Par2Cleanup(par2file->parent);
 			return;
 		} else {
 			par2file->parent->quickCheckFailed = true; // so we don't try again
+			CString s; s.Format(_T("%s.par2: Quick check failed\r\n"), par2file->parent->baseName); nzb->log += s;
 			Util::Print("Par2QuickCheck failed");
 		}
 	}
 
+	time_t timeStart = time(NULL);
 	CExternalTool tool;
 	CString cmdline;
 	cmdline.Format(_T("%s\\par2.exe r \"%s\\%s\""), CNewzflow::Instance()->settings->GetProgramDir(), nzb->path, par2file->file->fileName);
@@ -431,9 +442,11 @@ void CPostProcessor::Par2Repair(CParFile* par2file, bool allowJoin /*= true*/)
 				else if(line.Find(_T("Repair is possible")) >= 0) repairPossible = true;
 				else if(line.Find(_T("Repair complete")) >= 0) {
 					nzb->done = 100.f;
+					CString s; s.Format(_T("%s.par2: Repaired in %s\n"), par2file->parent->baseName, Util::FormatTimeSpan(time(NULL) - timeStart)); nzb->log += s;
 					Par2Cleanup(par2file->parent);
 				} else if(line.Find(_T("repair is not required")) >= 0) {
 					nzb->done = 100.f;
+					CString s; s.Format(_T("%s.par2: Verified in %s\r\n"), par2file->parent->baseName, Util::FormatTimeSpan(time(NULL) - timeStart)); nzb->log += s;
 					Par2Cleanup(par2file->parent);
 				} else if(line.Find(_T("Main packet not found")) >= 0 || line.Find(_T("The recovery file does not exist")) >= 0) {
 					par2file->parent->needBlocks = 1;
@@ -461,8 +474,10 @@ void CPostProcessor::Par2Repair(CParFile* par2file, bool allowJoin /*= true*/)
 		if(totalBytes > 0) {
 			// join split files
 			for(size_t i = 0; i < splits.GetCount(); i++) {
+				time_t timeStart = time(NULL);
 				CSplitArray& split = *splits[i];
-				CString joinedPath = nzb->path + _T("\\") + split[0].first->fileName.Left(split[0].first->fileName.GetLength() - 4);
+				CString joinedName = split[0].first->fileName.Left(split[0].first->fileName.GetLength() - 4);
+				CString joinedPath = nzb->path + _T("\\") + joinedName;
 				CFile joinedFile;
 				if(joinedFile.Open(joinedPath, GENERIC_WRITE, 0, CREATE_ALWAYS)) { // TODO: Error check
 					for(size_t j = 0; j < split.GetCount(); j++) {
@@ -483,9 +498,14 @@ void CPostProcessor::Par2Repair(CParFile* par2file, bool allowJoin /*= true*/)
 					}
 					joinedFile.Close();
 				}
+				CString s; s.Format(_T("%s: Joined %d parts in %s\r\n"), joinedName, split.GetCount(), Util::FormatTimeSpan(time(NULL) - timeStart)); nzb->log += s;
 				delete splits[i];
 			}
 			Par2Repair(par2file, false);
+		}
+	} else {
+		if(par2file->parent->needBlocks) {
+			CString s; s.Format(_T("%s.par2: Need %d more blocks\r\n"), par2file->parent->baseName, par2file->parent->needBlocks); nzb->log += s;
 		}
 	}
 

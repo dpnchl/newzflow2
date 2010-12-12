@@ -7,9 +7,11 @@
 #include "NzbView.h"
 #include "ConnectionView.h"
 #include "TabView.h"
+#include "LogView.h"
 #include "FileView.h"
 #include "Util.h"
 #include "DropFileHandler.h"
+#include "NTray.h"
 
 class CNewzflowStatusBarCtrl : public CMultiPaneStatusBarCtrl
 {
@@ -38,8 +40,10 @@ public:
 	::CTabViewEx m_tab;
 	CConnectionView m_connections;
 	CFileView m_files;
+	CLogView m_log;
 	CFont m_font;
 	CToolBarImageList m_toolBarImageList;
+	CTrayNotifyIcon m_trayIcon;
 
 	int m_vertSplitY; // user wanted position, from bottom
 	int m_vertSplitYReal; // real position
@@ -65,7 +69,9 @@ public:
 	END_UPDATE_UI_MAP()
 
 	enum {
-		MSG_SAVE_NZB = WM_USER+1, // wParam = (CNzb*)nzb, lParam = (int)errorCode
+		MSG_SAVE_NZB = WM_USER+1, // (sent from CNewzflowThread to request a "Save as..." dialog) wParam = (CNzb*)nzb, lParam = (int)errorCode
+		MSG_NZB_FINISHED, // (sent from CPostProcessor to indicate a NZB is finished; handler must decrease nzb->refCount) wParam = (CNzb*)nzb
+		MSG_TRAY_NOTIFY
 	};
 
 	BEGIN_MSG_MAP(CMainFrame)
@@ -89,6 +95,8 @@ public:
 		COMMAND_ID_HANDLER(ID_SETTINGS, OnSettings)
 		COMMAND_ID_HANDLER(ID_APP_ABOUT, OnAppAbout)
 		MESSAGE_HANDLER(MSG_SAVE_NZB, OnSaveNzb)
+		MESSAGE_HANDLER(MSG_NZB_FINISHED, OnNzbFinished)
+		MESSAGE_HANDLER(MSG_TRAY_NOTIFY, OnTrayNotify)
 		NOTIFY_CODE_HANDLER(LVN_ITEMCHANGED, OnNzbChanged)
 		CHAIN_MSG_MAP(CUpdateUI<CMainFrame>)
 		CHAIN_MSG_MAP(CFrameWindowImpl<CMainFrame>)
@@ -112,6 +120,8 @@ public:
 	LRESULT OnFileAdd(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnFileAddUrl(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnSaveNzb(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
+	LRESULT OnNzbFinished(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
+	LRESULT OnTrayNotify(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
 	LRESULT OnNzbRemove(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnNzbMoveUp(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnNzbMoveDown(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);

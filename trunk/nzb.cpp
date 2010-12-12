@@ -460,6 +460,11 @@ CString CNzb::GetLocalPath()
 	return CNewzflow::Instance()->settings->GetAppDataDir() + CComBSTR(guid) + _T(".nzb");
 }
 
+CString CNzb::GetLogPath()
+{
+	return CNewzflow::Instance()->settings->GetAppDataDir() + CComBSTR(guid) + _T(".log");
+}
+
 bool CNzb::SetPath(LPCTSTR _path, LPCTSTR _name, int* errorCode)
 {
 	CString tmpPath;
@@ -507,6 +512,14 @@ void CNzb::Init()
 		CNzbFile* file = files[i];
 		file->Init(); // parse subject into filename, init segments' offsets and filesize
 	}
+
+	// sort files by subject (subject probably has a file counter)
+	struct SortFiles {
+		bool operator()(CNzbFile* s1, CNzbFile* s2) {
+			return s1->subject.CompareNoCase(s2->subject) < 0;
+		}
+	};
+	std::sort(files.GetData(), files.GetData() + files.GetCount(), SortFiles());
 
 	// get ParSets
 	using std::tr1::tregex; using std::tr1::tcmatch; using std::tr1::regex_search; using std::tr1::regex_match;
@@ -561,6 +574,7 @@ void CNzb::Init()
 void CNzb::Cleanup()
 {
 	DeleteFile(GetLocalPath());
+	DeleteFile(GetLogPath());
 	Util::DeleteDirectory(CNewzflow::Instance()->settings->GetAppDataDir() + CComBSTR(guid));
 }
 

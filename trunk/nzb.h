@@ -174,7 +174,8 @@ public:
 	bool CreateFromLocal();
 	bool SetPath(LPCTSTR _path, LPCTSTR _name, int* errorCode); // set the storage path to path\name (name=NULL => use nzb->name)
 
-	CString GetLocalPath(); // location where .nzb is stored locally in %APPDATA%
+	CString GetLocalPath(); // location (dir+filename) where .nzb is stored locally in %APPDATA%
+	CString GetLogPath(); // location (dir+filename) where .log is stored locally in %APPDATA%
 	void Cleanup(); // deletes local .nzb file and part files
 
 	CNzbFile* FindFile(const CString& name);
@@ -182,7 +183,6 @@ public:
 protected:
 	void Init();
 	bool Parse(const CString& path);
-
 public:
 	ENzbStatus status;
 	EPostProcStatus postProcStatus;
@@ -192,6 +192,7 @@ public:
 	GUID guid;
 	CString name;
 	CString path;
+	CString log;
 	bool doRepair, doUnpack, doDelete;
 	CAtlArray<CNzbFile*> files; // from nzb
 	CAtlArray<CParSet*> parSets;
