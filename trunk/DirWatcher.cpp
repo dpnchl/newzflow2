@@ -14,8 +14,8 @@
 
 CDirWatcher::CDirWatcher()
 : CThreadImpl<CDirWatcher>(CREATE_SUSPENDED)
+, shutDown(TRUE, FALSE)
 {
-
 	Resume();
 }
 
@@ -26,12 +26,12 @@ DWORD CDirWatcher::Run()
 	ReadIgnoreList();
 
 	for(;;) {
-		if(CNewzflow::Instance()->IsShuttingDown())
+		if(CNewzflow::Instance()->IsShuttingDown() || WaitForSingleObject(shutDown, 0) == WAIT_OBJECT_0)
 			break;
 
 		if(delay > 0) {
-			Sleep(1000);
-			delay--;
+			WaitForSingleObject(shutDown, delay * 1000); // either waits until the delay ran out, or we need to shut down
+			delay = 0;
 			continue;
 		}
 

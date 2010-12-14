@@ -10,7 +10,7 @@ public:
 	DWORD Run();
 
 	CNntpSocket sock;
-	volatile bool shutDown; // CNewzflow will set this to "true" to indicate this downloader should shut down
+	CEvent shutDown; // CNewzflow will set this event to indicate this downloader should shut down
 
 protected:
 	enum EStatus {
@@ -22,6 +22,7 @@ protected:
 	EStatus Connect();
 	void Disconnect();
 	EStatus DownloadSegment(CNzbSegment* segment);
+
 
 	bool connected;
 	CString curGroup;

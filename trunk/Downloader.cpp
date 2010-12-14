@@ -89,9 +89,9 @@ void CYDecoder::ProcessLine(const char* line)
 
 CDownloader::CDownloader()
 : CThreadImpl<CDownloader>(CREATE_SUSPENDED)
+, shutDown(TRUE, FALSE)
 {
 	connected = false;
-	shutDown = false;
 
 	Resume();
 }
@@ -102,13 +102,13 @@ DWORD CDownloader::Run()
 	CNzbSegment* segment = NULL;
 
 	for(;;) {
-		if(CNewzflow::Instance()->IsShuttingDown() || shutDown)
+		if(CNewzflow::Instance()->IsShuttingDown() || WaitForSingleObject(shutDown, 0) == WAIT_OBJECT_0)
 			break;
 
 		if(penalty > 0) {
 			sock.SetLastCommand(_T("Waiting %s..."), Util::FormatTimeSpan(penalty));
-			Sleep(1000);
-			penalty--;
+			WaitForSingleObject(shutDown, penalty * 1000); // either waits until the penalty ran out, or we need to shut down
+			penalty = 0;
 			continue;
 		}
 

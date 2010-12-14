@@ -57,6 +57,7 @@ extern CAppModule _Module;
 #include <atlcoll.h>
 #include <atlimage.h>
 #include <atlcomtime.h>
+#include <atlsync.h>
 
 // WTL
 #include <atlframe.h>
