@@ -562,15 +562,26 @@ LRESULT CMainFrame::OnNzbFinished(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lParam*
 		m_trayIcon.Show();
 	m_trayIcon.SetBalloonDetails(nzbName, _T("Download Finished"), nzbStatus == kError ? CTrayNotifyIcon::Error : CTrayNotifyIcon::Info, 10000);
 
-	Util::EShutdownMode mode = CNewzflow::Instance()->GetShutdownMode();
-	if(mode != Util::shutdown_nothing) {
-		CNewzflow::Instance()->SetShutdownMode(Util::shutdown_nothing);
-		if(mode != Util::shutdown_exit) {
-			CPowerOffDialog dlg(mode);
-			if(dlg.DoModal(*this) == IDOK)
+	bool allFinished = true;
+	{ NEWZFLOW_LOCK;
+		CNewzflow* theApp = CNewzflow::Instance();
+		for(size_t i = 0; i < theApp->nzbs.GetCount(); i++) {
+			if(theApp->nzbs[i]->status != kPaused && theApp->nzbs[i]->status != kFinished && theApp->nzbs[i]->status != kError)
+				allFinished = false;
+		}
+	}
+
+	if(allFinished) {
+		Util::EShutdownMode mode = CNewzflow::Instance()->GetShutdownMode();
+		if(mode != Util::shutdown_nothing) {
+			CNewzflow::Instance()->SetShutdownMode(Util::shutdown_nothing);
+			if(mode != Util::shutdown_exit) {
+				CPowerOffDialog dlg(mode);
+				if(dlg.DoModal(*this) == IDOK)
+					Util::Shutdown(mode);
+			} else {
 				Util::Shutdown(mode);
-		} else {
-			Util::Shutdown(mode);
+			}
 		}
 	}
 

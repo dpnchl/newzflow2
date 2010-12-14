@@ -23,7 +23,7 @@
 // - CNzbView/CFileView: implement progress bar with no theming
 // - CNewzflowThread:: AddFile(): what to do when a file is added that is already in the queue. can it be detected? should it be skipped or renamed (add counter) and added anyway?
 // - during shut down, it should be avoided to add jobs to the disk writer or post processor; have to check if queue states are correctly restored if we just skip adding jobs.
-// - investigate why .nzb files are not deleted in %appdata% soometimes
+// - investigate why .nzb files are not deleted in %appdata% sometimes
 // - DirWatcher: add support for .nzb.gz and .zip, .rar
 // - Centralize calls to WriteQueue()
 
@@ -250,6 +250,10 @@ CNewzflow::~CNewzflow()
 
 	dlg.text.SetWindowText(_T("Waiting for downloads..."));
 	Util::Print("waiting for downloaders to finish...\n");
+	// signal all downloaders' shutDown event
+	for(size_t i = 0; i < downloaders.GetCount(); i++) {
+		downloaders[i]->shutDown.Set();
+	}
 	CNntpSocket::CloseAllSockets(); // close all downloader sockets for immediate shutdown
 	for(size_t i = 0; i < downloaders.GetCount(); i++) {
 		downloaders[i]->JoinWithMessageLoop();
@@ -283,6 +287,7 @@ CNewzflow::~CNewzflow()
 
 	dlg.text.SetWindowText(_T("Waiting for dir watcher..."));
 	Util::Print("waiting for dir watcher to finish...\n");
+	dirWatcher->shutDown.Set();
 	dirWatcher->JoinWithMessageLoop();
 	delete dirWatcher;
 
@@ -448,8 +453,7 @@ void CNewzflow::OnServerSettingsChanged()
 
 	// shut down all downloaders - hostname/port/username/password could have been changed, so we need to reconnect
 	for(size_t i = 0; i < downloaders.GetCount(); i++) {
-		CString s;
-		downloaders[i]->shutDown = true;
+		downloaders[i]->shutDown.Set();
 	}
 	Util::Print("Finished shutting down downloaders\n");
 
@@ -682,8 +686,7 @@ void CNewzflow::Pause(bool pause, int length)
 
 		// shut down all downloaders; TODO: move somewhere else
 		for(size_t i = 0; i < downloaders.GetCount(); i++) {
-			CString s;
-			downloaders[i]->shutDown = true;
+			downloaders[i]->shutDown.Set();
 		}
 		Util::Print("Finished shutting down downloaders\n");
 	} else {
