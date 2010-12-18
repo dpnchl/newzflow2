@@ -61,7 +61,7 @@ namespace Util
 		else {
 			int idx = -1;
 			double dsize = (double)size;
-			while(dsize >= 1024.0 && idx+1 < sizeof(prefix)/sizeof(prefix[0])) {
+			while(dsize >= 1024.0 && idx+1 < 4 /*sizeof(prefix)/sizeof(prefix[0])*/) {
 				idx++;
 				dsize /= 1024.0;
 			}

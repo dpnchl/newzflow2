@@ -4,7 +4,9 @@
 
 #pragma once
 
+#include "ViewTree.h"
 #include "NzbView.h"
+#include "RssView.h"
 #include "ConnectionView.h"
 #include "TabView.h"
 #include "LogView.h"
@@ -38,20 +40,25 @@ public:
 	CMainFrame();
 	~CMainFrame();
 
-	CNzbView m_list;
-	::CTabViewEx m_tab;
-	CConnectionView m_connections;
-	CFileView m_files;
-	CLogView m_log;
+	CWindow* m_pTopView;
+	CViewTree m_TreeView;
+	CNzbView m_NzbView;
+	CRssView m_RssView;
+	CTabViewEx m_TabView[2];
+	CConnectionView m_ConnectionView;
+	CFileView m_FileView;
+	CLogView m_LogView;
 	CFont m_font;
-	CToolBarImageList m_toolBarImageList;
-	CTrayNotifyIcon m_trayIcon;
+	CToolBarImageList m_ToolBarImageList;
+	CTrayNotifyIcon m_TrayIcon;
 
 	int m_vertSplitY; // user wanted position, from bottom
 	int m_vertSplitYReal; // real position
+	int m_horzSplitX;
 
 	CPoint m_ptSplit;
 	CPoint m_ptMouse;
+	int m_iDragMode; // 0=horz split; 1=vert split
 
 	virtual BOOL PreTranslateMessage(MSG* pMsg);
 	virtual BOOL OnIdle();
@@ -102,6 +109,7 @@ public:
 		MESSAGE_HANDLER(MSG_NZB_FINISHED, OnNzbFinished)
 		MESSAGE_HANDLER(MSG_TRAY_NOTIFY, OnTrayNotify)
 		NOTIFY_CODE_HANDLER(LVN_ITEMCHANGED, OnNzbChanged)
+		NOTIFY_CODE_HANDLER(TVN_SELCHANGED, OnTreeChanged)
 		CHAIN_MSG_MAP(CUpdateUI<CMainFrame>)
 		CHAIN_MSG_MAP(CFrameWindowImpl<CMainFrame>)
 		CHAIN_MSG_MAP(CDropFilesHandler<CMainFrame>)
@@ -118,6 +126,7 @@ public:
 	LRESULT OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
 	LRESULT OnSetCursor(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
 	LRESULT OnNzbChanged(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/);
+	LRESULT OnTreeChanged(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/);
 
 	void UpdateNzbButtons();
 	LRESULT OnFileExit(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);

@@ -9,8 +9,10 @@ public:
 	CRect GetWindowPos(int& showCmd);
 	void SetWindowPos(const CRect& r, int showCmd);
 
-	int GetSplitPos();
-	void SetSplitPos(int split);
+	int GetVertSplitPos();
+	int GetHorzSplitPos();
+	void SetVertSplitPos(int split);
+	void SetHorzSplitPos(int split);
 
 	int GetSpeedLimit();
 	void SetSpeedLimit(int limit);

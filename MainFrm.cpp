@@ -35,7 +35,7 @@ BOOL CMainFrame::PreTranslateMessage(MSG* pMsg)
 	if(CFrameWindowImpl<CMainFrame>::PreTranslateMessage(pMsg))
 		return TRUE;
 
-	return m_list.PreTranslateMessage(pMsg);
+	return m_NzbView.PreTranslateMessage(pMsg); // ??? why ???
 }
 
 BOOL CMainFrame::OnIdle()
@@ -51,21 +51,32 @@ BOOL CMainFrame::OnIdle()
 
 void CMainFrame::UpdateLayout(BOOL bResizeBars)
 {
+	if(!IsWindowVisible())
+		return;
+
 	CRect rect;
 	GetClientRect(rect);
 
 	// position bars and offset their dimensions
 	UpdateBarsPosition(rect, bResizeBars);
 
+	CRect rtree(rect);
+	int treeWidth = m_horzSplitX;
+	rtree.right = treeWidth - 2;
+	rect.left = treeWidth + 2;
 	CRect r1(rect), r2(rect);
 	m_vertSplitYReal = max<int>(100, rect.bottom - max<int>(100, m_vertSplitY));
-	r1.bottom = m_vertSplitYReal - 3;
-	r2.top = m_vertSplitYReal + 3;
+	r1.bottom = m_vertSplitYReal - 2;
+	r2.top = m_vertSplitYReal + 2;
 
-	if(m_list.IsWindow())
-		m_list.SetWindowPos(NULL, r1, SWP_NOZORDER | SWP_NOACTIVATE);
-	if(m_tab.IsWindow())
-		m_tab.SetWindowPos(NULL, r2, SWP_NOZORDER | SWP_NOACTIVATE);
+	HDWP hdwp = BeginDeferWindowPos(3);
+	if(m_TreeView.IsWindow())
+		m_TreeView.DeferWindowPos(hdwp, NULL, rtree.left, rtree.top, rtree.Width(), rtree.Height(), SWP_NOZORDER | SWP_NOACTIVATE);
+	if(m_pTopView && m_pTopView->IsWindow())
+		m_pTopView->DeferWindowPos(hdwp, NULL, r1.left, r1.top, r1.Width(), r1.Height(), SWP_NOZORDER | SWP_NOACTIVATE);
+	if(m_TabView[1].IsWindow())
+		m_TabView[1].DeferWindowPos(hdwp, NULL, r2.left, r2.top, r2.Width(), r2.Height(), SWP_NOZORDER | SWP_NOACTIVATE);
+	EndDeferWindowPos(hdwp);
 }
 
 LRESULT CMainFrame::OnSetCursor(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
@@ -74,6 +85,11 @@ LRESULT CMainFrame::OnSetCursor(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOO
 	const DWORD pos = GetMessagePos();
 	CPoint pt(GET_X_LPARAM(pos), GET_Y_LPARAM(pos));
 	ScreenToClient(&pt);
+
+	if(pt.x >= m_horzSplitX - 3 && pt.x <= m_horzSplitX + 3) {
+		SetCursor(LoadCursor(NULL, IDC_SIZEWE));
+		return 1;
+	}
 
 	if(pt.y >= m_vertSplitYReal - 3 && pt.y <= m_vertSplitYReal + 3) {
 		SetCursor(LoadCursor(NULL, IDC_SIZENS));
@@ -87,13 +103,18 @@ LRESULT CMainFrame::OnSetCursor(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOO
 LRESULT CMainFrame::OnMouseMove(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
 {
 	// handle splitter drag
-	if( (wParam & MK_LBUTTON) != 0 && ::GetCapture() == *this) {
+	if((wParam & MK_LBUTTON) != 0 && ::GetCapture() == *this) {
 		lParam = GetMessagePos();
 		CPoint ptMouseCur(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
 		CRect r; GetClientRect(r);
-		m_vertSplitY = max<int>(100, min<int>(r.Height() - 100, m_ptSplit.y - (ptMouseCur.y - m_ptMouse.y)));
+		if(m_iDragMode == 0) {
+			m_horzSplitX = max<int>(100, min<int>(r.Width() - 200, m_ptSplit.x + (ptMouseCur.x - m_ptMouse.x)));
+			SetCursor(LoadCursor(NULL, IDC_SIZEWE));
+		} else if(m_iDragMode == 1) {
+			m_vertSplitY = max<int>(100, min<int>(r.Height() - 100, m_ptSplit.y - (ptMouseCur.y - m_ptMouse.y)));
+			SetCursor(LoadCursor(NULL, IDC_SIZENS));
+		}
 		UpdateLayout();
-		SetCursor(LoadCursor(NULL, IDC_SIZENS));
 		return 1;
 	}
 	bHandled = FALSE;
@@ -106,7 +127,17 @@ LRESULT CMainFrame::OnLButtonDown(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM lPara
 	lParam = GetMessagePos();
 	CPoint pt(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
 	ScreenToClient(&pt);
+	if(pt.x >= m_horzSplitX - 3 && pt.x <= m_horzSplitX + 3) {
+		m_iDragMode = 0;
+		SetCapture();
+		SetCursor(LoadCursor(NULL, IDC_SIZEWE));
+		m_ptMouse = CPoint(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+		CRect r; GetClientRect(r);
+		m_ptSplit = CPoint(m_horzSplitX, 0);
+		return 1;
+	}
 	if(pt.y >= m_vertSplitYReal - 3 && pt.y <= m_vertSplitYReal + 3) {
+		m_iDragMode = 1;
 		SetCapture();
 		SetCursor(LoadCursor(NULL, IDC_SIZENS));
 		m_ptMouse = CPoint(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
@@ -133,9 +164,9 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 
 	HWND hWndToolBar = CreateSimpleToolBarCtrl(m_hWnd, IDR_MAINFRAME, FALSE, ATL_SIMPLE_TOOLBAR_PANE_STYLE);
 
-	if(!m_toolBarImageList.Load(CNewzflow::Instance()->settings->GetAppDataDir() + _T("toolbar.bmp"), 24, 24))
-		m_toolBarImageList.LoadFromResource(IDB_TOOLBAR, 24, 24);
-	m_toolBarImageList.Set(hWndToolBar);
+	if(!m_ToolBarImageList.Load(CNewzflow::Instance()->settings->GetAppDataDir() + _T("toolbar.bmp"), 24, 24))
+		m_ToolBarImageList.LoadFromResource(IDB_TOOLBAR, 24, 24);
+	m_ToolBarImageList.Set(hWndToolBar);
 
 	CreateSimpleReBar(ATL_SIMPLE_REBAR_NOBORDER_STYLE);
 	AddSimpleReBarBand(hWndToolBar);
@@ -145,23 +176,30 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 	int nPanes[] = { ID_DEFAULT_PANE, IDR_PAUSE, IDR_SHUTDOWN, IDR_CONNECTIONS, IDR_SPEEDLIMIT };
 	m_statusBar.SetPanes(nPanes, countof(nPanes), false);
 
-	m_vertSplitY = CNewzflow::Instance()->settings->GetSplitPos();
+	m_vertSplitY = CNewzflow::Instance()->settings->GetVertSplitPos();
+	m_horzSplitX = CNewzflow::Instance()->settings->GetHorzSplitPos();
 
-	m_list.Init(*this);
+	m_TreeView.Init(*this);
+	m_NzbView.Init(*this);
+	m_RssView.Init(*this);
+	m_pTopView = NULL;
 
-	m_tab.Create(*this, rcDefault, NULL, WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | TCS_TOOLTIPS, 0);
+	//m_TabView[0].AddPage(m_NzbView, _T("Downloads"));
+	//m_TabView[0].AddPage(m_RssView, _T("RSS Feeds"));
+	//m_TabView[0].SetActivePage(0);
 
-	m_connections.Init(m_tab);
-	m_files.Init(m_tab);
-	m_log.Init(m_tab);
+	m_TabView[1].Create(*this, rcDefault, NULL, WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | TCS_TOOLTIPS, 0);
+	m_ConnectionView.Init(m_TabView[1]);
+	m_FileView.Init(m_TabView[1]);
+	m_LogView.Init(m_TabView[1]);
 
-	m_tab.AddPage(m_connections, _T("Connections"));
-	m_tab.AddPage(m_log, _T("Log"));
-	m_tab.AddPage(m_files, _T("Files"));
-	m_tab.SetActivePage(0);
+	m_TabView[1].AddPage(m_ConnectionView, _T("Connections"));
+	m_TabView[1].AddPage(m_LogView, _T("Log"));
+	m_TabView[1].AddPage(m_FileView, _T("Files"));
+	m_TabView[1].SetActivePage(0);
 
 	// tray notification
-	m_trayIcon.Create(this, IDR_MAINFRAME, _T("Newzflow"), LoadIcon(_Module.GetResourceInstance(), MAKEINTRESOURCE(IDR_MAINFRAME)), MSG_TRAY_NOTIFY, 0, FALSE);
+	m_TrayIcon.Create(this, IDR_MAINFRAME, _T("Newzflow"), LoadIcon(_Module.GetResourceInstance(), MAKEINTRESOURCE(IDR_MAINFRAME)), MSG_TRAY_NOTIFY, 0, FALSE);
 
 	// get system message font
 	NONCLIENTMETRICS ncm = { sizeof(NONCLIENTMETRICS) };
@@ -175,8 +213,9 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 	if(SystemParametersInfo(SPI_GETNONCLIENTMETRICS, 0, &ncm, false))
 		m_font.CreateFontIndirect(&ncm.lfMessageFont);
 
-	m_tab.SetFont(m_font);
-	m_log.SetFont(m_font);
+	//m_TabView[0].SetFont(m_font);
+	m_TabView[1].SetFont(m_font);
+	m_LogView.SetFont(m_font);
 	
 	UpdateLayout();
 
@@ -206,6 +245,8 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 		CNewzflow::Instance()->CreateDownloaders();
 	SendMessage(WM_TIMER); // to update views
 
+	m_TreeView.tvDownloads.Select();
+
 	return 0;
 }
 
@@ -216,7 +257,8 @@ LRESULT CMainFrame::OnDestroy(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*
 	wp.length = sizeof(WINDOWPLACEMENT);
 	GetWindowPlacement(&wp);
 	CNewzflow::Instance()->settings->SetWindowPos(wp.rcNormalPosition, wp.showCmd);
-	CNewzflow::Instance()->settings->SetSplitPos(m_vertSplitY);
+	CNewzflow::Instance()->settings->SetVertSplitPos(m_vertSplitY);
+	CNewzflow::Instance()->settings->SetHorzSplitPos(m_horzSplitX);
 
 	Util::SetMainWindow(NULL);
 
@@ -558,9 +600,9 @@ LRESULT CMainFrame::OnNzbFinished(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lParam*
 		nzbStatus = nzb->status;
 		nzb->refCount--;
 	}
-	if(m_trayIcon.IsHidden())
-		m_trayIcon.Show();
-	m_trayIcon.SetBalloonDetails(nzbName, _T("Download Finished"), nzbStatus == kError ? CTrayNotifyIcon::Error : CTrayNotifyIcon::Info, 10000);
+	if(m_TrayIcon.IsHidden())
+		m_TrayIcon.Show();
+	m_TrayIcon.SetBalloonDetails(nzbName, _T("Download Finished"), nzbStatus == kError ? CTrayNotifyIcon::Error : CTrayNotifyIcon::Info, 10000);
 
 	bool allFinished = true;
 	{ NEWZFLOW_LOCK;
@@ -591,20 +633,20 @@ LRESULT CMainFrame::OnNzbFinished(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lParam*
 LRESULT CMainFrame::OnTrayNotify(UINT /*uMsg*/, WPARAM wParam, LPARAM lParam, BOOL& /*bHandled*/)
 {
 	if(lParam == NIN_BALLOONTIMEOUT || lParam == NIN_BALLOONUSERCLICK) {
-		if(m_trayIcon.IsShowing())
-			m_trayIcon.Hide();
+		if(m_TrayIcon.IsShowing())
+			m_TrayIcon.Hide();
 	}
-	m_trayIcon.OnTrayNotification(wParam, lParam);
+	m_TrayIcon.OnTrayNotification(wParam, lParam);
 	return 0;
 }
 
 LRESULT CMainFrame::OnNzbRemove(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 {
 	{ NEWZFLOW_LOCK;
-		m_log.SetNzb(NULL);
-		m_files.SetNzb(NULL);
-		for(int item = m_list.GetNextItem(-1, LVNI_SELECTED); item != -1; item = m_list.GetNextItem(item, LVNI_SELECTED)) {
-			CNzb* nzb = (CNzb*)m_list.GetItemData(item);
+		m_LogView.SetNzb(NULL);
+		m_FileView.SetNzb(NULL);
+		for(int item = m_NzbView.GetNextItem(-1, LVNI_SELECTED); item != -1; item = m_NzbView.GetNextItem(item, LVNI_SELECTED)) {
+			CNzb* nzb = (CNzb*)m_NzbView.GetItemData(item);
 			CNewzflow::Instance()->RemoveNzb(nzb);
 		}
 		CNewzflow::Instance()->WriteQueue();
@@ -617,8 +659,8 @@ LRESULT CMainFrame::OnNzbRemove(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndC
 LRESULT CMainFrame::OnNzbMoveUp(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 {
 	{ NEWZFLOW_LOCK;
-		for(int item = m_list.GetNextItem(-1, LVNI_SELECTED); item != -1; item = m_list.GetNextItem(item, LVNI_SELECTED)) {
-			CNzb* nzb = (CNzb*)m_list.GetItemData(item);
+		for(int item = m_NzbView.GetNextItem(-1, LVNI_SELECTED); item != -1; item = m_NzbView.GetNextItem(item, LVNI_SELECTED)) {
+			CNzb* nzb = (CNzb*)m_NzbView.GetItemData(item);
 			ASSERT(CNewzflow::Instance()->nzbs[item] == nzb);
 			// can't move up if we're already at the top
 			if(item == 0)
@@ -744,15 +786,47 @@ LRESULT CMainFrame::OnTimer(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& /*bHa
 LRESULT CMainFrame::OnNzbChanged(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled*/)
 {
 	LPNMLISTVIEW lvn = (LPNMLISTVIEW)pnmh;
-	if(lvn->hdr.hwndFrom == m_list && (lvn->uChanged & LVIF_STATE) && ((lvn->uOldState & LVIS_SELECTED) != (lvn->uNewState & LVIS_SELECTED))) {
-		if(!m_list.IsLockUpdate()) {
+	if(lvn->hdr.hwndFrom == m_NzbView && (lvn->uChanged & LVIF_STATE) && ((lvn->uOldState & LVIS_SELECTED) != (lvn->uNewState & LVIS_SELECTED))) {
+		if(!m_NzbView.IsLockUpdate()) {
 			CNzb* nzb = NULL;
-			int iSelItem = m_list.GetNextItem(-1, LVNI_SELECTED);
+			int iSelItem = m_NzbView.GetNextItem(-1, LVNI_SELECTED);
 			if(iSelItem >= 0)
-				nzb = (CNzb*)m_list.GetItemData(iSelItem);
-			m_log.SetNzb(nzb);
-			m_files.SetNzb(nzb);
+				nzb = (CNzb*)m_NzbView.GetItemData(iSelItem);
+			m_LogView.SetNzb(nzb);
+			m_FileView.SetNzb(nzb);
 			UpdateNzbButtons();
+		}
+	}
+	return 0;
+}
+
+LRESULT CMainFrame::OnTreeChanged(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled*/)
+{
+	LPNMTREEVIEW lvn = (LPNMTREEVIEW)pnmh;
+	if(lvn->hdr.hwndFrom == m_TreeView) {
+		CWindow* newTopView = NULL;
+		if(lvn->itemNew.lParam == 1) {
+			newTopView = &m_RssView;
+		} else {
+			newTopView = &m_NzbView;
+		}
+		if(newTopView != m_pTopView) {
+			if(m_pTopView && m_pTopView->IsWindow()) {
+				HDWP hdwp = BeginDeferWindowPos(2);
+				CRect r;
+				m_pTopView->GetWindowRect(&r);
+				ScreenToClient(&r);
+				m_pTopView->DeferWindowPos(hdwp, NULL, 0, 0, 0, 0, SWP_HIDEWINDOW | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOREPOSITION | SWP_NOSIZE | SWP_NOZORDER);
+				m_pTopView = newTopView;
+				m_pTopView->ModifyStyle(0, WS_BORDER);
+				m_pTopView->DeferWindowPos(hdwp, NULL, r.left, r.top, r.Width(), r.Height(), SWP_SHOWWINDOW | SWP_NOACTIVATE);
+				EndDeferWindowPos(hdwp);
+			} else {
+				m_pTopView = newTopView;
+				m_pTopView->ModifyStyle(0, WS_BORDER);
+				m_pTopView->ShowWindow(TRUE);
+				UpdateLayout();
+			}
 		}
 	}
 	return 0;
@@ -760,7 +834,7 @@ LRESULT CMainFrame::OnNzbChanged(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled*
 
 void CMainFrame::UpdateNzbButtons()
 {
-	bool enable = m_list.GetSelectedCount() > 0;
+	bool enable = m_NzbView.GetSelectedCount() > 0;
 	/*
 	bool allStopped = true;
 	bool allStarted = true;

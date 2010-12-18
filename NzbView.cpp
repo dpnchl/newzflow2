@@ -64,7 +64,7 @@ BOOL CNzbView::PreTranslateMessage(MSG* pMsg)
 
 void CNzbView::Init(HWND hwndParent)
 {
-	Create(hwndParent, rcDefault, NULL, WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | LVS_REPORT | LVS_SHOWSELALWAYS, 0);
+	Create(hwndParent, rcDefault, NULL, WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | LVS_REPORT | LVS_SHOWSELALWAYS, 0);
 
 	m_thmProgress.OpenThemeData(*this, L"PROGRESS");
 
@@ -79,7 +79,7 @@ void CNzbView::Init(HWND hwndParent)
 	SetImageList(m_imageList, LVSIL_SMALL);
 
 	SetExtendedListViewStyle(LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
-	SetWindowTheme(*this, L"explorer", NULL);
+//	SetWindowTheme(*this, L"explorer", NULL);
 
 	InitDynamicColumns(_T("NzbView"));
 }

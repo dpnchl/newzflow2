@@ -134,6 +134,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
+				Optimization="1"
 				PreprocessorDefinitions="WIN32;_WINDOWS;STRICT;NDEBUG;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_WARNINGS"
 				RuntimeLibrary="0"
 				RuntimeTypeInfo="false"
@@ -271,12 +272,44 @@
 				>
 			</File>
 			<File
+				RelativePath=".\RssView.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\RssWatcher.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\Settings.cpp"
 				>
 			</File>
 			<File
 				RelativePath=".\SettingsDlg.cpp"
 				>
+			</File>
+			<File
+				RelativePath=".\SQLite\SQ3.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\SQLite\sqlite3.c"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="0"
+					/>
+				</FileConfiguration>
 			</File>
 			<File
 				RelativePath=".\stdafx.cpp"
@@ -300,6 +333,10 @@
 			</File>
 			<File
 				RelativePath=".\Util.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\ViewTree.cpp"
 				>
 			</File>
 		</Filter>
@@ -396,11 +433,27 @@
 				>
 			</File>
 			<File
+				RelativePath=".\RssView.h"
+				>
+			</File>
+			<File
+				RelativePath=".\RssWatcher.h"
+				>
+			</File>
+			<File
 				RelativePath=".\Settings.h"
 				>
 			</File>
 			<File
 				RelativePath=".\SettingsDlg.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SQLite\SQ3.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SQLite\sqlite3.h"
 				>
 			</File>
 			<File
@@ -417,6 +470,10 @@
 			</File>
 			<File
 				RelativePath=".\Version.h"
+				>
+			</File>
+			<File
+				RelativePath=".\ViewTree.h"
 				>
 			</File>
 		</Filter>

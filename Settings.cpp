@@ -17,6 +17,14 @@ CSettings::CSettings()
 	CreateDirectory(m_appData, NULL);
 	m_ini = m_appData + _T("Newzflow.ini");
 
+	// if .ini doesn't exist, create a new one with Unicode BOM, so that all subsequent INI functions operate in unicode mode
+	if(!CFile::FileExists(m_ini)) {
+		CFile f;
+		f.Open(m_ini, GENERIC_WRITE, 0, CREATE_ALWAYS);
+		unsigned char bom[] = { 0xff, 0xfe };
+		f.Write(bom, 2);
+	}
+
 	// get program dir
 	GetModuleFileName(_Module.GetModuleInstance(), m_programDir.GetBuffer(MAX_PATH), MAX_PATH);
 	m_programDir.ReleaseBuffer();
@@ -70,14 +78,24 @@ void CSettings::SetWindowPos(const CRect& r, int showCmd)
 	SetIni(_T("Window"), _T("ShowCmd"), s);
 }
 
-int CSettings::GetSplitPos()
+int CSettings::GetVertSplitPos()
 {
 	return GetPrivateProfileInt(_T("Window"), _T("Split"), 300, m_ini);
 }
 
-void CSettings::SetSplitPos(int split)
+void CSettings::SetVertSplitPos(int split)
 {
 	SetIni(_T("Window"), _T("Split"), split);
+}
+
+int CSettings::GetHorzSplitPos()
+{
+	return GetPrivateProfileInt(_T("Window"), _T("SplitH"), 150, m_ini);
+}
+
+void CSettings::SetHorzSplitPos(int split)
+{
+	SetIni(_T("Window"), _T("SplitH"), split);
 }
 
 void CSettings::GetListViewColumns(const CString& name, CListViewCtrl lv, int* columnVisibility, int maxColumns)
