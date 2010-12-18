@@ -2,6 +2,7 @@
 
 #include "nzb.h"
 #include "Util.h"
+#include "SQLite/SQ3.h"
 
 class CDownloader;
 class CDiskWriter;
@@ -9,6 +10,7 @@ class CPostProcessor;
 class CSettings;
 class CHttpDownloader;
 class CDirWatcher;
+class CRssWatcher;
 
 class CNewzflowThread : public CGuiThreadImpl<CNewzflowThread>
 {
@@ -88,7 +90,9 @@ public:
 	void OnTimer();
 	void SetSpeedLimit(int limit);
 	void AddPostProcessor(CNzb* nzb);
+
 	CAtlArray<CNzb*> nzbs, deletedNzbs;
+
 	CAtlArray<CDownloader*> downloaders, finishedDownloaders;
 	CDiskWriter* diskWriter;
 	CPostProcessor* postProcessor;
@@ -96,6 +100,10 @@ public:
 	CSettings* settings;
 	CHttpDownloader* httpDownloader;
 	CDirWatcher* dirWatcher;
+	CRssWatcher* rssWatcher;
+	sq3::Database database;
+
+
 
 	CComAutoCriticalSection cs;
 

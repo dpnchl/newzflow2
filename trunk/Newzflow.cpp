@@ -9,6 +9,7 @@
 #include "Settings.h"
 #include "HttpDownloader.h"
 #include "DirWatcher.h"
+#include "RssWatcher.h"
 #include "MainFrm.h"
 #include "MemFile.h"
 #include "DialogEx.h"
@@ -26,6 +27,7 @@
 // - investigate why .nzb files are not deleted in %appdata% sometimes
 // - DirWatcher: add support for .nzb.gz and .zip, .rar
 // - Centralize calls to WriteQueue()
+// - There seem to be some problems resizing the window after the splitter has been dragged to extremes...
 
 // CNewzflowThread
 //////////////////////////////////////////////////////////////////////////
@@ -231,7 +233,39 @@ CNewzflow::CNewzflow()
 	}
 	// no downloaders have been created so far, so we don't need to propagate the speed limit to downloaders
 	CNntpSocket::speedLimiter.SetLimit(settings->GetSpeedLimit());
+
+	database.Open(settings->GetAppDataDir() + _T("database.dat"));
+	ASSERT(database.IsOpen());
+	{ sq3::Transaction transaction(database);
+		database.Execute("CREATE TABLE IF NOT EXISTS \"RssFeeds\" (\"name\" TEXT UNIQUE, \"url\" TEXT NOT NULL, \"update_interval\" INTEGER DEFAULT 15, \"last_update\" REAL)");
+		database.Execute("CREATE TABLE IF NOT EXISTS \"RssItems\" (\"feed\" INTEGER, \"title\" TEXT NOT NULL, \"link\" TEXT NOT NULL, \"length\" INTEGER DEFAULT 0, \"description\" TEXT, \"category\" TEXT, \"date\" REAL, UNIQUE (feed, title))");
+
+		{
+			sq3::Statement st(database, _T("INSERT INTO RssFeeds (name, url) VALUES (?, ?)"));
+			ASSERT(st.IsValid());
+			st.Bind(0, _T("BinSearch E-Book"));
+			st.Bind(1, _T("http://rss.binsearch.net/rss.php?max=50&g=alt.binaries.e-book"));
+			if(st.ExecuteNonQuery() != SQLITE_OK) {
+				TRACE(_T("DB error: %s\n"), database.GetErrorMessage());
+				transaction.Rollback();
+			}
+		}
+		{
+			sq3::Statement st(database, _T("INSERT INTO RssFeeds (name, url) VALUES (?, ?)"));
+			ASSERT(st.IsValid());
+			st.Bind(0, _T("NzbIndex Ubuntu"));
+			st.Bind(1, _T("http://www.nzbindex.com/rss/?q=ubuntu&sort=agedesc&minsize=10&max=25&more=1"));
+			if(st.ExecuteNonQuery() != SQLITE_OK) {
+				TRACE(_T("DB error: %s\n"), database.GetErrorMessage());
+				transaction.Rollback();
+			}
+		}
+
+		transaction.Commit();
+	}
+
 	dirWatcher = new CDirWatcher; // create after speed limiter intialization
+	rssWatcher = new CRssWatcher;
 }
 
 CNewzflow::~CNewzflow()
@@ -290,6 +324,12 @@ CNewzflow::~CNewzflow()
 	dirWatcher->shutDown.Set();
 	dirWatcher->JoinWithMessageLoop();
 	delete dirWatcher;
+
+	dlg.text.SetWindowText(_T("Waiting for RSS watcher..."));
+	Util::Print("waiting for RSS watcher to finish...\n");
+	rssWatcher->shutDown.Set();
+	rssWatcher->JoinWithMessageLoop();
+	delete rssWatcher;
 
 	WriteQueue();
 
