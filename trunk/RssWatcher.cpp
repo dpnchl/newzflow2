@@ -60,13 +60,19 @@ void CRssWatcher::ProcessFeed(int id, const CString& sUrl)
 			sq3::Transaction transaction(CNewzflow::Instance()->database);
 			for(size_t i = 0; i < rss.items.GetCount(); i++) {
 				CRssItem* item = rss.items[i];
-				sq3::Statement st(CNewzflow::Instance()->database, _T("INSERT INTO RssItems (feed, title, link, description, category, date) VALUES (?, ?, ?, ?, ?, julianday(?))"));
+				sq3::Statement st(CNewzflow::Instance()->database, _T("INSERT OR IGNORE INTO RssItems (feed, title, link, length, description, category, date) VALUES (?, ?, ?, ?, ?, ?, julianday(?))"));
 				st.Bind(0, id);
 				st.Bind(1, item->title);
-				st.Bind(2, item->link);
-				st.Bind(3, item->description);
-				st.Bind(4, item->category);
-				st.Bind(5, item->pubDate.Format(_T("%Y-%m-%d %H:%M:%S")));
+				if(item->enclosure) {
+					st.Bind(2, item->enclosure->url);
+					st.Bind(3, item->enclosure->length);
+				} else {
+					st.Bind(2, item->link);
+					st.Bind(3, 0);
+				}
+				st.Bind(4, item->description);
+				st.Bind(5, item->category);
+				st.Bind(6, item->pubDate.Format(_T("%Y-%m-%d %H:%M:%S")));
 				if(st.ExecuteNonQuery() != SQLITE_OK) {
 					TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
 				}

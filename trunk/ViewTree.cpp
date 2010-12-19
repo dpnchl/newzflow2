@@ -44,19 +44,16 @@ void CViewTree::Init(HWND hwndParent)
 void CViewTree::Refresh()
 {
 	tvDownloads = InsertItem(_T("Downloads"), 0, 0, TVI_ROOT, TVI_LAST);
-	tvDownloads.SetItem(TVIF_PARAM, NULL, 0, 0, 0, 0, 0);
 	tvFeeds = InsertItem(_T("Feeds"), 13, 13, TVI_ROOT, TVI_LAST);
-	tvFeeds.SetItem(TVIF_PARAM, NULL, 0, 0, 0, 0, 1);
+	SetItemData(tvFeeds, 0);
 
 	sq3::Statement st(CNewzflow::Instance()->database, _T("SELECT rowid, name FROM RssFeeds ORDER BY name ASC"));
 	sq3::Reader reader = st.ExecuteReader();
 	while(reader.Step() == SQLITE_ROW) {
-		__int64 id; reader.GetInt64(0, id);
+		int id; reader.GetInt(0, id);
 		CString sName; reader.GetString(1, sName);
 		CTreeItem tvRss = InsertItem(sName, 13, 13, tvFeeds, TVI_LAST);
-		tvRss.SetItem(TVIF_PARAM, NULL, 0, 0, 0, 0, (LPARAM)id);
+		SetItemData(tvRss, id);
 	}
 	tvFeeds.Expand();
-
-//	tvDownloads.Select();
 }

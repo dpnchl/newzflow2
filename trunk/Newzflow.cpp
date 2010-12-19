@@ -54,7 +54,7 @@ void CNewzflowThread::AddFile(const CString& nzbPath)
 		}
 	}
 
-	if(::GetCurrentThread() != GetHandle())
+	if(GetCurrentThreadId() != GetId())
 		PostThreadMessage(MSG_ADD_FILE, (WPARAM)new CString(nzbUrl));
 	else {
 		BOOL b;
@@ -64,7 +64,7 @@ void CNewzflowThread::AddFile(const CString& nzbPath)
 
 void CNewzflowThread::AddURL(const CString& nzbUrl)
 {
-	if(::GetCurrentThread() != GetHandle())
+	if(GetCurrentThreadId() != GetId())
 		PostThreadMessage(MSG_ADD_FILE, (WPARAM)new CString(nzbUrl));
 	else {
 		BOOL b;
@@ -74,7 +74,7 @@ void CNewzflowThread::AddURL(const CString& nzbUrl)
 
 void CNewzflowThread::AddNZB(CNzb* nzb)
 {
-	if(::GetCurrentThread() != GetHandle())
+	if(GetCurrentThreadId() != GetId())
 		PostThreadMessage(MSG_ADD_NZB, (WPARAM)nzb);
 	else {
 		BOOL b;
@@ -84,7 +84,7 @@ void CNewzflowThread::AddNZB(CNzb* nzb)
 
 void CNewzflowThread::WriteQueue()
 {
-	if(::GetCurrentThread() != GetHandle())
+	if(GetCurrentThreadId() != GetId())
 		PostThreadMessage(MSG_WRITE_QUEUE);
 	else {
 		BOOL b;
@@ -94,7 +94,7 @@ void CNewzflowThread::WriteQueue()
 
 void CNewzflowThread::CreateDownloaders()
 {
-	if(::GetCurrentThread() != GetHandle())
+	if(GetCurrentThreadId() != GetId())
 		PostThreadMessage(MSG_CREATE_DOWNLOADERS);
 	else {
 		BOOL b;
@@ -163,7 +163,17 @@ LRESULT CNewzflowThread::OnAddNZB(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL&
 	if(CNewzflow::Instance()->settings->GetDownloadDir().IsEmpty() || !nzb->SetPath(CNewzflow::Instance()->settings->GetDownloadDir(), NULL, &error))
 		Util::GetMainWindow().PostMessage(CMainFrame::MSG_SAVE_NZB, (WPARAM)nzb, (LPARAM)error);
 	{ NEWZFLOW_LOCK;
-		CNewzflow::Instance()->nzbs.Add(nzb);
+		// dupecheck NZB in array; if it came from a URL, it's already added
+		bool dupe = false;
+		for(size_t i = 0; i < CNewzflow::Instance()->nzbs.GetCount(); i++) {
+			if(CNewzflow::Instance()->nzbs[i] == nzb) {
+				dupe = true;
+				break;
+			}
+		}
+		if(!dupe)
+			CNewzflow::Instance()->nzbs.Add(nzb);
+
 	}
 	CNewzflow::Instance()->CreateDownloaders();
 	WriteQueue();
@@ -238,7 +248,7 @@ CNewzflow::CNewzflow()
 	ASSERT(database.IsOpen());
 	{ sq3::Transaction transaction(database);
 		database.Execute("CREATE TABLE IF NOT EXISTS \"RssFeeds\" (\"name\" TEXT UNIQUE, \"url\" TEXT NOT NULL, \"update_interval\" INTEGER DEFAULT 15, \"last_update\" REAL)");
-		database.Execute("CREATE TABLE IF NOT EXISTS \"RssItems\" (\"feed\" INTEGER, \"title\" TEXT NOT NULL, \"link\" TEXT NOT NULL, \"length\" INTEGER DEFAULT 0, \"description\" TEXT, \"category\" TEXT, \"date\" REAL, UNIQUE (feed, title))");
+		database.Execute("CREATE TABLE IF NOT EXISTS \"RssItems\" (\"feed\" INTEGER, \"title\" TEXT NOT NULL, \"link\" TEXT NOT NULL, \"length\" INTEGER DEFAULT 0, \"description\" TEXT, \"category\" TEXT, \"status\" INTEGER, \"date\" REAL, UNIQUE (feed, title))");
 
 		{
 			sq3::Statement st(database, _T("INSERT INTO RssFeeds (name, url) VALUES (?, ?)"));
@@ -627,6 +637,8 @@ bool CNewzflow::ReadQueue()
 				size_t fileCount = mf.Read<size_t>();
 				for(size_t j = 0; j < fileCount; j++) {
 					mf.Read<char>(); // file->status
+					mf.Read<char>(); // file->parStatus
+					mf.Read<MD5_CTX>(); // file->md5
 					size_t segCount = mf.Read<size_t>();
 					for(size_t k = 0; k < segCount; k++) {
 						mf.Read<char>();

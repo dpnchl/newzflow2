@@ -805,7 +805,7 @@ LRESULT CMainFrame::OnTreeChanged(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled
 	LPNMTREEVIEW lvn = (LPNMTREEVIEW)pnmh;
 	if(lvn->hdr.hwndFrom == m_TreeView) {
 		CWindow* newTopView = NULL;
-		if(lvn->itemNew.lParam == 1) {
+		if(lvn->itemNew.hItem == m_TreeView.tvFeeds || m_TreeView.GetParentItem(lvn->itemNew.hItem) == m_TreeView.tvFeeds) {
 			newTopView = &m_RssView;
 		} else {
 			newTopView = &m_NzbView;
@@ -827,6 +827,9 @@ LRESULT CMainFrame::OnTreeChanged(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled
 				m_pTopView->ShowWindow(TRUE);
 				UpdateLayout();
 			}
+		}
+		if(m_pTopView == &m_RssView) {
+			m_RssView.SetFeed(m_TreeView.GetItemData(lvn->itemNew.hItem));
 		}
 	}
 	return 0;
