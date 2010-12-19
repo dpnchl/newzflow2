@@ -49,6 +49,7 @@ public:
 		typeString,
 		typeNumber,
 		typeSize,
+		typeDate,
 		typeTimeSpan,
 	};
 
@@ -90,6 +91,8 @@ public:
 		m_name = name;
 
 		CNewzflow::Instance()->settings->GetListViewColumns(m_name, *pT, m_columns, m_maxColumns);
+
+		pT->InitSort();
 	}
 
 	int SubItemFromColumn(int item)
@@ -134,11 +137,13 @@ public:
 		MESSAGE_HANDLER(WM_DESTROY, OnDestroy)
 	END_MSG_MAP()
 
-	LRESULT OnDestroy(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)
+	LRESULT OnDestroy(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& bHandled)
 	{
 		T* pT = static_cast<T*>(this);
 		CNewzflow::Instance()->settings->SetListViewColumns(m_name, *pT, m_columns, m_maxColumns);
+		pT->DestroySort();
 
+		bHandled = FALSE;
 		return 0;
 	}
 
@@ -197,6 +202,7 @@ public:
 				pT->AddColumn(columnInfo[i].nameShort, i, -1, LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM, columnInfo[i].format);
 				pT->SetColumnWidth(i, columnInfo[i].width);
 			}
+			pT->ResetSort();
 		}
 
 		LockUpdate(false);
@@ -270,6 +276,19 @@ public:
 	{
 	}
 
+	// overridden in CSortableList<T>
+	void InitSort()
+	{
+	}
+
+	void ResetSort()
+	{
+	}
+
+	void DestroySort()
+	{
+	}
+
 private:
 	int m_maxColumns;
 	int* m_columns;
@@ -337,6 +356,14 @@ public:
 				else ret = 1;
 				break;
 			}
+			case typeDate: {
+				COleDateTime date1; date1.ParseDateTime(s1);
+				COleDateTime date2; date2.ParseDateTime(s2);
+				if(date1 < date2) ret = -1;
+				else if(date1 == date2) ret = 0;
+				else ret = 1;
+				break;
+			}
 			case typeTimeSpan: {
 				__int64 span1 = Util::ParseTimeSpan(s1);
 				__int64 span2 = Util::ParseTimeSpan(s2);
@@ -368,6 +395,38 @@ public:
 		}
 	}
 
+	void InitSort()
+	{
+		T* pT = static_cast<T*>(this);
+		CNewzflow::Instance()->settings->GetListViewSort(m_name, m_sortColumn, m_sortAsc);
+		// tell list/header about sorted column
+		if(m_sortColumn != -1) {
+			HDITEM hditem = {0};
+			hditem.mask = HDI_FORMAT;
+			pT->GetHeader().GetItem(m_sortColumn, &hditem);
+			if(m_sortAsc)
+				hditem.fmt |= HDF_SORTUP;
+			else
+				hditem.fmt |= HDF_SORTDOWN;
+			pT->GetHeader().SetItem(m_sortColumn, &hditem);
+			pT->SetSelectedColumn(m_sortColumn);
+		}
+	}
+
+	void ResetSort()
+	{
+		T* pT = static_cast<T*>(this);
+		m_sortColumn = -1; // -1 means: don't sort
+		m_sortAsc = true;
+		pT->SetSelectedColumn(-1);
+	}
+
+	void DestroySort()
+	{
+		T* pT = static_cast<T*>(this);
+		CNewzflow::Instance()->settings->SetListViewSort(m_name, m_sortColumn, m_sortAsc);
+	}
+
 	BEGIN_MSG_MAP(CSortableList<T>)
 		NOTIFY_CODE_HANDLER(HDN_ITEMCLICK, OnHdnItemClick)
 		CHAIN_MSG_MAP(CDynamicColumns<T>)
@@ -378,6 +437,7 @@ public:
 		T* pT = static_cast<T*>(this);
 		LPNMHEADER lpnm = (LPNMHEADER)pnmh;
 
+		// set new sort column based on header click (toggling sort up/sort down)
 		for(int i = 0; i < pT->GetHeader().GetItemCount(); i++) {
 			HDITEM hditem = {0};
 			hditem.mask = HDI_FORMAT;

@@ -38,10 +38,10 @@ DWORD CRssWatcher::Run()
 		sq3::Statement st(CNewzflow::Instance()->database, _T("SELECT rowid, url, name FROM RssFeeds WHERE last_update ISNULL OR (strftime('%s', 'now') - strftime('%s', last_update) / 60) >= update_interval"));
 		sq3::Reader reader = st.ExecuteReader();
 		while(reader.Step() == SQLITE_ROW) {
-			__int64 id; reader.GetInt64(0, id);
+			int id; reader.GetInt(0, id);
 			CString sUrl; reader.GetString(1, sUrl);
 			CString sName; reader.GetString(2, sName);
-			CString s; s.Format(_T("ProcessFeed(%s (%I64d), %s)\n"), sName, id, sUrl); Util::Print(s);
+			CString s; s.Format(_T("ProcessFeed(%s (%d), %s)\n"), sName, id, sUrl); Util::Print(s);
 			ProcessFeed(id, sUrl);
 		}
 
@@ -51,7 +51,7 @@ DWORD CRssWatcher::Run()
 	return 0;
 }
 
-void CRssWatcher::ProcessFeed(__int64 id, const CString& sUrl)
+void CRssWatcher::ProcessFeed(int id, const CString& sUrl)
 {
 	CString rssFile = CNewzflow::Instance()->settings->GetAppDataDir() + _T("temp.rss");
 	if(downloader.Download(sUrl, rssFile, CString(), NULL)) {
