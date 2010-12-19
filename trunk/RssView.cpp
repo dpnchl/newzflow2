@@ -27,7 +27,7 @@ enum {
 	{ _T("Title"),		_T("Title"),		CRssView::typeString,	LVCFMT_LEFT,	400,	true },
 	{ _T("Size"),		_T("Size"),			CRssView::typeSize,		LVCFMT_RIGHT,	80,		true },
 	{ _T("Feed"),		_T("Feed"),			CRssView::typeString,	LVCFMT_LEFT,	150,	true },
-	{ _T("Date"),		_T("Date"),			CRssView::typeTimeSpan,	LVCFMT_LEFT,	150,	true }, // TODO: typeDate
+	{ _T("Date"),		_T("Date"),			CRssView::typeDate,		LVCFMT_LEFT,	150,	true },
 	{ _T("Status"),		_T("Status"),		CRssView::typeString,	LVCFMT_LEFT,	120,	true },
 	{ NULL }
 };
@@ -63,13 +63,13 @@ int CRssView::OnRefresh()
 	sq3::Reader reader = st.ExecuteReader();
 	size_t count = 0;
 	while(reader.Step() == SQLITE_ROW) {
-		__int64 id; reader.GetInt64(0, id);
+		int id; reader.GetInt(0, id);
 		CString sTitle; reader.GetString(1, sTitle);
 		__int64 length; reader.GetInt64(2, length);
 		int date; reader.GetInt(3, date);
 		CString sFeed; reader.GetString(4, sFeed);
 
-		AddItemEx(count, (DWORD_PTR)id); // TODO: don#t just truncate the 64-bit ID, store something else
+		AddItemEx(count, id);
 		SetItemTextEx(count, kTitle, sTitle);
 		SetItemTextEx(count, kSize, Util::FormatSize(length));
 		SetItemTextEx(count, kFeed, sFeed);

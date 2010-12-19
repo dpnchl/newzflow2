@@ -33,7 +33,8 @@ public:
 
 	const CString& GetAppDataDir();
 	const CString& GetProgramDir();
-
+	void GetListViewSort(const CString& name, int& sortColumn, bool& sortAsc);
+	void SetListViewSort(const CString& name, int sortColumn, bool sortAsc);
 	CAtlArray<CString> downloadDirHistory;
 
 protected:

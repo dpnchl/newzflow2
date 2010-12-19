@@ -145,6 +145,18 @@ void CSettings::SetListViewColumns(const CString& name, CListViewCtrl lv, int* c
 	WritePrivateProfileStruct(name, _T("ColumnVisibility"), columnVisibility, maxColumns * sizeof(int), m_ini);
 }
 
+void CSettings::GetListViewSort(const CString& name, int& sortColumn, bool& sortAsc)
+{
+	sortColumn = _ttoi(GetIni(name, _T("SortColumn"), _T("-1")));
+	sortAsc = !!_ttoi(GetIni(name, _T("SortAsc"), _T("1")));
+}
+
+void CSettings::SetListViewSort(const CString& name, int sortColumn, bool sortAsc)
+{
+	SetIni(name, _T("SortColumn"), sortColumn);
+	SetIni(name, _T("SortAsc"), sortAsc);
+}
+
 const CString& CSettings::GetAppDataDir()
 {
 	return m_appData;
@@ -216,3 +228,4 @@ bool CSettings::GetDeleteWatch()
 {
 	return GetIni(_T("Directories"), _T("DeleteWatch"), _T("0")) != _T("0");
 }
+
