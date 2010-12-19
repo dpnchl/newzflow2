@@ -398,32 +398,43 @@ public:
 	void InitSort()
 	{
 		T* pT = static_cast<T*>(this);
+		m_defaultSortColumn = m_sortColumn;
+		m_defaultSortAsc = m_sortAsc;
 		CNewzflow::Instance()->settings->GetListViewSort(m_name, m_sortColumn, m_sortAsc);
+		pT->SetSort();
+	}
+
+	void SetSort()
+	{
 		// tell list/header about sorted column
-		if(m_sortColumn != -1) {
+		T* pT = static_cast<T*>(this);
+		for(int i = 0; i < pT->GetHeader().GetItemCount(); i++) {
 			HDITEM hditem = {0};
 			hditem.mask = HDI_FORMAT;
-			pT->GetHeader().GetItem(m_sortColumn, &hditem);
-			if(m_sortAsc)
-				hditem.fmt |= HDF_SORTUP;
-			else
-				hditem.fmt |= HDF_SORTDOWN;
-			pT->GetHeader().SetItem(m_sortColumn, &hditem);
-			pT->SetSelectedColumn(m_sortColumn);
+			pT->GetHeader().GetItem(i, &hditem);
+			if(i == m_sortColumn) {
+				if(m_sortAsc)
+					hditem.fmt |= HDF_SORTUP;
+				else
+					hditem.fmt |= HDF_SORTDOWN;
+			} else {
+				hditem.fmt &= ~(HDF_SORTUP | HDF_SORTDOWN);
+			}
+			pT->GetHeader().SetItem(i, &hditem);
 		}
+		pT->SetSelectedColumn(m_sortColumn);
 	}
 
 	void ResetSort()
 	{
 		T* pT = static_cast<T*>(this);
-		m_sortColumn = -1; // -1 means: don't sort
-		m_sortAsc = true;
-		pT->SetSelectedColumn(-1);
+		m_sortColumn = m_defaultSortColumn;
+		m_sortAsc = m_defaultSortAsc;
+		pT->SetSort();
 	}
 
 	void DestroySort()
 	{
-		T* pT = static_cast<T*>(this);
 		CNewzflow::Instance()->settings->SetListViewSort(m_name, m_sortColumn, m_sortAsc);
 	}
 
@@ -438,27 +449,14 @@ public:
 		LPNMHEADER lpnm = (LPNMHEADER)pnmh;
 
 		// set new sort column based on header click (toggling sort up/sort down)
-		for(int i = 0; i < pT->GetHeader().GetItemCount(); i++) {
-			HDITEM hditem = {0};
-			hditem.mask = HDI_FORMAT;
-			pT->GetHeader().GetItem(i, &hditem);
-			if (i == lpnm->iItem) {
-				if(hditem.fmt & HDF_SORTDOWN)
-					hditem.fmt = (hditem.fmt & ~HDF_SORTDOWN) | HDF_SORTUP;
-				else
-					hditem.fmt = (hditem.fmt & ~HDF_SORTUP) | HDF_SORTDOWN;
-			} else {
-				hditem.fmt &= ~(HDF_SORTDOWN | HDF_SORTUP);
-			}
-			pT->GetHeader().SetItem(i, &hditem);
-		}
-		pT->SetSelectedColumn(lpnm->iItem);
-		if(m_sortColumn == lpnm->iItem)
+		if(m_sortColumn == lpnm->iItem) {
 			m_sortAsc = !m_sortAsc;
-		else {
+		} else {
 			m_sortColumn = lpnm->iItem;
 			m_sortAsc = true;
 		}
+
+		pT->SetSort();
 		Refresh();
 		return 0;
 	}
@@ -466,4 +464,7 @@ public:
 private:
 	int m_sortColumn;
 	bool m_sortAsc;
+
+	int m_defaultSortColumn;
+	bool m_defaultSortAsc;
 };

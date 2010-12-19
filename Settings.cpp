@@ -147,8 +147,13 @@ void CSettings::SetListViewColumns(const CString& name, CListViewCtrl lv, int* c
 
 void CSettings::GetListViewSort(const CString& name, int& sortColumn, bool& sortAsc)
 {
-	sortColumn = _ttoi(GetIni(name, _T("SortColumn"), _T("-1")));
-	sortAsc = !!_ttoi(GetIni(name, _T("SortAsc"), _T("1")));
+	int _sortColumn = _ttoi(GetIni(name, _T("SortColumn"), _T("-1")));
+	bool _sortAsc = !!_ttoi(GetIni(name, _T("SortAsc"), _T("1")));
+
+	if(_sortColumn != -1) {
+		sortColumn = _sortColumn;
+		sortAsc = _sortAsc;
+	}
 }
 
 void CSettings::SetListViewSort(const CString& name, int sortColumn, bool sortAsc)

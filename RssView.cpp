@@ -23,6 +23,11 @@ enum {
 	kStatus,
 };
 
+// for 'status'
+enum {
+	kDownloaded = 1,
+};
+
 /*static*/ const CRssView::ColumnInfo CRssView::s_columnInfo[] = { 
 	{ _T("Title"),		_T("Title"),		CRssView::typeString,	LVCFMT_LEFT,	400,	true },
 	{ _T("Size"),		_T("Size"),			CRssView::typeSize,		LVCFMT_RIGHT,	80,		true },
@@ -34,6 +39,8 @@ enum {
 
 CRssView::CRssView()
 {
+	m_feedId = 0;
+	SetSortColumn(kDate, false);
 }
 
 BOOL CRssView::PreTranslateMessage(MSG* pMsg)
@@ -56,10 +63,15 @@ void CRssView::Init(HWND hwndParent)
 
 int CRssView::OnRefresh()
 {
-	// TODO: add column names to Reader/Statement
-	sq3::Statement st(CNewzflow::Instance()->database, _T("SELECT RssItems.rowid, RssItems.title, RssItems.length, strftime('%s', RssItems.date), RssFeeds.name FROM RssItems LEFT JOIN RssFeeds ON RssItems.feed = RssFeeds.rowid ORDER BY date DESC"));
+	CString sQuery(_T("SELECT RssItems.rowid, RssItems.title, RssItems.length, strftime('%s', RssItems.date), RssItems.status, RssFeeds.name FROM RssItems LEFT JOIN RssFeeds ON RssItems.feed = RssFeeds.rowid"));
+	if(m_feedId > 0)
+		sQuery += _T(" WHERE RssFeeds.rowid = ?");
+
+	sq3::Statement st(CNewzflow::Instance()->database, sQuery);
 	if(!st.IsValid())
 		TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
+	if(m_feedId > 0)
+		st.Bind(0, m_feedId);
 	sq3::Reader reader = st.ExecuteReader();
 	size_t count = 0;
 	while(reader.Step() == SQLITE_ROW) {
@@ -67,17 +79,65 @@ int CRssView::OnRefresh()
 		CString sTitle; reader.GetString(1, sTitle);
 		__int64 length; reader.GetInt64(2, length);
 		int date; reader.GetInt(3, date);
-		CString sFeed; reader.GetString(4, sFeed);
+		int status; reader.GetInt(4, status);
+		CString sFeed; reader.GetString(5, sFeed);
 
 		AddItemEx(count, id);
 		SetItemTextEx(count, kTitle, sTitle);
 		SetItemTextEx(count, kSize, Util::FormatSize(length));
 		SetItemTextEx(count, kFeed, sFeed);
 		SetItemTextEx(count, kDate, COleDateTime((time_t)date).Format());
+		CString s;
+		switch(status) {
+		case kDownloaded: s = _T("Downloaded"); break;
+		}
+		SetItemTextEx(count, kStatus, s);
 
 		count++;
 	}
 	return count;
+}
+
+LRESULT CRssView::OnDblClick(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/)
+{
+	if(GetNextItem(-1, LVNI_SELECTED) != -1) {
+		{ sq3::Transaction transaction(CNewzflow::Instance()->database);
+			for(int iItem = GetNextItem(-1, LVNI_SELECTED); iItem != -1; iItem = GetNextItem(iItem, LVNI_SELECTED)) {
+				int id = GetItemData(iItem);
+
+				// get URL for RSS item and add NZB
+				{
+					sq3::Statement st(CNewzflow::Instance()->database, _T("SELECT link FROM RssItems WHERE rowid = ?"));
+					st.Bind(0, id);
+					CString sUrl;
+					if(st.ExecuteString(sUrl) != SQLITE_OK) {
+						TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
+					}
+					CNewzflow::Instance()->controlThread->AddURL(sUrl);
+				}
+
+				// set status to downloaded
+				{
+					sq3::Statement st(CNewzflow::Instance()->database, _T("UPDATE RssItems SET status = ? WHERE rowid = ?"));
+					st.Bind(0, kDownloaded);
+					st.Bind(1, id);
+					if(st.ExecuteNonQuery() != SQLITE_OK) {
+						TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
+					}
+				}
+			}
+			transaction.Commit();
+		}
+		Refresh();
+	}
+	return 0;
+}
+
+// feedId = 0 => all feeds; otherwise feedId = RssFeeds.rowid
+void CRssView::SetFeed(int feedId)
+{
+	m_feedId = feedId;
+	Refresh();
 }
 
 const CRssView::ColumnInfo* CRssView::GetColumnInfoArray()

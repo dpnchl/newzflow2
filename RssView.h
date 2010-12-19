@@ -16,6 +16,7 @@ public:
 	BOOL PreTranslateMessage(MSG* pMsg);
 
 	BEGIN_MSG_MAP(CRssView)
+		REFLECTED_NOTIFY_CODE_HANDLER(NM_DBLCLK, OnDblClick)
 		CHAIN_MSG_MAP(CSortableList<CRssView>)
 		CHAIN_MSG_MAP_ALT(CCustomDraw<CRssView>, 1)
 		DEFAULT_REFLECTION_HANDLER()
@@ -24,7 +25,11 @@ public:
 	CRssView();
 
 	void Init(HWND hwndParent);
+	void SetFeed(int feedId);
 
+	LRESULT OnDblClick(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/);
+
+	// CCustomDraw overrides
 	DWORD OnPrePaint(int /*idCtrl*/, LPNMCUSTOMDRAW /*lpNMCustomDraw*/);
 	DWORD OnItemPrePaint(int /*idCtrl*/, LPNMCUSTOMDRAW /*lpNMCustomDraw*/);
 	DWORD OnSubItemPrePaint(int /*idCtrl*/, LPNMCUSTOMDRAW /*lpNMCustomDraw*/);
@@ -35,6 +40,8 @@ public:
 
 protected:
 	static const ColumnInfo s_columnInfo[];
+
+	int m_feedId;
 
 // Handler prototypes (uncomment arguments if needed):
 //	LRESULT MessageHandler(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)
