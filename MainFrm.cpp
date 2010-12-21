@@ -14,6 +14,7 @@
 #include "NntpSocket.h"
 #include "Util.h"
 #include "SettingsDlg.h"
+#include "DropTarget.h"
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
@@ -199,7 +200,7 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 	m_TabView[1].SetActivePage(0);
 
 	// tray notification
-	m_TrayIcon.Create(this, IDR_MAINFRAME, _T("Newzflow"), LoadIcon(_Module.GetResourceInstance(), MAKEINTRESOURCE(IDR_MAINFRAME)), MSG_TRAY_NOTIFY, 0, FALSE);
+	m_TrayIcon.Create(this, IDR_MAINFRAME, _T("Newzflow"), LoadIcon(_Module.GetResourceInstance(), MAKEINTRESOURCE(IDR_MAINFRAME)), Util::MSG_TRAY_NOTIFY, 0, FALSE);
 
 	// get system message font
 	NONCLIENTMETRICS ncm = { sizeof(NONCLIENTMETRICS) };
@@ -237,7 +238,9 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 	pLoop->AddMessageFilter(this);
 	pLoop->AddIdleHandler(this);
 
-	RegisterDropHandler();
+	CComObject<CDropTarget<CMainFrame> >* pDropTarget;
+	CComObject<CDropTarget<CMainFrame> >::CreateInstance(&pDropTarget);
+	pDropTarget->Register(*this, this);
 
 	Util::SetMainWindow(*this);
 
@@ -261,6 +264,8 @@ LRESULT CMainFrame::OnDestroy(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*
 	CNewzflow::Instance()->settings->SetHorzSplitPos(m_horzSplitX);
 
 	Util::SetMainWindow(NULL);
+
+	::RevokeDragDrop(*this);
 
 	// unregister message filtering and idle updates
 	CMessageLoop* pLoop = _Module.GetMessageLoop();
@@ -308,6 +313,7 @@ LRESULT CMainFrame::OnFileAdd(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl
 	return 0;
 }
 
+// modal
 class CAddNzbUrlDialog : public CDialogImplEx<CAddNzbUrlDialog>, public CWinDataExchangeEx<CAddNzbUrlDialog>
 {
 public:
@@ -357,6 +363,7 @@ public:
 	CString m_sUrl;
 };
 
+// non-modal
 class CSaveNzbDialog : public CDialogImplEx<CSaveNzbDialog>, public CWinDataExchangeEx<CSaveNzbDialog>
 {
 public:
@@ -835,6 +842,12 @@ LRESULT CMainFrame::OnTreeChanged(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled
 	return 0;
 }
 
+LRESULT CMainFrame::OnRssFeedUpdated(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)
+{
+	m_TreeView.Refresh();
+	return 0;
+}
+
 void CMainFrame::UpdateNzbButtons()
 {
 	bool enable = m_NzbView.GetSelectedCount() > 0;
@@ -883,20 +896,14 @@ LRESULT CMainFrame::OnCopyData(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
 	return 0;
 }
 
-// CDropFilesHandler
-BOOL CMainFrame::IsReadyForDrop()
-{
-	return TRUE;
-}
-
-BOOL CMainFrame::HandleDroppedFile(LPCTSTR szBuff)
+void CMainFrame::OnDropFile(LPCTSTR szBuff)
 {
 	CNewzflow::Instance()->controlThread->AddFile(szBuff);
-	return TRUE;
 }
 
-void CMainFrame::EndDropFiles()
+void CMainFrame::OnDropURL(LPCTSTR szBuff)
 {
+	CNewzflow::Instance()->controlThread->AddURL(szBuff);
 }
 
 // CNewzflowStatusBarCtrl

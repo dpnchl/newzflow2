@@ -15,6 +15,7 @@
 CRssWatcher::CRssWatcher()
 : CThreadImpl<CRssWatcher>(CREATE_SUSPENDED)
 , shutDown(TRUE, FALSE)
+, refresh(FALSE, FALSE)
 {
 	Resume();
 }
@@ -29,20 +30,22 @@ DWORD CRssWatcher::Run()
 			break;
 
 		if(delay > 0) {
-			WaitForSingleObject(shutDown, delay * 1000); // either waits until the delay ran out, or we need to shut down
+			HANDLE objs[] = { shutDown, refresh };
+			WaitForMultipleObjects(2, objs, FALSE, delay * 1000);
 			delay = 0;
 			continue;
 		}
 
 		// TODO: add column names to Reader/Statement
-		sq3::Statement st(CNewzflow::Instance()->database, _T("SELECT rowid, url, name FROM RssFeeds WHERE last_update ISNULL OR (strftime('%s', 'now') - strftime('%s', last_update) / 60) >= update_interval"));
+		sq3::Statement st(CNewzflow::Instance()->database, _T("SELECT rowid, url, title FROM RssFeeds WHERE last_update ISNULL OR (strftime('%s', 'now') - strftime('%s', last_update) / 60) >= update_interval"));
 		sq3::Reader reader = st.ExecuteReader();
 		while(reader.Step() == SQLITE_ROW) {
 			int id; reader.GetInt(0, id);
 			CString sUrl; reader.GetString(1, sUrl);
-			CString sName; reader.GetString(2, sName);
-			CString s; s.Format(_T("ProcessFeed(%s (%d), %s)\n"), sName, id, sUrl); Util::Print(s);
+			CString sTitle; reader.GetString(2, sTitle);
+			CString s; s.Format(_T("ProcessFeed(%s (%d), %s)\n"), sTitle, id, sUrl); Util::Print(s);
 			ProcessFeed(id, sUrl);
+			Util::GetMainWindow().PostMessage(Util::MSG_RSSFEED_UPDATED);
 		}
 
 		delay = 60;
@@ -77,6 +80,7 @@ void CRssWatcher::ProcessFeed(int id, const CString& sUrl)
 					TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
 				}
 			}
+			// set update interval
 			if(rss.ttl > 0) {
 				sq3::Statement st(CNewzflow::Instance()->database, _T("UPDATE RssFeeds SET update_interval = ? WHERE rowid = ?"));
 				st.Bind(0, rss.ttl);
@@ -85,10 +89,22 @@ void CRssWatcher::ProcessFeed(int id, const CString& sUrl)
 					TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
 				}
 			}
-			sq3::Statement st(CNewzflow::Instance()->database, _T("UPDATE RssFeeds SET last_update = julianday('now') WHERE rowid = ?"));
-			st.Bind(0, id);
-			if(st.ExecuteNonQuery() != SQLITE_OK) {
-				TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
+			// set last update
+			{
+				sq3::Statement st(CNewzflow::Instance()->database, _T("UPDATE RssFeeds SET last_update = julianday('now') WHERE rowid = ?"));
+				st.Bind(0, id);
+				if(st.ExecuteNonQuery() != SQLITE_OK) {
+					TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
+				}
+			}
+			// set title from feed if previously empty
+			{
+				sq3::Statement st(CNewzflow::Instance()->database, _T("UPDATE RssFeeds SET title = ? WHERE rowid = ? AND title ISNULL"));
+				st.Bind(0, rss.title);
+				st.Bind(1, id);
+				if(st.ExecuteNonQuery() != SQLITE_OK) {
+					TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
+				}
 			}
 			transaction.Commit();
 		}

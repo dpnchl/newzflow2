@@ -63,7 +63,7 @@ void CRssView::Init(HWND hwndParent)
 
 int CRssView::OnRefresh()
 {
-	CString sQuery(_T("SELECT RssItems.rowid, RssItems.title, RssItems.length, strftime('%s', RssItems.date), RssItems.status, RssFeeds.name FROM RssItems LEFT JOIN RssFeeds ON RssItems.feed = RssFeeds.rowid"));
+	CString sQuery(_T("SELECT RssItems.rowid, RssItems.title, RssItems.length, strftime('%s', RssItems.date), RssItems.status, RssFeeds.title FROM RssItems LEFT JOIN RssFeeds ON RssItems.feed = RssFeeds.rowid"));
 	if(m_feedId > 0)
 		sQuery += _T(" WHERE RssFeeds.rowid = ?");
 

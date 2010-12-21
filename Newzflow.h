@@ -90,7 +90,7 @@ public:
 	void OnTimer();
 	void SetSpeedLimit(int limit);
 	void AddPostProcessor(CNzb* nzb);
-
+	void RefreshRssWatcher();
 	CAtlArray<CNzb*> nzbs, deletedNzbs;
 
 	CAtlArray<CDownloader*> downloaders, finishedDownloaders;
