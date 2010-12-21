@@ -314,7 +314,7 @@ LRESULT CPostProcessor::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 		}
 		NEWZFLOW_LOCK;
 		nzb->status = newStatus;
-		Util::GetMainWindow().PostMessage(CMainFrame::MSG_NZB_FINISHED, (WPARAM)nzb); // handler decreases nzb->refCount
+		Util::GetMainWindow().PostMessage(Util::MSG_NZB_FINISHED, (WPARAM)nzb); // handler decreases nzb->refCount
 
 		CNewzflow::Instance()->WriteQueue();
 	}

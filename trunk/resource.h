@@ -20,6 +20,8 @@
 #define IDD_SAVE_NZB                    209
 #define IDR_NZBVIEW                     210
 #define IDD_POWEROFF                    211
+#define IDR_TREEVIEW                    211
+#define IDD_ADD_FEED                    212
 #define IDC_PROGRESS                    1000
 #define IDC_TEXT                        1001
 #define IDC_HOSTNAME                    1002
@@ -42,6 +44,8 @@
 #define IDC_URL                         1019
 #define IDC_COMBO1                      1020
 #define IDC_DIRECTORY                   1020
+#define IDC_URL2                        1020
+#define IDC_ALIAS                       1020
 #define IDC_DIRECTORY_BUTTON            1021
 #define IDC_COMBOBOXEX1                 1025
 #define IDC_EDIT1                       1026
@@ -50,6 +54,7 @@
 #define IDC_SYSLINK1                    1028
 #define IDC_ABOUT                       1029
 #define IDC_IMAGE                       1031
+#define IDC_ALIAS_CHECK                 1032
 #define ID_FILE_ADD                     32775
 #define ID_FILE_ADD_URL                 32776
 #define ID_CREATE                       32777
@@ -69,14 +74,20 @@
 #define ID_FILE_PAUSE                   32791
 #define ID_FILE_UNPAUSE                 32792
 #define ID_DEBUG_POSTPROCESS            32793
+#define ID_FEEDS_ADDRSSFEED             32794
+#define ID_FEEDS_EDITFEED               32795
+#define ID_FEEDS_DELETEFEED             32796
+#define ID_FEEDS_ADD                    32797
+#define ID_FEEDS_EDIT                   32798
+#define ID_FEEDS_DELETE                 32799
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        212
-#define _APS_NEXT_COMMAND_VALUE         32794
-#define _APS_NEXT_CONTROL_VALUE         1032
+#define _APS_NEXT_COMMAND_VALUE         32800
+#define _APS_NEXT_CONTROL_VALUE         1033
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

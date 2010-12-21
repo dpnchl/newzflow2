@@ -19,6 +19,9 @@
 #endif
 
 // TODO:
+// - associate NZBs with RssItems to get status information back into RssView
+// - ... also to get NZB filename when no sensible one is returned (e.g. binsearch.info only returns the NZB ID)
+// - remove .nzb extension from NZB names/download directories
 // - investigate why downloads get corrupted during testing (forcibly shutting down Newzbin lots of times)
 // - investigate why sometimes no downloaders are created when par2 failed and asks for more blocks
 // - CNzbView/CFileView: implement progress bar with no theming
@@ -161,7 +164,7 @@ LRESULT CNewzflowThread::OnAddNZB(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL&
 
 	int error = ERROR_SUCCESS;
 	if(CNewzflow::Instance()->settings->GetDownloadDir().IsEmpty() || !nzb->SetPath(CNewzflow::Instance()->settings->GetDownloadDir(), NULL, &error))
-		Util::GetMainWindow().PostMessage(CMainFrame::MSG_SAVE_NZB, (WPARAM)nzb, (LPARAM)error);
+		Util::GetMainWindow().PostMessage(Util::MSG_SAVE_NZB, (WPARAM)nzb, (LPARAM)error);
 	{ NEWZFLOW_LOCK;
 		// dupecheck NZB in array; if it came from a URL, it's already added
 		bool dupe = false;
@@ -247,29 +250,8 @@ CNewzflow::CNewzflow()
 	database.Open(settings->GetAppDataDir() + _T("database.dat"));
 	ASSERT(database.IsOpen());
 	{ sq3::Transaction transaction(database);
-		database.Execute("CREATE TABLE IF NOT EXISTS \"RssFeeds\" (\"name\" TEXT UNIQUE, \"url\" TEXT NOT NULL, \"update_interval\" INTEGER DEFAULT 15, \"last_update\" REAL)");
+		database.Execute("CREATE TABLE IF NOT EXISTS \"RssFeeds\" (\"title\" TEXT, \"url\" TEXT NOT NULL UNIQUE, \"update_interval\" INTEGER DEFAULT 15, \"last_update\" REAL)");
 		database.Execute("CREATE TABLE IF NOT EXISTS \"RssItems\" (\"feed\" INTEGER, \"title\" TEXT NOT NULL, \"link\" TEXT NOT NULL, \"length\" INTEGER DEFAULT 0, \"description\" TEXT, \"category\" TEXT, \"status\" INTEGER, \"date\" REAL, UNIQUE (feed, title))");
-
-		{
-			sq3::Statement st(database, _T("INSERT INTO RssFeeds (name, url) VALUES (?, ?)"));
-			ASSERT(st.IsValid());
-			st.Bind(0, _T("BinSearch E-Book"));
-			st.Bind(1, _T("http://rss.binsearch.net/rss.php?max=50&g=alt.binaries.e-book"));
-			if(st.ExecuteNonQuery() != SQLITE_OK) {
-				TRACE(_T("DB error: %s\n"), database.GetErrorMessage());
-				transaction.Rollback();
-			}
-		}
-		{
-			sq3::Statement st(database, _T("INSERT INTO RssFeeds (name, url) VALUES (?, ?)"));
-			ASSERT(st.IsValid());
-			st.Bind(0, _T("NzbIndex Ubuntu"));
-			st.Bind(1, _T("http://www.nzbindex.com/rss/?q=ubuntu&sort=agedesc&minsize=10&max=25&more=1"));
-			if(st.ExecuteNonQuery() != SQLITE_OK) {
-				TRACE(_T("DB error: %s\n"), database.GetErrorMessage());
-				transaction.Rollback();
-			}
-		}
 
 		transaction.Commit();
 	}
@@ -655,7 +637,7 @@ bool CNewzflow::ReadQueue()
 			// if there are NZBs that still don't have a path (user closed the app when "Save As..." dialog was shown), show the "Save As..." dialog again
 			for(size_t i = 0; i < newNzbs.GetCount(); i++) {
 				if(newNzbs[i]->path.IsEmpty())
-					Util::GetMainWindow().PostMessage(CMainFrame::MSG_SAVE_NZB, (WPARAM)newNzbs[i]);
+					Util::GetMainWindow().PostMessage(Util::MSG_SAVE_NZB, (WPARAM)newNzbs[i]);
 			}
 		}
 	}
@@ -806,6 +788,11 @@ void CNewzflow::SetShutdownMode(Util::EShutdownMode mode)
 Util::EShutdownMode CNewzflow::GetShutdownMode()
 {
 	return shutdownMode;
+}
+
+void CNewzflow::RefreshRssWatcher()
+{
+	rssWatcher->refresh.Set();
 }
 
 /*static*/ const char* CNewzflow::CLock::file = NULL;

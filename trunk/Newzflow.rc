@@ -201,6 +201,19 @@ BEGIN
     PUSHBUTTON      "Cancel",IDCANCEL,194,48,50,14
 END
 
+IDD_ADD_FEED DIALOGEX 0, 0, 268, 69
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Add RSS Feed"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    LTEXT           "Feed URL:",IDC_STATIC,7,10,34,8
+    EDITTEXT        IDC_URL,67,7,194,14,ES_AUTOHSCROLL
+    CONTROL         "Custom Alias:",IDC_ALIAS_CHECK,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,27,59,10
+    EDITTEXT        IDC_ALIAS,67,25,194,14,ES_AUTOHSCROLL | WS_DISABLED
+    DEFPUSHBUTTON   "OK",IDOK,157,48,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,211,48,50,14
+END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -240,6 +253,14 @@ BEGIN
         RIGHTMARGIN, 244
         TOPMARGIN, 7
         BOTTOMMARGIN, 63
+    END
+
+    IDD_ADD_FEED, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 261
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 62
     END
 END
 #endif    // APSTUDIO_INVOKED
@@ -338,6 +359,16 @@ BEGIN
     POPUP "Debug"
     BEGIN
         MENUITEM "PostProcess",                 ID_DEBUG_POSTPROCESS
+    END
+END
+
+IDR_TREEVIEW MENU 
+BEGIN
+    POPUP "Feeds"
+    BEGIN
+        MENUITEM "Add RSS Feed...",             ID_FEEDS_ADD
+        MENUITEM "Edit Feed...",                ID_FEEDS_EDIT
+        MENUITEM "Delete Feed",                 ID_FEEDS_DELETE
     END
 END
 

@@ -377,6 +377,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\DropTarget.h"
+				>
+			</File>
+			<File
 				RelativePath=".\FileView.h"
 				>
 			</File>
