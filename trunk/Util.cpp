@@ -272,6 +272,12 @@ namespace Util
 		mainWindow = wnd;
 	}
 
+	void PostMessageToMainWindow(UINT msg, WPARAM wParam /*= 0*/, LPARAM lParam /*= 0*/)
+	{
+		if(GetMainWindow().IsWindow())
+			GetMainWindow().PostMessage(msg, wParam, lParam);
+	}
+
 	CString GetErrorMessage(int errCode)
 	{
 		LPTSTR errString = NULL;  // will be allocated and filled by FormatMessage

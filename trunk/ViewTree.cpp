@@ -41,15 +41,33 @@ void CViewTree::Init(HWND hwndParent)
 	SetImageList(m_imageList, TVSIL_NORMAL);
 	SetIndent(8);
 
-	Refresh();
+	// don't refresh here, because CMainFrame hasn't initialized all of its views yet
 }
 
 void CViewTree::Refresh()
 {
+	int oldSel = kDownloads;
+	CTreeItem oldSelItem = GetSelectedItem();
+	if(!oldSelItem.IsNull())
+		oldSel = oldSelItem.GetData();
+
+	bool oldSelRestored = false;
+
+	SelectItem(NULL); // remove old selection before deleting the items, otherwise we get lots of unwanted selchanged notifications
 	DeleteAllItems();
 	tvDownloads = InsertItem(_T("Downloads"), 0, 0, TVI_ROOT, TVI_LAST);
 	tvFeeds = InsertItem(_T("Feeds"), 13, 13, TVI_ROOT, TVI_LAST);
-	SetItemData(tvFeeds, 0);
+	tvDownloads.SetData(kDownloads);
+	tvFeeds.SetData(kFeeds + 0);
+
+	if(oldSel == tvDownloads.GetData()) {
+		tvDownloads.Select();
+		oldSelRestored = true;
+	}
+	if(oldSel == tvFeeds.GetData()) {
+		tvFeeds.Select();
+		oldSelRestored = true;
+	}
 
 	sq3::Statement st(CNewzflow::Instance()->database, _T("SELECT rowid, title FROM RssFeeds ORDER BY title ASC"));
 	sq3::Reader reader = st.ExecuteReader();
@@ -57,9 +75,21 @@ void CViewTree::Refresh()
 		int id; reader.GetInt(0, id);
 		CString sTitle; reader.GetString(1, sTitle);
 		CTreeItem tvRss = InsertItem(sTitle, 13, 13, tvFeeds, TVI_LAST);
-		SetItemData(tvRss, id);
+		tvRss.SetData(kFeeds + id);
+		if(oldSel == tvRss.GetData()) {
+			tvRss.Select();
+			oldSelRestored = true;
+		}
 	}
 	tvFeeds.Expand();
+
+	// we couldn't select the same item as before
+	if(!oldSelRestored) {
+		if(oldSel >= kFeeds)
+			tvFeeds.Select();
+		else
+			tvDownloads.Select();
+	}
 }
 
 LRESULT CViewTree::OnRClick(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled*/)
@@ -73,6 +103,8 @@ LRESULT CViewTree::OnRClick(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled*/)
 	CTreeItem t = HitTest(ptClient, &flags);
 	if(!t.IsNull()) {
 		t.Select();
+		m_menu.GetSubMenu(0).EnableMenuItem(ID_FEEDS_DELETE, (t.GetData() >= kFeeds+1 ? MF_ENABLED : MF_GRAYED) | MF_BYCOMMAND);
+		m_menu.GetSubMenu(0).EnableMenuItem(ID_FEEDS_EDIT, MF_GRAYED | MF_BYCOMMAND); // not yet supported
 		m_menu.GetSubMenu(0).TrackPopupMenu(TPM_RIGHTBUTTON, ptScreen.x, ptScreen.y, *this);
 	}
 
@@ -201,7 +233,8 @@ LRESULT CViewTree::OnFeedsDelete(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWnd
 {
 	CTreeItem item = GetSelectedItem();
 	if(!item.IsNull() && item.GetParent() == tvFeeds) {
-		int feedId = item.GetData();
+		ASSERT(item.GetData() >= kFeeds);
+		int feedId = item.GetData() - kFeeds;
 		{ sq3::Transaction transaction(CNewzflow::Instance()->database);
 			{
 				sq3::Statement st(CNewzflow::Instance()->database, _T("DELETE FROM RssItems WHERE feed = ?"));

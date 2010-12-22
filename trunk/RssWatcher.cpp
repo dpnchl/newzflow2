@@ -45,7 +45,7 @@ DWORD CRssWatcher::Run()
 			CString sTitle; reader.GetString(2, sTitle);
 			CString s; s.Format(_T("ProcessFeed(%s (%d), %s)\n"), sTitle, id, sUrl); Util::Print(s);
 			ProcessFeed(id, sUrl);
-			Util::GetMainWindow().PostMessage(Util::MSG_RSSFEED_UPDATED);
+			Util::PostMessageToMainWindow(Util::MSG_RSSFEED_UPDATED);
 		}
 
 		delay = 60;

@@ -12,7 +12,6 @@
 #include "LogView.h"
 #include "FileView.h"
 #include "Util.h"
-#include "DropFileHandler.h"
 #include "NTray.h"
 
 class CNewzflowStatusBarCtrl : public CMultiPaneStatusBarCtrl
