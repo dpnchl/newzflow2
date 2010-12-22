@@ -136,6 +136,8 @@ LRESULT CRssView::OnDblClick(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*
 // feedId = 0 => all feeds; otherwise feedId = RssFeeds.rowid
 void CRssView::SetFeed(int feedId)
 {
+	if(feedId != m_feedId)
+		DeleteAllItems();
 	m_feedId = feedId;
 	Refresh();
 }

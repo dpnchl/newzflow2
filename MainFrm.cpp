@@ -24,6 +24,7 @@ const UINT CMainFrame::s_msgTaskbarButtonCreated = RegisterWindowMessage(_T("Tas
 
 CMainFrame::CMainFrame()
 {
+	m_pTopView = NULL;
 }
 
 CMainFrame::~CMainFrame()
@@ -183,7 +184,6 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 	m_TreeView.Init(*this);
 	m_NzbView.Init(*this);
 	m_RssView.Init(*this);
-	m_pTopView = NULL;
 
 	//m_TabView[0].AddPage(m_NzbView, _T("Downloads"));
 	//m_TabView[0].AddPage(m_RssView, _T("RSS Feeds"));
@@ -248,7 +248,7 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 		CNewzflow::Instance()->CreateDownloaders();
 	SendMessage(WM_TIMER); // to update views
 
-	m_TreeView.tvDownloads.Select();
+	m_TreeView.Refresh(); // selects tvDownloads by default
 
 	return 0;
 }
@@ -811,32 +811,35 @@ LRESULT CMainFrame::OnTreeChanged(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled
 {
 	LPNMTREEVIEW lvn = (LPNMTREEVIEW)pnmh;
 	if(lvn->hdr.hwndFrom == m_TreeView) {
-		CWindow* newTopView = NULL;
-		if(lvn->itemNew.hItem == m_TreeView.tvFeeds || m_TreeView.GetParentItem(lvn->itemNew.hItem) == m_TreeView.tvFeeds) {
-			newTopView = &m_RssView;
-		} else {
-			newTopView = &m_NzbView;
-		}
-		if(newTopView != m_pTopView) {
-			if(m_pTopView && m_pTopView->IsWindow()) {
-				HDWP hdwp = BeginDeferWindowPos(2);
-				CRect r;
-				m_pTopView->GetWindowRect(&r);
-				ScreenToClient(&r);
-				m_pTopView->DeferWindowPos(hdwp, NULL, 0, 0, 0, 0, SWP_HIDEWINDOW | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOREPOSITION | SWP_NOSIZE | SWP_NOZORDER);
-				m_pTopView = newTopView;
-				m_pTopView->ModifyStyle(0, WS_BORDER);
-				m_pTopView->DeferWindowPos(hdwp, NULL, r.left, r.top, r.Width(), r.Height(), SWP_SHOWWINDOW | SWP_NOACTIVATE);
-				EndDeferWindowPos(hdwp);
+		CTreeItem ti = m_TreeView.GetSelectedItem();
+		if(!ti.IsNull()) {
+			CWindow* newTopView = NULL;
+			if(ti.GetData() >= CViewTree::kFeeds) {
+				newTopView = &m_RssView;
 			} else {
-				m_pTopView = newTopView;
-				m_pTopView->ModifyStyle(0, WS_BORDER);
-				m_pTopView->ShowWindow(TRUE);
-				UpdateLayout();
+				newTopView = &m_NzbView;
 			}
-		}
-		if(m_pTopView == &m_RssView) {
-			m_RssView.SetFeed(m_TreeView.GetItemData(lvn->itemNew.hItem));
+			if(newTopView != m_pTopView) {
+				if(m_pTopView && m_pTopView->IsWindow()) {
+					HDWP hdwp = BeginDeferWindowPos(2);
+					CRect r;
+					m_pTopView->GetWindowRect(&r);
+					ScreenToClient(&r);
+					m_pTopView->DeferWindowPos(hdwp, NULL, 0, 0, 0, 0, SWP_HIDEWINDOW | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOREPOSITION | SWP_NOSIZE | SWP_NOZORDER);
+					m_pTopView = newTopView;
+					m_pTopView->ModifyStyle(0, WS_BORDER);
+					m_pTopView->DeferWindowPos(hdwp, NULL, r.left, r.top, r.Width(), r.Height(), SWP_SHOWWINDOW | SWP_NOACTIVATE);
+					EndDeferWindowPos(hdwp);
+				} else {
+					m_pTopView = newTopView;
+					m_pTopView->ModifyStyle(0, WS_BORDER);
+					m_pTopView->ShowWindow(TRUE);
+					UpdateLayout();
+				}
+			}
+			if(m_pTopView == &m_RssView) {
+				m_RssView.SetFeed(ti.GetData() - CViewTree::kFeeds);
+			}
 		}
 	}
 	return 0;

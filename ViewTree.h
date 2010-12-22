@@ -28,8 +28,14 @@ public:
 	LRESULT OnRClick(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/);
 	LRESULT OnFeedsAdd(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnFeedsDelete(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
+	LRESULT OnSelChanged(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/);
 
 	CTreeItem tvDownloads, tvFeeds;
+
+	enum {
+		kDownloads,
+		kFeeds, // kFeeds+0 => all feeds; kFeeds+feedId => single feed (id Id)
+	};
 
 protected:
 	CImageList m_imageList;

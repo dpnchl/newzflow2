@@ -31,6 +31,7 @@
 // - DirWatcher: add support for .nzb.gz and .zip, .rar
 // - Centralize calls to WriteQueue()
 // - There seem to be some problems resizing the window after the splitter has been dragged to extremes...
+// - ViewTree is flickering when refreshing; TODO: selectively update the tree with just the changed feeds
 
 // CNewzflowThread
 //////////////////////////////////////////////////////////////////////////
@@ -164,7 +165,7 @@ LRESULT CNewzflowThread::OnAddNZB(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL&
 
 	int error = ERROR_SUCCESS;
 	if(CNewzflow::Instance()->settings->GetDownloadDir().IsEmpty() || !nzb->SetPath(CNewzflow::Instance()->settings->GetDownloadDir(), NULL, &error))
-		Util::GetMainWindow().PostMessage(Util::MSG_SAVE_NZB, (WPARAM)nzb, (LPARAM)error);
+		Util::PostMessageToMainWindow(Util::MSG_SAVE_NZB, (WPARAM)nzb, (LPARAM)error);
 	{ NEWZFLOW_LOCK;
 		// dupecheck NZB in array; if it came from a URL, it's already added
 		bool dupe = false;
@@ -637,7 +638,7 @@ bool CNewzflow::ReadQueue()
 			// if there are NZBs that still don't have a path (user closed the app when "Save As..." dialog was shown), show the "Save As..." dialog again
 			for(size_t i = 0; i < newNzbs.GetCount(); i++) {
 				if(newNzbs[i]->path.IsEmpty())
-					Util::GetMainWindow().PostMessage(Util::MSG_SAVE_NZB, (WPARAM)newNzbs[i]);
+					Util::PostMessageToMainWindow(Util::MSG_SAVE_NZB, (WPARAM)newNzbs[i]);
 			}
 		}
 	}

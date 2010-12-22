@@ -17,6 +17,7 @@ namespace Util
 	CString BrowseForFolder(HWND hwndParent, const TCHAR* title, const TCHAR* initialDir);
 	CWindow GetMainWindow();
 	void SetMainWindow(CWindow wnd);
+	void PostMessageToMainWindow(UINT msg, WPARAM wParam = 0, LPARAM lParam = 0);
 	CString GetErrorMessage(int error);
 	int TestCreateDirectory(const CString& path); // return: system error codes (ERROR_SUCCESS, ...)
 	enum EShutdownMode {
@@ -27,7 +28,6 @@ namespace Util
 		shutdown_hibernate,
 	};
 	bool Shutdown(EShutdownMode mode);
-
 	// user defined messages sent to CMainFrame
 	enum {
 		MSG_SAVE_NZB = WM_USER+1, // (sent from CNewzflowThread to request a "Save as..." dialog) wParam = (CNzb*)nzb, lParam = (int)errorCode
