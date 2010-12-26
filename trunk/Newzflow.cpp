@@ -131,6 +131,10 @@ LRESULT CNewzflowThread::OnAddFile(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
 			if(nzb->CreateFromLocal()) {
 				{ NEWZFLOW_LOCK;
 					nzb->name = outFilename; // adjust the name
+					// TODO: move these 3 lines to nzb.cpp (duplicated from CNzb::CreateFromPath)
+					CString right = nzb->name.Right(4);
+					if(!right.CompareNoCase(_T(".nzb")))
+						nzb->name = nzb->name.Left(nzb->name.GetLength() - 4);
 					AddNZB(nzb);
 					nzb->refCount--;
 				}

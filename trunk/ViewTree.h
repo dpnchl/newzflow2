@@ -16,6 +16,7 @@ public:
 	BEGIN_MSG_MAP(CViewTree)
 		REFLECTED_NOTIFY_CODE_HANDLER(NM_RCLICK, OnRClick)
 		COMMAND_ID_HANDLER(ID_FEEDS_ADD, OnFeedsAdd)
+		COMMAND_ID_HANDLER(ID_FEEDS_EDIT, OnFeedsEdit)
 		COMMAND_ID_HANDLER(ID_FEEDS_DELETE, OnFeedsDelete)
 		DEFAULT_REFLECTION_HANDLER()
 	END_MSG_MAP()
@@ -27,6 +28,7 @@ public:
 
 	LRESULT OnRClick(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/);
 	LRESULT OnFeedsAdd(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
+	LRESULT OnFeedsEdit(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnFeedsDelete(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnSelChanged(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/);
 
