@@ -37,7 +37,7 @@ DWORD CRssWatcher::Run()
 		}
 
 		// TODO: add column names to Reader/Statement
-		sq3::Statement st(CNewzflow::Instance()->database, _T("SELECT rowid, url, title FROM RssFeeds WHERE last_update ISNULL OR (strftime('%s', 'now') - strftime('%s', last_update) / 60) >= update_interval"));
+		sq3::Statement st(CNewzflow::Instance()->database, _T("SELECT rowid, url, title FROM RssFeeds WHERE last_update ISNULL OR ((strftime('%s', 'now') - strftime('%s', last_update)) / 60) >= update_interval"));
 		sq3::Reader reader = st.ExecuteReader();
 		while(reader.Step() == SQLITE_ROW) {
 			int id; reader.GetInt(0, id);

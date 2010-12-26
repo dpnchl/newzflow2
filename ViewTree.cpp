@@ -104,7 +104,7 @@ LRESULT CViewTree::OnRClick(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled*/)
 	if(!t.IsNull()) {
 		t.Select();
 		m_menu.GetSubMenu(0).EnableMenuItem(ID_FEEDS_DELETE, (t.GetData() >= kFeeds+1 ? MF_ENABLED : MF_GRAYED) | MF_BYCOMMAND);
-		m_menu.GetSubMenu(0).EnableMenuItem(ID_FEEDS_EDIT, MF_GRAYED | MF_BYCOMMAND); // not yet supported
+		m_menu.GetSubMenu(0).EnableMenuItem(ID_FEEDS_EDIT, (t.GetData() >= kFeeds+1 ? MF_ENABLED : MF_GRAYED) | MF_BYCOMMAND);
 		m_menu.GetSubMenu(0).TrackPopupMenu(TPM_RIGHTBUTTON, ptScreen.x, ptScreen.y, *this);
 	}
 
@@ -118,9 +118,10 @@ public:
 	enum { IDD = IDD_ADD_FEED };
 
 	// Construction
-	CAddFeedDialog(CViewTree* pViewTree)
+	CAddFeedDialog(CViewTree* pViewTree, int iRowId) // when iRowId != 0, create dialog as "Edit Feed", otherwise "Add Feed"
 	{
 		m_pViewTree = pViewTree;
+		m_iRowId = iRowId;
 	}
 	~CAddFeedDialog()
 	{
@@ -149,6 +150,29 @@ public:
 		CComObject<CDropTarget<CAddFeedDialog> >::CreateInstance(&pDropTarget);
 		pDropTarget->Register(*this, this);
 		CenterWindow(GetParent());
+		if(m_iRowId) {
+			sq3::Statement st(CNewzflow::Instance()->database, _T("SELECT title, url FROM RssFeeds WHERE rowid = ?"));
+			st.Bind(0, m_iRowId);
+			sq3::Reader reader = st.ExecuteReader();
+			if(reader.Step() == SQLITE_ROW) {
+				reader.GetString(0, m_sAlias);
+				reader.GetString(1, m_sURL);
+				m_sOldURL = m_sURL;
+				if(!m_sAlias.IsEmpty()) {
+					CheckDlgButton(IDC_ALIAS_CHECK, 1);
+					GetDlgItem(IDC_ALIAS).EnableWindow();
+				}
+
+				CString s;
+				GetWindowText(s);
+				s.Replace(_T("Add"), _T("Edit"));
+				SetWindowText(s);
+
+				DoDataExchange(false);
+			} else {
+				m_iRowId = 0;
+			}
+		}
 		ShowWindow(SW_SHOW);
 		return TRUE;
 	}
@@ -165,15 +189,36 @@ public:
 		if(s.Find(_T("http://")) != 0 && s.Find(_T("https://")) != 0) {
 			OnDataCustomError(IDC_URL, _T("Please enter a valid http:// or https:// URL."));
 		} else {
-			sq3::Statement st(CNewzflow::Instance()->database, _T("INSERT OR IGNORE INTO RssFeeds (title, url) VALUES (?, ?)"));
-			ASSERT(st.IsValid());
-			if(IsDlgButtonChecked(IDC_ALIAS_CHECK))
-				st.Bind(0, m_sAlias);
-			else
-				st.Bind(0);
-			st.Bind(1, m_sURL);
-			if(st.ExecuteNonQuery() != SQLITE_OK) {
-				TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
+			if(m_iRowId == 0) {
+				sq3::Statement st(CNewzflow::Instance()->database, _T("INSERT OR IGNORE INTO RssFeeds (title, url) VALUES (?, ?)"));
+				ASSERT(st.IsValid());
+				if(IsDlgButtonChecked(IDC_ALIAS_CHECK))
+					st.Bind(0, m_sAlias);
+				else
+					st.Bind(0);
+				st.Bind(1, m_sURL);
+				if(st.ExecuteNonQuery() != SQLITE_OK) {
+					TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
+				}
+			} else {
+				sq3::Statement st(CNewzflow::Instance()->database, _T("UPDATE RssFeeds SET title = ?, url = ? WHERE rowid = ?"));
+				ASSERT(st.IsValid());
+				if(IsDlgButtonChecked(IDC_ALIAS_CHECK))
+					st.Bind(0, m_sAlias);
+				else
+					st.Bind(0);
+				st.Bind(1, m_sURL);
+				st.Bind(2, m_iRowId);
+				if(st.ExecuteNonQuery() != SQLITE_OK) {
+					TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
+				}
+				if(m_sURL != m_sOldURL) {
+					sq3::Statement st(CNewzflow::Instance()->database, _T("UPDATE RssFeeds SET last_update = NULL WHERE rowid = ?"));
+					st.Bind(0, m_iRowId);
+					if(st.ExecuteNonQuery() != SQLITE_OK) {
+						TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
+					}
+				}
 			}
 			DestroyWindow();
 			m_pViewTree->Refresh();
@@ -217,14 +262,30 @@ public:
 	}
 
 	// DDX variables
+	CString m_sOldURL;
 	CString m_sURL, m_sAlias;
 	CViewTree* m_pViewTree;
+	int m_iRowId;
 };
 
 LRESULT CViewTree::OnFeedsAdd(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 {
-	CAddFeedDialog* dlg = new CAddFeedDialog(this);
+	CAddFeedDialog* dlg = new CAddFeedDialog(this, 0);
 	dlg->Create(*this);
+
+	return 0;
+}
+
+LRESULT CViewTree::OnFeedsEdit(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
+{
+	CTreeItem item = GetSelectedItem();
+	if(!item.IsNull() && item.GetParent() == tvFeeds) {
+		ASSERT(item.GetData() >= kFeeds);
+		int feedId = item.GetData() - kFeeds;
+
+		CAddFeedDialog* dlg = new CAddFeedDialog(this, feedId);
+		dlg->Create(*this);
+	}
 
 	return 0;
 }

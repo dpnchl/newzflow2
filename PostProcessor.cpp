@@ -258,6 +258,7 @@ LRESULT CPostProcessor::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 		//   or filename.part0001.rar->filename.part0002.rar->...
 		using std::tr1::tregex; using std::tr1::tcmatch; using std::tr1::regex_search; using std::tr1::regex_match;
 		tregex rePart(_T("\\.part(\\d+)$"));
+		tregex reRar(_T("\\.(rar|r[0-9][r0-9])$"));
 		tcmatch match;
 
 		CAtlArray<std::pair<CNzbFile*, CString> > rars;
@@ -301,9 +302,9 @@ LRESULT CPostProcessor::OnJob(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHa
 					// unrar succeeded, so delete all rar files of thie rar set
 					for(size_t j = 0; j < nzb->files.GetCount(); j++) {
 						CNzbFile* file2 = nzb->files[j];
-						if(!sBase.CompareNoCase(file2->fileName.Left(sBase.GetLength()))) {
+						if(!sBase.CompareNoCase(file2->fileName.Left(sBase.GetLength())) && regex_search((const TCHAR*)file2->fileName, reRar)) {
 							CFile::Delete(nzb->path + _T("\\") + file2->fileName);
-							//TRACE(_T("Delete(%s)\n"), nzb->path + file2->fileName);
+							//TRACE(_T("Delete(%s)\n"), nzb->path + _T("\\") + file2->fileName);
 						}
 					}
 				} else {
