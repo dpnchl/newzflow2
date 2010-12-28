@@ -33,6 +33,7 @@ namespace Util
 		MSG_SAVE_NZB = WM_USER+1, // (sent from CNewzflowThread to request a "Save as..." dialog) wParam = (CNzb*)nzb, lParam = (int)errorCode
 		MSG_NZB_FINISHED, // (sent from CPostProcessor to indicate a NZB is finished; handler must decrease nzb->refCount) wParam = (CNzb*)nzb
 		MSG_RSSFEED_UPDATED, // (sent from CRssWatcher to indicate a RSS feed has been updated)
+		MSG_TVSHOW_UPDATED, // (sent from CRssWatcher to indicate a TV show has been updated)
 		MSG_TRAY_NOTIFY
 	};
 };

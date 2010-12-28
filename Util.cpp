@@ -485,12 +485,11 @@ CAsyncDownloader::CAsyncDownloader() : shutDown(TRUE, FALSE)
 CAsyncDownloader::~CAsyncDownloader()
 {
 	shutDown.Set();
-	cs.Lock();
+	CWaitCursor w;
 	for(size_t i = 0; i < threads.GetCount(); i++) {
 		threads[i]->Join();
 		delete threads[i];
 	}
-	cs.Unlock();
 	while(!queue.IsEmpty()) delete queue.RemoveHead();
 	while(!finished.IsEmpty()) delete finished.RemoveHead();
 }

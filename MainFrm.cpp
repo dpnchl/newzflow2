@@ -184,10 +184,7 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 	m_TreeView.Init(*this);
 	m_NzbView.Init(*this);
 	m_RssView.Init(*this);
-
-	//m_TabView[0].AddPage(m_NzbView, _T("Downloads"));
-	//m_TabView[0].AddPage(m_RssView, _T("RSS Feeds"));
-	//m_TabView[0].SetActivePage(0);
+	m_TvShowView.Init(*this);
 
 	m_TabView[1].Create(*this, rcDefault, NULL, WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | TCS_TOOLTIPS, 0);
 	m_ConnectionView.Init(m_TabView[1]);
@@ -814,8 +811,10 @@ LRESULT CMainFrame::OnTreeChanged(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled
 		CTreeItem ti = m_TreeView.GetSelectedItem();
 		if(!ti.IsNull()) {
 			CWindow* newTopView = NULL;
-			if(ti.GetData() >= CViewTree::kFeeds) {
+			if(ti.GetData() >= CViewTree::kFeeds && ti.GetData() <= CViewTree::kFeedsEnd) {
 				newTopView = &m_RssView;
+			} else if(ti.GetData() >= CViewTree::kTV && ti.GetData() <= CViewTree::kTVEnd) {
+				newTopView = &m_TvShowView;
 			} else {
 				newTopView = &m_NzbView;
 			}
@@ -839,6 +838,8 @@ LRESULT CMainFrame::OnTreeChanged(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled
 			}
 			if(m_pTopView == &m_RssView) {
 				m_RssView.SetFeed(ti.GetData() - CViewTree::kFeeds);
+			} else if(m_pTopView == &m_TvShowView) {
+				m_TvShowView.SetShow(ti.GetData() - CViewTree::kTV);
 			}
 		}
 	}

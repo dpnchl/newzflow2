@@ -11,6 +11,7 @@ class CSettings;
 class CHttpDownloader;
 class CDirWatcher;
 class CRssWatcher;
+namespace TheTvDB { class CAPI; }
 
 class CNewzflowThread : public CGuiThreadImpl<CNewzflowThread>
 {
@@ -101,6 +102,7 @@ public:
 	CHttpDownloader* httpDownloader;
 	CDirWatcher* dirWatcher;
 	CRssWatcher* rssWatcher;
+	TheTvDB::CAPI* tvdbApi;
 	sq3::Database database;
 
 
