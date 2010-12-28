@@ -109,4 +109,5 @@ void CRssWatcher::ProcessFeed(int id, const CString& sUrl)
 			transaction.Commit();
 		}
 	}
+	CFile::Delete(rssFile);
 }

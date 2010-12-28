@@ -2,6 +2,7 @@
 #include "util.h"
 #include <fcntl.h>
 #include <io.h>
+#include "HttpDownloader.h"
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
@@ -409,4 +410,123 @@ void CToolBarImageList::Set(HWND hwndToolBar)
 
 	toolBar.SetImageList(ilNormal);
 	toolBar.SetDisabledImageList(ilDisabled);
+}
+
+// CAsyncDownloaderThread
+//////////////////////////////////////////////////////////////////////////
+
+class CAsyncDownloaderThread : public CThreadImpl<CAsyncDownloaderThread>
+{
+public:
+
+	CAsyncDownloaderThread(CAsyncDownloader* pDownloader)
+	: CThreadImpl<CAsyncDownloaderThread>(CREATE_SUSPENDED)
+	{
+		m_pDownloader = pDownloader;
+		Resume();
+	}
+	~CAsyncDownloaderThread()
+	{
+	}
+
+protected:
+	DWORD Run()
+	{
+		downloader.Init();
+		while(1) {
+			HANDLE objs[] = { m_pDownloader->shutDown, m_pDownloader->refresh };
+			if(WAIT_OBJECT_0 == WaitForMultipleObjects(2, objs, FALSE, INFINITE))
+				break;
+
+			// refresh
+			while(1) {
+				CAsyncDownloader::CItem* item = NULL;
+				m_pDownloader->cs.Lock();
+				if(!m_pDownloader->queue.IsEmpty()) {
+					item = m_pDownloader->queue.RemoveHead();
+					m_pDownloader->finished.AddTail(item);
+				} else {
+					m_pDownloader->refresh.Reset();
+				}
+				m_pDownloader->cs.Unlock();
+
+				if(item) {
+					if(downloader.Download(item->url, item->path, CString(), NULL)) {
+						if(IsWindow(m_pDownloader->sink)) {
+							PostMessage(m_pDownloader->sink, m_pDownloader->msg, (WPARAM)item, (LPARAM)0);
+						}
+					}
+				} else {
+					break;
+				}
+			}
+		}
+
+		return 0;
+	}
+
+protected:
+	CHttpDownloader downloader;
+
+	CAsyncDownloader* m_pDownloader;
+};
+
+
+// CAsyncDownloader
+//////////////////////////////////////////////////////////////////////////
+
+CAsyncDownloader::CAsyncDownloader() : shutDown(TRUE, FALSE)
+, refresh(TRUE, FALSE)
+{
+	sink = NULL;
+	msg = 0;
+}
+
+CAsyncDownloader::~CAsyncDownloader()
+{
+	shutDown.Set();
+	cs.Lock();
+	for(size_t i = 0; i < threads.GetCount(); i++) {
+		threads[i]->Join();
+		delete threads[i];
+	}
+	cs.Unlock();
+	while(!queue.IsEmpty()) delete queue.RemoveHead();
+	while(!finished.IsEmpty()) delete finished.RemoveHead();
+}
+
+void CAsyncDownloader::Init(int numThreads)
+{
+	cs.Lock();
+	while((int)threads.GetCount() < numThreads) {
+		CAsyncDownloaderThread* thread = new CAsyncDownloaderThread(this);
+		threads.Add(thread);
+	}
+	cs.Unlock();
+}
+
+void CAsyncDownloader::SetSink(HWND _sink, int _msg)
+{
+	sink = _sink;
+	msg = _msg;
+}
+
+void CAsyncDownloader::Add(const CString& url, const CString& path, DWORD_PTR param /*= 0*/)
+{
+	CAsyncDownloader::CItem* item = new CAsyncDownloader::CItem;
+	item->url = url;
+	item->path = path;
+	item->param = param;
+
+	cs.Lock();
+	queue.AddTail(item);
+	refresh.Set();
+	cs.Unlock();
+}
+
+void CAsyncDownloader::Clear()
+{
+	cs.Lock();
+	while(!queue.IsEmpty()) delete queue.RemoveHead();
+	cs.Unlock();
 }

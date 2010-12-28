@@ -22,6 +22,7 @@
 #define IDD_POWEROFF                    211
 #define IDR_TREEVIEW                    211
 #define IDD_ADD_FEED                    212
+#define IDD_ADD_TVSHOW                  213
 #define IDC_PROGRESS                    1000
 #define IDC_TEXT                        1001
 #define IDC_HOSTNAME                    1002
@@ -55,6 +56,10 @@
 #define IDC_ABOUT                       1029
 #define IDC_IMAGE                       1031
 #define IDC_ALIAS_CHECK                 1032
+#define IDC_BUTTON1                     1033
+#define IDC_SEARCH                      1033
+#define IDC_SHOWLIST                    1034
+#define IDC_SHOWNAME                    1035
 #define ID_FILE_ADD                     32775
 #define ID_FILE_ADD_URL                 32776
 #define ID_CREATE                       32777
@@ -80,14 +85,16 @@
 #define ID_FEEDS_ADD                    32797
 #define ID_FEEDS_EDIT                   32798
 #define ID_FEEDS_DELETE                 32799
+#define ID_FEEDS_ADDTVSHOW              32800
+#define ID_TV_ADD                       32801
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        212
-#define _APS_NEXT_COMMAND_VALUE         32800
-#define _APS_NEXT_CONTROL_VALUE         1033
+#define _APS_NEXT_COMMAND_VALUE         32802
+#define _APS_NEXT_CONTROL_VALUE         1036
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

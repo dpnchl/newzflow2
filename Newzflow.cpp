@@ -257,6 +257,8 @@ CNewzflow::CNewzflow()
 	{ sq3::Transaction transaction(database);
 		database.Execute("CREATE TABLE IF NOT EXISTS \"RssFeeds\" (\"title\" TEXT, \"url\" TEXT NOT NULL UNIQUE, \"update_interval\" INTEGER DEFAULT 15, \"last_update\" REAL)");
 		database.Execute("CREATE TABLE IF NOT EXISTS \"RssItems\" (\"feed\" INTEGER, \"title\" TEXT NOT NULL, \"link\" TEXT NOT NULL, \"length\" INTEGER DEFAULT 0, \"description\" TEXT, \"category\" TEXT, \"status\" INTEGER, \"date\" REAL, UNIQUE (feed, title))");
+		database.Execute("CREATE TABLE IF NOT EXISTS \"TvShows\" (\"title\" TEXT, \"tvdb_id\" INTEGER)");
+		database.Execute("CREATE TABLE IF NOT EXISTS \"TvEpisodes\" (\"show_id\" INTEGER, \"tvdb_id\" INTEGER, \"title\" TEXT, \"season\" INTEGER, \"episode\" INTEGER, \"description\" TEXT)");
 
 		transaction.Commit();
 	}
