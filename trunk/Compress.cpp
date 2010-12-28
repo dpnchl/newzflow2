@@ -132,7 +132,7 @@ bool UnZip(const CString& zipfile, const CString& _dstPath, float* progress)
 
 	unzClose(uf);
 
-	return false;
+	return true;
 }
 
 namespace {

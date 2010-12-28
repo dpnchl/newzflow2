@@ -39,7 +39,9 @@ public:
 	enum {
 		kDownloads,
 		kFeeds, // kFeeds+0 => all feeds; kFeeds+feedId => single feed (id Id)
-		kTV = kFeeds + 100000,
+		kFeedsEnd = kFeeds + 100000,
+		kTV,
+		kTVEnd = kTV + 100000,
 	};
 
 protected:

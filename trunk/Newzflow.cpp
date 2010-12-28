@@ -13,6 +13,7 @@
 #include "MainFrm.h"
 #include "MemFile.h"
 #include "DialogEx.h"
+#include "TheTvDB.h"
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
@@ -32,6 +33,7 @@
 // - Centralize calls to WriteQueue()
 // - There seem to be some problems resizing the window after the splitter has been dragged to extremes...
 // - ViewTree is flickering when refreshing; TODO: selectively update the tree with just the changed feeds
+// - CAddTvShow dialog has some drawing problems under WinXP (blue selection over images)
 
 // CNewzflowThread
 //////////////////////////////////////////////////////////////////////////
@@ -251,14 +253,15 @@ CNewzflow::CNewzflow()
 	}
 	// no downloaders have been created so far, so we don't need to propagate the speed limit to downloaders
 	CNntpSocket::speedLimiter.SetLimit(settings->GetSpeedLimit());
+	tvdbApi = new TheTvDB::CAPI;
 
 	database.Open(settings->GetAppDataDir() + _T("database.dat"));
 	ASSERT(database.IsOpen());
 	{ sq3::Transaction transaction(database);
 		database.Execute("CREATE TABLE IF NOT EXISTS \"RssFeeds\" (\"title\" TEXT, \"url\" TEXT NOT NULL UNIQUE, \"update_interval\" INTEGER DEFAULT 15, \"last_update\" REAL)");
 		database.Execute("CREATE TABLE IF NOT EXISTS \"RssItems\" (\"feed\" INTEGER, \"title\" TEXT NOT NULL, \"link\" TEXT NOT NULL, \"length\" INTEGER DEFAULT 0, \"description\" TEXT, \"category\" TEXT, \"status\" INTEGER, \"date\" REAL, UNIQUE (feed, title))");
-		database.Execute("CREATE TABLE IF NOT EXISTS \"TvShows\" (\"title\" TEXT, \"tvdb_id\" INTEGER)");
-		database.Execute("CREATE TABLE IF NOT EXISTS \"TvEpisodes\" (\"show_id\" INTEGER, \"tvdb_id\" INTEGER, \"title\" TEXT, \"season\" INTEGER, \"episode\" INTEGER, \"description\" TEXT)");
+		database.Execute("CREATE TABLE IF NOT EXISTS \"TvShows\" (\"title\" TEXT, \"tvdb_id\" INTEGER, \"last_update\" REAL, \"description\" TEXT)");
+		database.Execute("CREATE TABLE IF NOT EXISTS \"TvEpisodes\" (\"show_id\" INTEGER, \"tvdb_id\" INTEGER, \"title\" TEXT, \"season\" INTEGER, \"episode\" INTEGER, \"description\" TEXT, \"date\" REAL)");
 
 		transaction.Commit();
 	}
@@ -340,6 +343,7 @@ CNewzflow::~CNewzflow()
 	// delete deleted NZBs
 	FreeDeletedNzbs();
 
+	delete tvdbApi;
 	delete settings;
 
 	CNntpSocket::CloseWinsock();

@@ -353,9 +353,11 @@ public:
 	CAddTvShowDialog(CViewTree* pViewTree)
 	{
 		m_pViewTree = pViewTree;
+		m_pGetSeries = NULL;
 	}
 	~CAddTvShowDialog()
 	{
+		delete m_pGetSeries;
 	}
 
 	enum {
@@ -428,7 +430,9 @@ public:
 			return 0;
 		}
 		CWaitCursor wait;
-		if(!m_apiGetSeries.Execute(m_sShowName)) {
+		delete m_pGetSeries;
+		m_pGetSeries = CNewzflow::Instance()->tvdbApi->GetSeries(m_sShowName);
+		if(!m_pGetSeries) {
 			OnDataCustomError(IDC_SEARCH, _T("Error connecting to TheTVDB.com"));
 			return 0;
 		}
@@ -455,8 +459,8 @@ public:
 		m_ImageList.Add((HBITMAP)imgEmpty, (HBITMAP)NULL);
 
 		m_ImageList.Add((HBITMAP)imgEmpty, (HBITMAP)NULL);
-		for(size_t i = 0; i < m_apiGetSeries.Data.GetCount(); i++) {
-			TheTvDB::CSeries* series = m_apiGetSeries.Data[i];
+		for(size_t i = 0; i < m_pGetSeries->Series.GetCount(); i++) {
+			TheTvDB::CSeries* series = m_pGetSeries->Series[i];
 			int id = m_List.InsertItem(i, series->SeriesName, 0);
 			if(series->FirstAired.m_dt != 0)
 				m_List.SetItemText(id, 1, series->FirstAired.Format(_T("First Aired: %Y-%m-%d")));
@@ -471,7 +475,7 @@ public:
 			m_List.SetTileInfo(&ti);
 			if(!series->banner.IsEmpty()) {
 				CString bannerFile;
-				bannerFile.Format(_T("%s%d.jpg"), CNewzflow::Instance()->settings->GetAppDataDir(), series->seriesid);
+				bannerFile.Format(_T("%s%d.jpg"), CNewzflow::Instance()->settings->GetAppDataDir(), series->id);
 				m_ImageLoader.Add(_T("http://www.thetvdb.com/banners/") + series->banner, bannerFile, id);
 				m_List.SetItem(id, 0, LVIF_IMAGE, NULL, 1, 0, 0, 0); // "loading"
 			}
@@ -519,18 +523,20 @@ public:
 		int iSelection = m_List.GetSelectedIndex();
 		ASSERT(iSelection >= 0);
 
-		TheTvDB::CSeries* series = m_apiGetSeries.Data[m_List.GetItemData(iSelection)];
+		TheTvDB::CSeries* series = m_pGetSeries->Series[m_List.GetItemData(iSelection)];
 
-		sq3::Statement st(CNewzflow::Instance()->database, _T("INSERT OR IGNORE INTO TvShows (title, tvdb_id) VALUES (?, ?)"));
+		sq3::Statement st(CNewzflow::Instance()->database, _T("INSERT OR IGNORE INTO TvShows (title, tvdb_id, description) VALUES (?, ?, ?)"));
 		ASSERT(st.IsValid());
 		st.Bind(0, series->SeriesName);
-		st.Bind(1, series->seriesid);
+		st.Bind(1, series->id);
+		st.Bind(2, series->Overview);
 		if(st.ExecuteNonQuery() != SQLITE_OK) {
 			TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
 		}
 
 		DestroyWindow();
 		m_pViewTree->Refresh();
+		CNewzflow::Instance()->RefreshRssWatcher();
 		return 0;
 	}
 	void Cancel()
@@ -559,7 +565,7 @@ public:
 	CListViewCtrl m_List;
 	CImageList m_ImageList;
 
-	TheTvDB::CGetSeries m_apiGetSeries;
+	TheTvDB::CGetSeries* m_pGetSeries;
 
 	CAsyncDownloader m_ImageLoader;
 };

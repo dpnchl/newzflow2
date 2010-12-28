@@ -477,6 +477,14 @@
 				>
 			</File>
 			<File
+				RelativePath=".\TvShowView.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\TvShowView.h"
+				>
+			</File>
+			<File
 				RelativePath=".\Util.h"
 				>
 			</File>

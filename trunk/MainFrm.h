@@ -7,6 +7,7 @@
 #include "ViewTree.h"
 #include "NzbView.h"
 #include "RssView.h"
+#include "TvShowView.h"
 #include "ConnectionView.h"
 #include "TabView.h"
 #include "LogView.h"
@@ -42,6 +43,7 @@ public:
 	CViewTree m_TreeView;
 	CNzbView m_NzbView;
 	CRssView m_RssView;
+	CTvShowView m_TvShowView;
 	CTabViewEx m_TabView[2];
 	CConnectionView m_ConnectionView;
 	CFileView m_FileView;
