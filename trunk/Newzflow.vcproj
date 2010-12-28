@@ -332,6 +332,10 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath=".\TheTvDB.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\Util.cpp"
 				>
 			</File>
@@ -466,6 +470,10 @@
 			</File>
 			<File
 				RelativePath=".\TabView.h"
+				>
+			</File>
+			<File
+				RelativePath=".\TheTvDB.h"
 				>
 			</File>
 			<File

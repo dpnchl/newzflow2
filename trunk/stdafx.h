@@ -45,6 +45,7 @@
 */
 
 // ATL
+#include <atltypes.h>
 #include <atlstr.h>
 #include <atlbase.h>
 #include <atlapp.h>

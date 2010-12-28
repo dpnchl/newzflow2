@@ -18,6 +18,7 @@ public:
 		COMMAND_ID_HANDLER(ID_FEEDS_ADD, OnFeedsAdd)
 		COMMAND_ID_HANDLER(ID_FEEDS_EDIT, OnFeedsEdit)
 		COMMAND_ID_HANDLER(ID_FEEDS_DELETE, OnFeedsDelete)
+		COMMAND_ID_HANDLER(ID_TV_ADD, OnTvAdd)
 		DEFAULT_REFLECTION_HANDLER()
 	END_MSG_MAP()
 
@@ -30,13 +31,15 @@ public:
 	LRESULT OnFeedsAdd(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnFeedsEdit(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnFeedsDelete(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
+	LRESULT OnTvAdd(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnSelChanged(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/);
 
-	CTreeItem tvDownloads, tvFeeds;
+	CTreeItem tvDownloads, tvFeeds, tvTV;
 
 	enum {
 		kDownloads,
 		kFeeds, // kFeeds+0 => all feeds; kFeeds+feedId => single feed (id Id)
+		kTV = kFeeds + 100000,
 	};
 
 protected:

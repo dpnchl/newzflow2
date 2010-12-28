@@ -51,3 +51,36 @@ public:
 protected:
 	CImageList ilNormal, ilDisabled;
 };
+
+class CAsyncDownloader
+{
+public:
+	class CItem
+	{
+	public:
+		CString url;
+		CString path;
+		DWORD_PTR param;
+	};
+
+	CAsyncDownloader();
+	~CAsyncDownloader();
+
+	void Init(int numThreads);
+	void SetSink(HWND _sink, int _msg);
+	void Add(const CString& url, const CString& path, DWORD_PTR param = 0);
+	void Clear();
+
+protected:
+	CEvent refresh, shutDown;
+
+	CComAutoCriticalSection cs;
+	CAtlList<CItem*> queue, finished;
+	CAtlArray<class CAsyncDownloaderThread*> threads;
+
+	volatile HWND sink;
+	volatile int msg;
+
+	friend class CAsyncDownloaderThread;
+};
+

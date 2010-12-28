@@ -11,6 +11,7 @@
 #include "Settings.h"
 #include "DialogEx.h"
 #include "DropTarget.h"
+#include "TheTvDB.h"
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
@@ -55,10 +56,9 @@ void CViewTree::Refresh()
 
 	SelectItem(NULL); // remove old selection before deleting the items, otherwise we get lots of unwanted selchanged notifications
 	DeleteAllItems();
-	tvDownloads = InsertItem(_T("Downloads"), 0, 0, TVI_ROOT, TVI_LAST);
-	tvFeeds = InsertItem(_T("Feeds"), 13, 13, TVI_ROOT, TVI_LAST);
-	tvDownloads.SetData(kDownloads);
-	tvFeeds.SetData(kFeeds + 0);
+	tvDownloads = InsertItem(_T("Downloads"), 0, 0, TVI_ROOT, TVI_LAST); tvDownloads.SetData(kDownloads);
+	tvFeeds = InsertItem(_T("Feeds"), 13, 13, TVI_ROOT, TVI_LAST); tvFeeds.SetData(kFeeds + 0);
+	tvTV = InsertItem(_T("TV Shows"), 12, 12, TVI_ROOT, TVI_LAST); tvTV.SetData(kTV + 0);
 
 	if(oldSel == tvDownloads.GetData()) {
 		tvDownloads.Select();
@@ -69,19 +69,39 @@ void CViewTree::Refresh()
 		oldSelRestored = true;
 	}
 
-	sq3::Statement st(CNewzflow::Instance()->database, _T("SELECT rowid, title FROM RssFeeds ORDER BY title ASC"));
-	sq3::Reader reader = st.ExecuteReader();
-	while(reader.Step() == SQLITE_ROW) {
-		int id; reader.GetInt(0, id);
-		CString sTitle; reader.GetString(1, sTitle);
-		CTreeItem tvRss = InsertItem(sTitle, 13, 13, tvFeeds, TVI_LAST);
-		tvRss.SetData(kFeeds + id);
-		if(oldSel == tvRss.GetData()) {
-			tvRss.Select();
-			oldSelRestored = true;
+	// add RSS feeds
+	{
+		sq3::Statement st(CNewzflow::Instance()->database, _T("SELECT rowid, title FROM RssFeeds ORDER BY title ASC"));
+		sq3::Reader reader = st.ExecuteReader();
+		while(reader.Step() == SQLITE_ROW) {
+			int id; reader.GetInt(0, id);
+			CString sTitle; reader.GetString(1, sTitle);
+			CTreeItem tvRss = InsertItem(sTitle, 13, 13, tvFeeds, TVI_LAST);
+			tvRss.SetData(kFeeds + id);
+			if(oldSel == tvRss.GetData()) {
+				tvRss.Select();
+				oldSelRestored = true;
+			}
 		}
+		tvFeeds.Expand();
 	}
-	tvFeeds.Expand();
+
+	// add TV shows
+	{
+		sq3::Statement st(CNewzflow::Instance()->database, _T("SELECT rowid, title FROM TvShows ORDER BY title ASC"));
+		sq3::Reader reader = st.ExecuteReader();
+		while(reader.Step() == SQLITE_ROW) {
+			int id; reader.GetInt(0, id);
+			CString sTitle; reader.GetString(1, sTitle);
+			CTreeItem tvShow = InsertItem(sTitle, 12, 12, tvTV, TVI_LAST);
+			tvShow.SetData(kTV + id);
+			if(oldSel == tvShow.GetData()) {
+				tvShow.Select();
+				oldSelRestored = true;
+			}
+		}
+		tvTV.Expand();
+	}
 
 	// we couldn't select the same item as before
 	if(!oldSelRestored) {
@@ -319,6 +339,235 @@ LRESULT CViewTree::OnFeedsDelete(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWnd
 
 		Refresh();
 	}
+
+	return 0;
+}
+
+// non-modal
+class CAddTvShowDialog : public CDialogImplEx<CAddTvShowDialog>, public CWinDataExchangeEx<CAddTvShowDialog>
+{
+public:
+	enum { IDD = IDD_ADD_TVSHOW };
+
+	// Construction
+	CAddTvShowDialog(CViewTree* pViewTree)
+	{
+		m_pViewTree = pViewTree;
+	}
+	~CAddTvShowDialog()
+	{
+	}
+
+	enum {
+		MSG_IMAGELOADED = WM_USER+1,
+	};
+
+	// Maps
+	BEGIN_MSG_MAP(CAddTvShowDialog)
+		MSG_WM_INITDIALOG(OnInitDialog)
+		MESSAGE_HANDLER(WM_CLOSE, OnClose)
+		MESSAGE_HANDLER(MSG_IMAGELOADED, OnImageLoaded)
+		COMMAND_HANDLER(IDOK, BN_CLICKED, OnOK)
+		COMMAND_HANDLER(IDCANCEL, BN_CLICKED, OnCancel)
+		COMMAND_HANDLER(IDC_SEARCH, BN_CLICKED, OnSearch)
+		NOTIFY_HANDLER(IDC_SHOWLIST, LVN_ITEMCHANGED, OnItemChanged)
+		NOTIFY_HANDLER(IDC_SHOWLIST, NM_DBLCLK, OnDblclk)
+		CHAIN_MSG_MAP(CWinDataExchangeEx<CAddTvShowDialog>)
+	END_MSG_MAP()
+
+	BEGIN_DDX_MAP(CAddTvShowDialog)
+		DDX_TEXT(IDC_SHOWNAME, m_sShowName)
+	END_DDX_MAP()
+
+	// capture RETURN key when IDC_SHOWNAME has focus to simulate a click on IDC_SEARCH
+	virtual BOOL PreTranslateMessage(MSG* pMsg)
+	{
+		if(GetFocus() == GetDlgItem(IDC_SHOWNAME) && pMsg->message == WM_KEYDOWN && pMsg->wParam == VK_RETURN) {
+			BOOL b;
+			OnSearch(BN_CLICKED, IDC_SEARCH, GetDlgItem(IDC_SEARCH), b);
+			return TRUE;
+		}
+		return CDialogImplEx<CAddTvShowDialog>::PreTranslateMessage(pMsg);
+	}
+
+	// Message handlers
+	BOOL OnInitDialog(HWND hwndFocus, LPARAM lParam)
+	{
+		CenterWindow(GetParent());
+		ShowWindow(SW_SHOW);
+		GetDlgItem(IDOK).EnableWindow(FALSE);
+		m_List = GetDlgItem(IDC_SHOWLIST);
+		m_List.SetView(LV_VIEW_TILE);
+		m_List.SetExtendedListViewStyle(LVS_EX_DOUBLEBUFFER | LVS_EX_AUTOSIZECOLUMNS);
+		m_List.AddColumn(_T("Show"), 0);
+		m_List.AddColumn(_T("First Aired"), 1);
+		m_List.AddColumn(_T("Overview"), 2);
+		LVTILEVIEWINFO tvi = { 0 };
+		tvi.cbSize = sizeof(tvi);
+		tvi.dwFlags = LVTVIF_FIXEDSIZE;
+		tvi.dwMask = LVTVIM_TILESIZE | LVTVIM_COLUMNS;
+		CRect r;
+		m_List.GetClientRect(&r);
+		tvi.cLines = 3;
+		SIZE size = { r.Width() - ::GetSystemMetrics(SM_CXVSCROLL), 60 };
+		tvi.sizeTile = size;
+		m_List.SetTileViewInfo(&tvi);
+		GetDlgItem(IDOK).ModifyStyle(BS_DEFPUSHBUTTON, 0);
+		GetDlgItem(IDC_SEARCH).ModifyStyle(0, BS_DEFPUSHBUTTON);
+		SetWindowTheme(m_List, L"explorer", NULL);
+		m_ImageLoader.SetSink(*this, MSG_IMAGELOADED);
+		m_ImageLoader.Init(4);
+
+		return TRUE;
+	}
+	LRESULT OnSearch(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
+	{
+		DoDataExchange(true);
+		if(m_sShowName.IsEmpty()) {
+			OnDataCustomError(IDC_SHOWNAME, _T("Please enter a show name."));
+			return 0;
+		}
+		CWaitCursor wait;
+		if(!m_apiGetSeries.Execute(m_sShowName)) {
+			OnDataCustomError(IDC_SEARCH, _T("Error connecting to TheTVDB.com"));
+			return 0;
+		}
+		m_List.DeleteAllItems();
+		CHttpDownloader downloader;
+		downloader.Init();
+		m_ImageLoader.Clear();
+		m_ImageList.Destroy();
+		m_ImageList.Create(300, 55, ILC_COLOR32, 0, 100);
+		CImage imgEmpty;
+		imgEmpty.Create(300, 55, 32);
+		unsigned char* bits = (unsigned char*)imgEmpty.GetBits();
+		int pitch = imgEmpty.GetPitch();
+		for(int y = 0; y < imgEmpty.GetHeight(); y++) {
+			memset(bits, 255, imgEmpty.GetWidth() * imgEmpty.GetBPP() / 8);
+			bits += pitch;
+		}
+		m_ImageList.Add((HBITMAP)imgEmpty, (HBITMAP)NULL);
+		CDC dc;
+		dc.Attach(imgEmpty.GetDC());
+		dc.DrawIcon((300-32)/2, (55-32)/2, LoadIcon(LoadLibrary(_T("shell32.dll")), MAKEINTRESOURCE(1004))); // doesn't work on XP; why?
+		dc.Detach();
+		imgEmpty.ReleaseDC();
+		m_ImageList.Add((HBITMAP)imgEmpty, (HBITMAP)NULL);
+
+		m_ImageList.Add((HBITMAP)imgEmpty, (HBITMAP)NULL);
+		for(size_t i = 0; i < m_apiGetSeries.Data.GetCount(); i++) {
+			TheTvDB::CSeries* series = m_apiGetSeries.Data[i];
+			int id = m_List.InsertItem(i, series->SeriesName, 0);
+			if(series->FirstAired.m_dt != 0)
+				m_List.SetItemText(id, 1, series->FirstAired.Format(_T("First Aired: %Y-%m-%d")));
+			m_List.SetItemText(id, 2, series->Overview);
+			m_List.SetItemData(id, i);
+			LVTILEINFO ti = { 0 };
+			UINT columns[] = { 2, 1 };
+			ti.cbSize = sizeof(ti) - sizeof(ti.piColFmt); // for XP compatibility
+			ti.iItem = id;
+			ti.cColumns = 2;
+			ti.puColumns = columns;
+			m_List.SetTileInfo(&ti);
+			if(!series->banner.IsEmpty()) {
+				CString bannerFile;
+				bannerFile.Format(_T("%s%d.jpg"), CNewzflow::Instance()->settings->GetAppDataDir(), series->seriesid);
+				m_ImageLoader.Add(_T("http://www.thetvdb.com/banners/") + series->banner, bannerFile, id);
+				m_List.SetItem(id, 0, LVIF_IMAGE, NULL, 1, 0, 0, 0); // "loading"
+			}
+		}
+		m_List.SetImageList(m_ImageList, LVSIL_NORMAL);
+		return 0;
+	}
+	LRESULT OnImageLoaded(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lParam*/, BOOL& /*bHandled*/)
+	{
+		CAsyncDownloader::CItem* item = (CAsyncDownloader::CItem*)wParam;
+
+		CImage image;
+		if(SUCCEEDED(image.Load(item->path))) {
+			// resize image to 300x55
+			int width=300,height=55;
+			CImage img1; 
+			img1.Create(width,height,32); 
+			CDC dc; 
+			dc.Attach(img1.GetDC()); 
+			dc.SetStretchBltMode(HALFTONE); 
+			image.StretchBlt(dc,0,0,width,height,SRCCOPY ); 
+			dc.Detach(); 
+			img1.ReleaseDC(); 
+			int imageId = m_ImageList.GetImageCount();
+			m_ImageList.Add((HBITMAP)img1, (HBITMAP)NULL);
+			m_List.SetItem(item->param, 0, LVIF_IMAGE, NULL, imageId, 0, 0, 0);
+		}
+		return 0;
+	}
+	LRESULT OnItemChanged(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/)
+	{
+		GetDlgItem(IDOK).EnableWindow(m_List.GetSelectedCount() > 0);
+		return 0;
+	}
+	LRESULT OnDblclk(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& bHandled)
+	{
+		if(m_List.GetSelectedCount() > 0)
+			return OnOK(0, 0, NULL, bHandled);
+		return 0;
+	}
+	LRESULT OnOK(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
+	{
+		DoDataExchange(true);
+
+		int iSelection = m_List.GetSelectedIndex();
+		ASSERT(iSelection >= 0);
+
+		TheTvDB::CSeries* series = m_apiGetSeries.Data[m_List.GetItemData(iSelection)];
+
+		sq3::Statement st(CNewzflow::Instance()->database, _T("INSERT OR IGNORE INTO TvShows (title, tvdb_id) VALUES (?, ?)"));
+		ASSERT(st.IsValid());
+		st.Bind(0, series->SeriesName);
+		st.Bind(1, series->seriesid);
+		if(st.ExecuteNonQuery() != SQLITE_OK) {
+			TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
+		}
+
+		DestroyWindow();
+		m_pViewTree->Refresh();
+		return 0;
+	}
+	void Cancel()
+	{
+		DestroyWindow();
+	}
+	LRESULT OnCancel(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
+	{
+		Cancel();
+		return 0;
+	}
+	LRESULT OnClose(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)
+	{
+		Cancel();
+		return 0;
+	}
+	virtual void OnFinalMessage(HWND)
+	{
+		delete this;
+	}
+
+	// DDX variables
+	CString m_sShowName;
+
+	CViewTree* m_pViewTree;
+	CListViewCtrl m_List;
+	CImageList m_ImageList;
+
+	TheTvDB::CGetSeries m_apiGetSeries;
+
+	CAsyncDownloader m_ImageLoader;
+};
+
+LRESULT CViewTree::OnTvAdd(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
+{
+	CAddTvShowDialog* dlg = new CAddTvShowDialog(this);
+	dlg->Create(*this);
 
 	return 0;
 }
