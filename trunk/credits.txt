@@ -7,3 +7,4 @@ Tool used to create .ico file from .png/.psd:
 IcoFX: http://www.icofx.ro/
 
 TheTVDB API Key: E13C9BDFF5677364
+TheMovieDB API Key: 1a6c31ec26c8cf1d8c4c53814baa2451

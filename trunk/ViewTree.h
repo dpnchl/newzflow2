@@ -19,6 +19,7 @@ public:
 		COMMAND_ID_HANDLER(ID_FEEDS_EDIT, OnFeedsEdit)
 		COMMAND_ID_HANDLER(ID_FEEDS_DELETE, OnFeedsDelete)
 		COMMAND_ID_HANDLER(ID_TV_ADD, OnTvAdd)
+		COMMAND_ID_HANDLER(ID_TV_DELETE, OnTvDelete)
 		DEFAULT_REFLECTION_HANDLER()
 	END_MSG_MAP()
 
@@ -32,6 +33,7 @@ public:
 	LRESULT OnFeedsEdit(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnFeedsDelete(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnTvAdd(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
+	LRESULT OnTvDelete(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnSelChanged(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/);
 
 	CTreeItem tvDownloads, tvFeeds, tvTV;

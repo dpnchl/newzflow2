@@ -2,7 +2,6 @@
 
 #include "nzb.h"
 #include "Util.h"
-#include "SQLite/SQ3.h"
 
 class CDownloader;
 class CDiskWriter;
@@ -11,7 +10,9 @@ class CSettings;
 class CHttpDownloader;
 class CDirWatcher;
 class CRssWatcher;
+class CDatabase;
 namespace TheTvDB { class CAPI; }
+namespace TheMovieDB { class CAPI; }
 
 class CNewzflowThread : public CGuiThreadImpl<CNewzflowThread>
 {
@@ -103,7 +104,8 @@ public:
 	CDirWatcher* dirWatcher;
 	CRssWatcher* rssWatcher;
 	TheTvDB::CAPI* tvdbApi;
-	sq3::Database database;
+	TheMovieDB::CAPI* tmdbApi;
+	CDatabase* database;
 
 
 
