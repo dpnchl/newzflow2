@@ -440,6 +440,8 @@ protected:
 
 			// refresh
 			while(1) {
+				if(WAIT_OBJECT_0 == WaitForSingleObject(m_pDownloader->shutDown, 0))
+					break;
 				CAsyncDownloader::CItem* item = NULL;
 				m_pDownloader->cs.Lock();
 				if(!m_pDownloader->queue.IsEmpty()) {

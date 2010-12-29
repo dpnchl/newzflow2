@@ -12,6 +12,7 @@
 #include "DialogEx.h"
 #include "DropTarget.h"
 #include "TheTvDB.h"
+#include "Database.h"
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
@@ -71,7 +72,7 @@ void CViewTree::Refresh()
 
 	// add RSS feeds
 	{
-		sq3::Statement st(CNewzflow::Instance()->database, _T("SELECT rowid, title FROM RssFeeds ORDER BY title ASC"));
+		sq3::Statement st(CNewzflow::Instance()->database->database, _T("SELECT rowid, title FROM RssFeeds ORDER BY title ASC"));
 		sq3::Reader reader = st.ExecuteReader();
 		while(reader.Step() == SQLITE_ROW) {
 			int id; reader.GetInt(0, id);
@@ -88,7 +89,7 @@ void CViewTree::Refresh()
 
 	// add TV shows
 	{
-		sq3::Statement st(CNewzflow::Instance()->database, _T("SELECT rowid, title FROM TvShows ORDER BY title ASC"));
+		sq3::Statement st(CNewzflow::Instance()->database->database, _T("SELECT rowid, title FROM TvShows ORDER BY title ASC"));
 		sq3::Reader reader = st.ExecuteReader();
 		while(reader.Step() == SQLITE_ROW) {
 			int id; reader.GetInt(0, id);
@@ -105,8 +106,10 @@ void CViewTree::Refresh()
 
 	// we couldn't select the same item as before
 	if(!oldSelRestored) {
-		if(oldSel >= kFeeds)
+		if(oldSel >= kFeeds && oldSel <= kFeedsEnd)
 			tvFeeds.Select();
+		else if(oldSel >= kTV && oldSel <= kTVEnd)
+			tvTV.Select();
 		else
 			tvDownloads.Select();
 	}
@@ -123,8 +126,11 @@ LRESULT CViewTree::OnRClick(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled*/)
 	CTreeItem t = HitTest(ptClient, &flags);
 	if(!t.IsNull()) {
 		t.Select();
-		m_menu.GetSubMenu(0).EnableMenuItem(ID_FEEDS_DELETE, (t.GetData() >= kFeeds+1 ? MF_ENABLED : MF_GRAYED) | MF_BYCOMMAND);
-		m_menu.GetSubMenu(0).EnableMenuItem(ID_FEEDS_EDIT, (t.GetData() >= kFeeds+1 ? MF_ENABLED : MF_GRAYED) | MF_BYCOMMAND);
+		bool isFeed = t.GetData() >= kFeeds+1 && t.GetData() <= kFeedsEnd;
+		bool isTv = t.GetData() >= kTV+1 && t.GetData() <= kTVEnd;
+		m_menu.GetSubMenu(0).EnableMenuItem(ID_FEEDS_DELETE, (isFeed ? MF_ENABLED : MF_GRAYED) | MF_BYCOMMAND);
+		m_menu.GetSubMenu(0).EnableMenuItem(ID_FEEDS_EDIT, (isFeed ? MF_ENABLED : MF_GRAYED) | MF_BYCOMMAND);
+		m_menu.GetSubMenu(0).EnableMenuItem(ID_TV_DELETE, (isTv ? MF_ENABLED : MF_GRAYED) | MF_BYCOMMAND);
 		m_menu.GetSubMenu(0).TrackPopupMenu(TPM_RIGHTBUTTON, ptScreen.x, ptScreen.y, *this);
 	}
 
@@ -171,7 +177,7 @@ public:
 		pDropTarget->Register(*this, this);
 		CenterWindow(GetParent());
 		if(m_iRowId) {
-			sq3::Statement st(CNewzflow::Instance()->database, _T("SELECT title, url FROM RssFeeds WHERE rowid = ?"));
+			sq3::Statement st(CNewzflow::Instance()->database->database, _T("SELECT title, url FROM RssFeeds WHERE rowid = ?"));
 			st.Bind(0, m_iRowId);
 			sq3::Reader reader = st.ExecuteReader();
 			if(reader.Step() == SQLITE_ROW) {
@@ -210,7 +216,7 @@ public:
 			OnDataCustomError(IDC_URL, _T("Please enter a valid http:// or https:// URL."));
 		} else {
 			if(m_iRowId == 0) {
-				sq3::Statement st(CNewzflow::Instance()->database, _T("INSERT OR IGNORE INTO RssFeeds (title, url) VALUES (?, ?)"));
+				sq3::Statement st(CNewzflow::Instance()->database->database, _T("INSERT OR IGNORE INTO RssFeeds (title, url) VALUES (?, ?)"));
 				ASSERT(st.IsValid());
 				if(IsDlgButtonChecked(IDC_ALIAS_CHECK))
 					st.Bind(0, m_sAlias);
@@ -218,10 +224,10 @@ public:
 					st.Bind(0);
 				st.Bind(1, m_sURL);
 				if(st.ExecuteNonQuery() != SQLITE_OK) {
-					TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
+					TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database->database.GetErrorMessage());
 				}
 			} else {
-				sq3::Statement st(CNewzflow::Instance()->database, _T("UPDATE RssFeeds SET title = ?, url = ? WHERE rowid = ?"));
+				sq3::Statement st(CNewzflow::Instance()->database->database, _T("UPDATE RssFeeds SET title = ?, url = ? WHERE rowid = ?"));
 				ASSERT(st.IsValid());
 				if(IsDlgButtonChecked(IDC_ALIAS_CHECK))
 					st.Bind(0, m_sAlias);
@@ -230,13 +236,13 @@ public:
 				st.Bind(1, m_sURL);
 				st.Bind(2, m_iRowId);
 				if(st.ExecuteNonQuery() != SQLITE_OK) {
-					TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
+					TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database->database.GetErrorMessage());
 				}
 				if(m_sURL != m_sOldURL) {
-					sq3::Statement st(CNewzflow::Instance()->database, _T("UPDATE RssFeeds SET last_update = NULL WHERE rowid = ?"));
+					sq3::Statement st(CNewzflow::Instance()->database->database, _T("UPDATE RssFeeds SET last_update = NULL WHERE rowid = ?"));
 					st.Bind(0, m_iRowId);
 					if(st.ExecuteNonQuery() != SQLITE_OK) {
-						TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
+						TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database->database.GetErrorMessage());
 					}
 				}
 			}
@@ -314,24 +320,24 @@ LRESULT CViewTree::OnFeedsDelete(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWnd
 {
 	CTreeItem item = GetSelectedItem();
 	if(!item.IsNull() && item.GetParent() == tvFeeds) {
-		ASSERT(item.GetData() >= kFeeds);
+		ASSERT(item.GetData() >= kFeeds + 1 && item.GetData() <= kFeedsEnd);
 		int feedId = item.GetData() - kFeeds;
-		{ sq3::Transaction transaction(CNewzflow::Instance()->database);
+		{ sq3::Transaction transaction(CNewzflow::Instance()->database->database);
 			{
-				sq3::Statement st(CNewzflow::Instance()->database, _T("DELETE FROM RssItems WHERE feed = ?"));
+				sq3::Statement st(CNewzflow::Instance()->database->database, _T("DELETE FROM RssItems WHERE feed = ?"));
 				ASSERT(st.IsValid());
 				st.Bind(0, feedId);
 				if(st.ExecuteNonQuery() != SQLITE_OK) {
-					TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
+					TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database->database.GetErrorMessage());
 				}
 			}
 
 			{
-				sq3::Statement st(CNewzflow::Instance()->database, _T("DELETE FROM RssFeeds WHERE rowid = ?"));
+				sq3::Statement st(CNewzflow::Instance()->database->database, _T("DELETE FROM RssFeeds WHERE rowid = ?"));
 				ASSERT(st.IsValid());
 				st.Bind(0, feedId);
 				if(st.ExecuteNonQuery() != SQLITE_OK) {
-					TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
+					TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database->database.GetErrorMessage());
 				}
 			}
 			transaction.Commit();
@@ -525,13 +531,13 @@ public:
 
 		TheTvDB::CSeries* series = m_pGetSeries->Series[m_List.GetItemData(iSelection)];
 
-		sq3::Statement st(CNewzflow::Instance()->database, _T("INSERT OR IGNORE INTO TvShows (title, tvdb_id, description) VALUES (?, ?, ?)"));
+		sq3::Statement st(CNewzflow::Instance()->database->database, _T("INSERT OR IGNORE INTO TvShows (title, tvdb_id, description) VALUES (?, ?, ?)"));
 		ASSERT(st.IsValid());
 		st.Bind(0, series->SeriesName);
 		st.Bind(1, series->id);
 		st.Bind(2, series->Overview);
 		if(st.ExecuteNonQuery() != SQLITE_OK) {
-			TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
+			TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database->database.GetErrorMessage());
 		}
 
 		DestroyWindow();
@@ -574,6 +580,39 @@ LRESULT CViewTree::OnTvAdd(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/,
 {
 	CAddTvShowDialog* dlg = new CAddTvShowDialog(this);
 	dlg->Create(*this);
+
+	return 0;
+}
+
+LRESULT CViewTree::OnTvDelete(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
+{
+	CTreeItem item = GetSelectedItem();
+	if(!item.IsNull() && item.GetParent() == tvTV) {
+		ASSERT(item.GetData() >= kTV + 1 && item.GetData() <= kTVEnd);
+		int showId = item.GetData() - kTV;
+		{ sq3::Transaction transaction(CNewzflow::Instance()->database->database);
+			{
+				sq3::Statement st(CNewzflow::Instance()->database->database, _T("DELETE FROM TvEpisodes WHERE show_id = ?"));
+				ASSERT(st.IsValid());
+				st.Bind(0, showId);
+				if(st.ExecuteNonQuery() != SQLITE_OK) {
+					TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database->database.GetErrorMessage());
+				}
+			}
+
+			{
+				sq3::Statement st(CNewzflow::Instance()->database->database, _T("DELETE FROM TvShows WHERE rowid = ?"));
+				ASSERT(st.IsValid());
+				st.Bind(0, showId);
+				if(st.ExecuteNonQuery() != SQLITE_OK) {
+					TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database->database.GetErrorMessage());
+				}
+			}
+			transaction.Commit();
+		}
+
+		Refresh();
+	}
 
 	return 0;
 }

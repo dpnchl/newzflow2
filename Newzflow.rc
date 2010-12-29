@@ -392,6 +392,7 @@ BEGIN
         MENUITEM "Delete Feed",                 ID_FEEDS_DELETE
         MENUITEM SEPARATOR
         MENUITEM "Add TV Show...",              ID_TV_ADD
+        MENUITEM "Delete Show",                 ID_TV_DELETE
     END
 END
 

@@ -137,6 +137,7 @@ HRESULT STDMETHODCALLTYPE CRssParser::startElement(
 	CString localName(pwchLocalName, cchLocalName);
 	if(!curItem && localName == _T("item")) {
 		curItem = new CRssItem;
+		curItem->pubDate = rss->pubDate; // default to rss's pubDate
 		rss->items.Add(curItem);
 	} else if(curItem && localName == _T("enclosure")) {
 		curItem->enclosure = new CRssEnclosure;

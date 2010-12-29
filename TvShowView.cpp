@@ -9,6 +9,7 @@
 #include "Newzflow.h"
 #include "Util.h"
 #include "Settings.h"
+#include "Database.h"
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
@@ -60,30 +61,22 @@ namespace {
 	}
 }
 
-
 int CTvShowView::OnRefresh()
 {
-	CString sQuery(_T("SELECT rowid, season, episode, title, strftime('%s', date) FROM TvEpisodes WHERE show_id = ? ORDER BY episode DESC"));
-	sq3::Statement st(CNewzflow::Instance()->database, sQuery);
-	if(!st.IsValid())
-		TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
-	st.Bind(0, m_showId);
-	sq3::Reader reader = st.ExecuteReader();
+	QTvEpisodes* view = CNewzflow::Instance()->database->GetTvEpisodes(m_showId);
 	CAtlMap<int, int> seasonGroups;
 	size_t count = 0;
-	while(reader.Step() == SQLITE_ROW) {
-		int id; reader.GetInt(0, id);
-		int season; reader.GetInt(1, season);
-		int episode; reader.GetInt(2, episode);
-		CString sTitle; reader.GetString(3, sTitle);
-		int date; reader.GetInt(4, date);
+	while(view->GetRow()) {
+		int season = view->GetSeason();
+		CString sEpisode; sEpisode.Format(_T("%d"), view->GetEpisode());
 
-		CString sEpisode; sEpisode.Format(_T("%d"), episode);
-
-		AddItemEx(count, id);
+		AddItemEx(count, view->GetId());
 		SetItemTextEx(count, kEpisode, sEpisode);
-		SetItemTextEx(count, kTitle, sTitle);
-		SetItemTextEx(count, kDate, date != 0 ? COleDateTime((time_t)date).Format(VAR_DATEVALUEONLY) : _T("never"));
+		SetItemTextEx(count, kTitle, view->GetTitle());
+		if(view->GetDate() != COleDateTime((time_t)0))
+			SetItemTextEx(count, kDate, view->GetDate().Format(VAR_DATEVALUEONLY));
+		else
+			SetItemTextEx(count, kDate, _T("never"));
 
 		int groupId = -1;
 		// create group
@@ -115,6 +108,7 @@ int CTvShowView::OnRefresh()
 
 		count++;
 	}
+	delete view;
 
 	SortGroups(GroupCompare);
 
@@ -124,28 +118,28 @@ int CTvShowView::OnRefresh()
 LRESULT CTvShowView::OnDblClick(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/)
 {
 /*	if(GetNextItem(-1, LVNI_SELECTED) != -1) {
-		{ sq3::Transaction transaction(CNewzflow::Instance()->database);
+		{ sq3::Transaction transaction(CNewzflow::Instance()->database->database);
 			for(int iItem = GetNextItem(-1, LVNI_SELECTED); iItem != -1; iItem = GetNextItem(iItem, LVNI_SELECTED)) {
 				int id = GetItemData(iItem);
 
 				// get URL for RSS item and add NZB
 				{
-					sq3::Statement st(CNewzflow::Instance()->database, _T("SELECT link FROM RssItems WHERE rowid = ?"));
+					sq3::Statement st(CNewzflow::Instance()->database->database, _T("SELECT link FROM RssItems WHERE rowid = ?"));
 					st.Bind(0, id);
 					CString sUrl;
 					if(st.ExecuteString(sUrl) != SQLITE_OK) {
-						TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
+						TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database->database.GetErrorMessage());
 					}
 					CNewzflow::Instance()->controlThread->AddURL(sUrl);
 				}
 
 				// set status to downloaded
 				{
-					sq3::Statement st(CNewzflow::Instance()->database, _T("UPDATE RssItems SET status = ? WHERE rowid = ?"));
+					sq3::Statement st(CNewzflow::Instance()->database->database, _T("UPDATE RssItems SET status = ? WHERE rowid = ?"));
 					st.Bind(0, kDownloaded);
 					st.Bind(1, id);
 					if(st.ExecuteNonQuery() != SQLITE_OK) {
-						TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
+						TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database->database.GetErrorMessage());
 					}
 				}
 			}

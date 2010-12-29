@@ -14,6 +14,8 @@
 #include "MemFile.h"
 #include "DialogEx.h"
 #include "TheTvDB.h"
+#include "TheMovieDB.h"
+#include "Database.h"
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
@@ -254,18 +256,8 @@ CNewzflow::CNewzflow()
 	// no downloaders have been created so far, so we don't need to propagate the speed limit to downloaders
 	CNntpSocket::speedLimiter.SetLimit(settings->GetSpeedLimit());
 	tvdbApi = new TheTvDB::CAPI;
-
-	database.Open(settings->GetAppDataDir() + _T("database.dat"));
-	ASSERT(database.IsOpen());
-	{ sq3::Transaction transaction(database);
-		database.Execute("CREATE TABLE IF NOT EXISTS \"RssFeeds\" (\"title\" TEXT, \"url\" TEXT NOT NULL UNIQUE, \"update_interval\" INTEGER DEFAULT 15, \"last_update\" REAL)");
-		database.Execute("CREATE TABLE IF NOT EXISTS \"RssItems\" (\"feed\" INTEGER, \"title\" TEXT NOT NULL, \"link\" TEXT NOT NULL, \"length\" INTEGER DEFAULT 0, \"description\" TEXT, \"category\" TEXT, \"status\" INTEGER, \"date\" REAL, UNIQUE (feed, title))");
-		database.Execute("CREATE TABLE IF NOT EXISTS \"TvShows\" (\"title\" TEXT, \"tvdb_id\" INTEGER, \"last_update\" REAL, \"description\" TEXT)");
-		database.Execute("CREATE TABLE IF NOT EXISTS \"TvEpisodes\" (\"show_id\" INTEGER, \"tvdb_id\" INTEGER, \"title\" TEXT, \"season\" INTEGER, \"episode\" INTEGER, \"description\" TEXT, \"date\" REAL)");
-
-		transaction.Commit();
-	}
-
+	tmdbApi = new TheMovieDB::CAPI;
+	database = new CDatabase(settings->GetAppDataDir() + _T("database.dat"));
 	dirWatcher = new CDirWatcher; // create after speed limiter intialization
 	rssWatcher = new CRssWatcher;
 }
@@ -344,6 +336,8 @@ CNewzflow::~CNewzflow()
 	FreeDeletedNzbs();
 
 	delete tvdbApi;
+	delete tmdbApi;
+	delete database;
 	delete settings;
 
 	CNntpSocket::CloseWinsock();

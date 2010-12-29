@@ -204,6 +204,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\Database.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\DialogTemplate.cpp"
 				>
 			</File>
@@ -332,6 +336,10 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath=".\TheMovieDB.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\TheTvDB.cpp"
 				>
 			</File>
@@ -358,6 +366,10 @@
 			</File>
 			<File
 				RelativePath=".\ConnectionView.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Database.h"
 				>
 			</File>
 			<File
@@ -470,6 +482,10 @@
 			</File>
 			<File
 				RelativePath=".\TabView.h"
+				>
+			</File>
+			<File
+				RelativePath=".\TheMovieDB.h"
 				>
 			</File>
 			<File

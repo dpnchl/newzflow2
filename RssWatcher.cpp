@@ -5,6 +5,8 @@
 #include "Newzflow.h"
 #include "Settings.h"
 #include "TheTvDB.h"
+#include "TheMovieDB.h"
+#include "Database.h"
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
@@ -39,7 +41,7 @@ DWORD CRssWatcher::Run()
 
 		// Process RSS Feeds
 		{
-			sq3::Statement st(CNewzflow::Instance()->database, _T("SELECT rowid, url, title FROM RssFeeds WHERE last_update ISNULL OR ((strftime('%s', 'now') - strftime('%s', last_update)) / 60) >= update_interval"));
+			sq3::Statement st(CNewzflow::Instance()->database->database, _T("SELECT rowid, url, title FROM RssFeeds WHERE last_update ISNULL OR ((strftime('%s', 'now') - strftime('%s', last_update)) / 60) >= update_interval"));
 			sq3::Reader reader = st.ExecuteReader();
 			while(reader.Step() == SQLITE_ROW) {
 				int id; reader.GetInt(0, id);
@@ -52,7 +54,7 @@ DWORD CRssWatcher::Run()
 		}
 		// Process TV Shows
 		{
-			sq3::Statement st(CNewzflow::Instance()->database, _T("SELECT rowid, tvdb_id, title FROM TvShows WHERE last_update ISNULL")); // OR ((strftime('%s', 'now') - strftime('%s', last_update)) / 60) >= update_interval"));
+			sq3::Statement st(CNewzflow::Instance()->database->database, _T("SELECT rowid, tvdb_id, title FROM TvShows WHERE last_update ISNULL")); // OR ((strftime('%s', 'now') - strftime('%s', last_update)) / 60) >= update_interval"));
 			sq3::Reader reader = st.ExecuteReader();
 			while(reader.Step() == SQLITE_ROW) {
 				int id; reader.GetInt(0, id);
@@ -62,6 +64,24 @@ DWORD CRssWatcher::Run()
 				ProcessTvShow(id, tvdb_id);
 				Util::PostMessageToMainWindow(Util::MSG_TVSHOW_UPDATED);
 			}
+		}
+		// Process Movies; TEST
+/*		{
+			sq3::Statement st(CNewzflow::Instance()->database->database, _T("SELECT rowid, description FROM RssItems WHERE description like ? LIMIT 1"));
+			st.Bind(0, _T("%www.imdb.com/title/tt%"));
+			sq3::Reader reader = st.ExecuteReader();
+			while(reader.Step() == SQLITE_ROW) {
+				int id; reader.GetInt(0, id);
+				CString sDescription; reader.GetString(1, sDescription);
+				CString imdbId;
+				int imdbStart = sDescription.Find(_T("www.imdb.com/title/tt"));
+				if(imdbStart > 0)
+					imdbId = sDescription.Mid(imdbStart + _tcslen(_T("www.imdb.com/title/")), 9);
+				CString s; s.Format(_T("ProcessMovie(%s (%d))\n"), imdbId, id); Util::Print(s);
+				ProcessMovie(id, imdbId);
+				//Util::PostMessageToMainWindow(Util::MSG_TVSHOW_UPDATED);
+			}
+*/
 		}
 
 		delay = 60;
@@ -76,53 +96,12 @@ void CRssWatcher::ProcessFeed(int id, const CString& sUrl)
 	if(downloader.Download(sUrl, rssFile, CString(), NULL)) {
 		CRss rss;
 		if(rss.Parse(rssFile)) {
-			sq3::Transaction transaction(CNewzflow::Instance()->database);
+			CTransaction transaction(CNewzflow::Instance()->database);
 			for(size_t i = 0; i < rss.items.GetCount(); i++) {
 				CRssItem* item = rss.items[i];
-				sq3::Statement st(CNewzflow::Instance()->database, _T("INSERT OR IGNORE INTO RssItems (feed, title, link, length, description, category, date) VALUES (?, ?, ?, ?, ?, ?, julianday(?))"));
-				st.Bind(0, id);
-				st.Bind(1, item->title);
-				if(item->enclosure) {
-					st.Bind(2, item->enclosure->url);
-					st.Bind(3, item->enclosure->length);
-				} else {
-					st.Bind(2, item->link);
-					st.Bind(3, 0);
-				}
-				st.Bind(4, item->description);
-				st.Bind(5, item->category);
-				st.Bind(6, item->pubDate.Format(_T("%Y-%m-%d %H:%M:%S")));
-				if(st.ExecuteNonQuery() != SQLITE_OK) {
-					TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
-				}
+				CNewzflow::Instance()->database->InsertRssItem(id, item);
 			}
-			// set update interval
-			if(rss.ttl > 0) {
-				sq3::Statement st(CNewzflow::Instance()->database, _T("UPDATE RssFeeds SET update_interval = ? WHERE rowid = ?"));
-				st.Bind(0, rss.ttl);
-				st.Bind(1, id);
-				if(st.ExecuteNonQuery() != SQLITE_OK) {
-					TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
-				}
-			}
-			// set last update
-			{
-				sq3::Statement st(CNewzflow::Instance()->database, _T("UPDATE RssFeeds SET last_update = julianday('now') WHERE rowid = ?"));
-				st.Bind(0, id);
-				if(st.ExecuteNonQuery() != SQLITE_OK) {
-					TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
-				}
-			}
-			// set title from feed if previously empty
-			{
-				sq3::Statement st(CNewzflow::Instance()->database, _T("UPDATE RssFeeds SET title = ? WHERE rowid = ? AND title ISNULL"));
-				st.Bind(0, rss.title);
-				st.Bind(1, id);
-				if(st.ExecuteNonQuery() != SQLITE_OK) {
-					TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
-				}
-			}
-			transaction.Commit();
+			CNewzflow::Instance()->database->UpdateRssFeed(id, &rss);
 		}
 	}
 	CFile::Delete(rssFile);
@@ -132,31 +111,29 @@ void CRssWatcher::ProcessTvShow(int id, int tvdb_id)
 {
 	TheTvDB::CSeriesAll* seriesAll = CNewzflow::Instance()->tvdbApi->SeriesAll(tvdb_id);
 	if(seriesAll) {
-		sq3::Transaction transaction(CNewzflow::Instance()->database);
+		CTransaction transaction(CNewzflow::Instance()->database);
 		for(size_t i = 0; i < seriesAll->Episodes.GetCount(); i++) {
 			TheTvDB::CEpisode* episode = seriesAll->Episodes[i];
-			sq3::Statement st(CNewzflow::Instance()->database, _T("INSERT OR IGNORE INTO TvEpisodes (show_id, tvdb_id, title, season, episode, description, date) VALUES (?, ?, ?, ?, ?, ?, julianday(?))"));
-			st.Bind(0, id);
-			st.Bind(1, episode->id);
-			st.Bind(2, episode->EpisodeName);
-			st.Bind(3, episode->SeasonNumber);
-			st.Bind(4, episode->EpisodeNumber);
-			st.Bind(5, episode->Overview);
-			st.Bind(6, episode->FirstAired.Format(_T("%Y-%m-%d")));
-			if(st.ExecuteNonQuery() != SQLITE_OK) {
-				TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
-			}
+			CNewzflow::Instance()->database->InsertTvEpisode(id, episode);
 		}
-		// set last update
-		{
-			sq3::Statement st(CNewzflow::Instance()->database, _T("UPDATE TvShows SET last_update = julianday('now') WHERE rowid = ?"));
-			st.Bind(0, id);
-			if(st.ExecuteNonQuery() != SQLITE_OK) {
-				TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database.GetErrorMessage());
-			}
-		}
-		transaction.Commit();
+		CNewzflow::Instance()->database->UpdateTvShow(id);
 		TRACE(_T("inserted %d episodes\n"), seriesAll->Episodes.GetCount());
 	}
 	delete seriesAll;
+}
+
+void CRssWatcher::ProcessMovie(int id, const CString& imdbId)
+{
+	TheMovieDB::CGetMovie* getMovie = CNewzflow::Instance()->tmdbApi->GetMovie(imdbId);
+/*	if(getMovie) {
+		CTransaction transaction(CNewzflow::Instance()->database);
+		for(size_t i = 0; i < getMovie->Episodes.GetCount(); i++) {
+			TheTvDB::CEpisode* episode = getMovie->Episodes[i];
+			CNewzflow::Instance()->database->InsertTvEpisode(id, episode);
+		}
+		CNewzflow::Instance()->database->UpdateTvShow(id);
+		TRACE(_T("inserted %d episodes\n"), getMovie->Episodes.GetCount());
+	}
+*/
+	delete getMovie;
 }
