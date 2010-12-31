@@ -579,7 +579,7 @@ CString CMirrors::GetMirror(int type)
 
 CAPI::CAPI()
 {
-	mirrors.Execute();
+	mirrors.Execute(); // TODO: move this elsewhere; can delay startup of app
 }
 
 CAPI::~CAPI()

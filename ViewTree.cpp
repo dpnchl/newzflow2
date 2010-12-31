@@ -59,7 +59,8 @@ void CViewTree::Refresh()
 	DeleteAllItems();
 	tvDownloads = InsertItem(_T("Downloads"), 0, 0, TVI_ROOT, TVI_LAST); tvDownloads.SetData(kDownloads);
 	tvFeeds = InsertItem(_T("Feeds"), 13, 13, TVI_ROOT, TVI_LAST); tvFeeds.SetData(kFeeds + 0);
-	tvTV = InsertItem(_T("TV Shows"), 12, 12, TVI_ROOT, TVI_LAST); tvTV.SetData(kTV + 0);
+	tvTvShows = InsertItem(_T("TV Shows"), 12, 12, TVI_ROOT, TVI_LAST); tvTvShows.SetData(kTvShows + 0);
+	tvMovies = InsertItem(_T("Movies"), 12, 12, TVI_ROOT, TVI_LAST); tvMovies.SetData(kMovies);
 
 	if(oldSel == tvDownloads.GetData()) {
 		tvDownloads.Select();
@@ -67,6 +68,10 @@ void CViewTree::Refresh()
 	}
 	if(oldSel == tvFeeds.GetData()) {
 		tvFeeds.Select();
+		oldSelRestored = true;
+	}
+	if(oldSel == tvMovies.GetData()) {
+		tvMovies.Select();
 		oldSelRestored = true;
 	}
 
@@ -94,22 +99,22 @@ void CViewTree::Refresh()
 		while(reader.Step() == SQLITE_ROW) {
 			int id; reader.GetInt(0, id);
 			CString sTitle; reader.GetString(1, sTitle);
-			CTreeItem tvShow = InsertItem(sTitle, 12, 12, tvTV, TVI_LAST);
-			tvShow.SetData(kTV + id);
+			CTreeItem tvShow = InsertItem(sTitle, 12, 12, tvTvShows, TVI_LAST);
+			tvShow.SetData(kTvShows + id);
 			if(oldSel == tvShow.GetData()) {
 				tvShow.Select();
 				oldSelRestored = true;
 			}
 		}
-		tvTV.Expand();
+		tvTvShows.Expand();
 	}
 
 	// we couldn't select the same item as before
 	if(!oldSelRestored) {
 		if(oldSel >= kFeeds && oldSel <= kFeedsEnd)
 			tvFeeds.Select();
-		else if(oldSel >= kTV && oldSel <= kTVEnd)
-			tvTV.Select();
+		else if(oldSel >= kTvShows && oldSel <= kTvShowsEnd)
+			tvTvShows.Select();
 		else
 			tvDownloads.Select();
 	}
@@ -127,7 +132,7 @@ LRESULT CViewTree::OnRClick(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled*/)
 	if(!t.IsNull()) {
 		t.Select();
 		bool isFeed = t.GetData() >= kFeeds+1 && t.GetData() <= kFeedsEnd;
-		bool isTv = t.GetData() >= kTV+1 && t.GetData() <= kTVEnd;
+		bool isTv = t.GetData() >= kTvShows+1 && t.GetData() <= kTvShowsEnd;
 		m_menu.GetSubMenu(0).EnableMenuItem(ID_FEEDS_DELETE, (isFeed ? MF_ENABLED : MF_GRAYED) | MF_BYCOMMAND);
 		m_menu.GetSubMenu(0).EnableMenuItem(ID_FEEDS_EDIT, (isFeed ? MF_ENABLED : MF_GRAYED) | MF_BYCOMMAND);
 		m_menu.GetSubMenu(0).EnableMenuItem(ID_TV_DELETE, (isTv ? MF_ENABLED : MF_GRAYED) | MF_BYCOMMAND);
@@ -481,7 +486,7 @@ public:
 			m_List.SetTileInfo(&ti);
 			if(!series->banner.IsEmpty()) {
 				CString bannerFile;
-				bannerFile.Format(_T("%s%d.jpg"), CNewzflow::Instance()->settings->GetAppDataDir(), series->id);
+				bannerFile.Format(_T("%sseries%d.jpg"), CNewzflow::Instance()->settings->GetAppDataDir(), series->id);
 				m_ImageLoader.Add(_T("http://www.thetvdb.com/banners/") + series->banner, bannerFile, id);
 				m_List.SetItem(id, 0, LVIF_IMAGE, NULL, 1, 0, 0, 0); // "loading"
 			}
@@ -587,9 +592,9 @@ LRESULT CViewTree::OnTvAdd(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/,
 LRESULT CViewTree::OnTvDelete(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 {
 	CTreeItem item = GetSelectedItem();
-	if(!item.IsNull() && item.GetParent() == tvTV) {
-		ASSERT(item.GetData() >= kTV + 1 && item.GetData() <= kTVEnd);
-		int showId = item.GetData() - kTV;
+	if(!item.IsNull() && item.GetParent() == tvTvShows) {
+		ASSERT(item.GetData() >= kTvShows + 1 && item.GetData() <= kTvShowsEnd);
+		int showId = item.GetData() - kTvShows;
 		{ sq3::Transaction transaction(CNewzflow::Instance()->database->database);
 			{
 				sq3::Statement st(CNewzflow::Instance()->database->database, _T("DELETE FROM TvEpisodes WHERE show_id = ?"));

@@ -248,6 +248,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\MovieView.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\Newzflow.cpp"
 				>
 			</File>
@@ -418,6 +422,10 @@
 			</File>
 			<File
 				RelativePath=".\md5.h"
+				>
+			</File>
+			<File
+				RelativePath=".\MovieView.h"
 				>
 			</File>
 			<File

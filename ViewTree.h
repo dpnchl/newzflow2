@@ -36,14 +36,15 @@ public:
 	LRESULT OnTvDelete(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnSelChanged(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/);
 
-	CTreeItem tvDownloads, tvFeeds, tvTV;
+	CTreeItem tvDownloads, tvFeeds, tvTvShows, tvMovies;
 
 	enum {
 		kDownloads,
 		kFeeds, // kFeeds+0 => all feeds; kFeeds+feedId => single feed (id Id)
 		kFeedsEnd = kFeeds + 100000,
-		kTV,
-		kTVEnd = kTV + 100000,
+		kTvShows,
+		kTvShowsEnd = kTvShows + 100000,
+		kMovies,
 	};
 
 protected:
