@@ -152,7 +152,11 @@ public:
 	{
 		CString localName(pwchLocalName, cchLocalName);
 		if(m_pPerson) {
-			if(localName == _T("person")) {
+			if(localName == _T("id")) {
+				m_pPerson->id = _ttoi(curChars);
+			} else if(localName == _T("name")) {
+				m_pPerson->name = curChars;
+			} else if(localName == _T("person")) {
 				if(m_pPersonArray)
 					m_pPersonArray->Add(m_pPerson);
 				else if(m_pMovie)
@@ -218,7 +222,7 @@ private:
 	CAtlArray<CMovie*>* m_pMovieArray;
 };
 
-// CGetSeries
+// CGetMovie
 //////////////////////////////////////////////////////////////////////////
 
 CGetMovie::CGetMovie()
@@ -306,6 +310,76 @@ bool CGetMovie::Execute(int tmdbId)
 	return true;
 }
 
+// CGetPerson
+//////////////////////////////////////////////////////////////////////////
+
+CGetPerson::CGetPerson()
+{
+	downloader.Init();
+}
+
+CGetPerson::~CGetPerson()
+{
+	Clear();
+}
+
+void CGetPerson::Clear()
+{
+	for(size_t i = 0; i < Persons.GetCount(); i++) delete Persons[i];
+	Persons.RemoveAll();
+}
+
+bool CGetPerson::Parse(const CString& path)
+{
+	bool retCode = false;
+
+	// parse NZB file
+	{
+		CComPtr<ISAXXMLReader> pRdr;
+		CoInitialize(NULL);
+		HRESULT hr = pRdr.CoCreateInstance(__uuidof(SAXXMLReader30));
+		if(SUCCEEDED(hr)) {
+			CComObject<CParser>* content;
+			CComObject<CParser>::CreateInstance(&content);
+			hr = pRdr->putContentHandler(content);
+			content->SetPersonArray(&Persons);
+			if(SUCCEEDED(hr)) {
+				CComObject<CErrorHandler>* error;
+				CComObject<CErrorHandler>::CreateInstance(&error);
+				hr = pRdr->putErrorHandler(error);
+				if(SUCCEEDED(hr)) {
+					hr = pRdr->parseURL(path);
+					if(SUCCEEDED(hr)) {
+						retCode = true;
+					}
+				}
+			}
+		}
+		CoUninitialize();
+	}
+
+	// Post-processing
+	if(retCode) {
+	}
+
+	return retCode;
+}
+
+bool CGetPerson::Execute(int tmdbId)
+{
+	Clear();
+
+	CString sUrl;
+	sUrl.Format(_T("http://api.themoviedb.org/2.1/Person.getInfo/en/xml/%s/%d"), CAPI::apiKey, tmdbId);
+	CString xmlFile = CNewzflow::Instance()->settings->GetAppDataDir() + _T("temp.xml");
+	if(!downloader.Download(sUrl, xmlFile, CString(), NULL))
+		return false;
+	if(!Parse(xmlFile))
+		return false;
+	CFile::Delete(xmlFile);
+	return true;
+}
+
 // CAPI
 //////////////////////////////////////////////////////////////////////////
 
@@ -336,6 +410,16 @@ CGetMovie* CAPI::GetMovie(int tmdbId)
 		return getMovie;
 
 	delete getMovie;
+	return NULL;
+}
+
+CGetPerson* CAPI::GetPerson(int tmdbId)
+{
+	CGetPerson* getPerson = new CGetPerson;
+	if(getPerson->Execute(tmdbId))
+		return getPerson;
+
+	delete getPerson;
 	return NULL;
 }
 

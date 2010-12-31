@@ -185,6 +185,7 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 	m_NzbView.Init(*this);
 	m_RssView.Init(*this);
 	m_TvShowView.Init(*this);
+	m_MovieView.Init(*this);
 
 	m_TabView[1].Create(*this, rcDefault, NULL, WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | TCS_TOOLTIPS, 0);
 	m_ConnectionView.Init(m_TabView[1]);
@@ -813,8 +814,10 @@ LRESULT CMainFrame::OnTreeChanged(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled
 			CWindow* newTopView = NULL;
 			if(ti.GetData() >= CViewTree::kFeeds && ti.GetData() <= CViewTree::kFeedsEnd) {
 				newTopView = &m_RssView;
-			} else if(ti.GetData() >= CViewTree::kTV && ti.GetData() <= CViewTree::kTVEnd) {
+			} else if(ti.GetData() >= CViewTree::kTvShows && ti.GetData() <= CViewTree::kTvShowsEnd) {
 				newTopView = &m_TvShowView;
+			} else if(ti.GetData() == CViewTree::kMovies) {
+				newTopView = &m_MovieView;
 			} else {
 				newTopView = &m_NzbView;
 			}
@@ -839,7 +842,7 @@ LRESULT CMainFrame::OnTreeChanged(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled
 			if(m_pTopView == &m_RssView) {
 				m_RssView.SetFeed(ti.GetData() - CViewTree::kFeeds);
 			} else if(m_pTopView == &m_TvShowView) {
-				m_TvShowView.SetShow(ti.GetData() - CViewTree::kTV);
+				m_TvShowView.SetShow(ti.GetData() - CViewTree::kTvShows);
 			}
 		}
 	}

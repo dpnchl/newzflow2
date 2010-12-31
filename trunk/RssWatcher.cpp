@@ -66,8 +66,8 @@ DWORD CRssWatcher::Run()
 			}
 		}
 		// Process Movies; TEST
-/*		{
-			sq3::Statement st(CNewzflow::Instance()->database->database, _T("SELECT rowid, description FROM RssItems WHERE description like ? LIMIT 1"));
+		{
+			sq3::Statement st(CNewzflow::Instance()->database->database, _T("SELECT rowid, description FROM RssItems WHERE description like ?"));
 			st.Bind(0, _T("%www.imdb.com/title/tt%"));
 			sq3::Reader reader = st.ExecuteReader();
 			while(reader.Step() == SQLITE_ROW) {
@@ -81,7 +81,6 @@ DWORD CRssWatcher::Run()
 				ProcessMovie(id, imdbId);
 				//Util::PostMessageToMainWindow(Util::MSG_TVSHOW_UPDATED);
 			}
-*/
 		}
 
 		delay = 60;
@@ -124,16 +123,38 @@ void CRssWatcher::ProcessTvShow(int id, int tvdb_id)
 
 void CRssWatcher::ProcessMovie(int id, const CString& imdbId)
 {
+/*
 	TheMovieDB::CGetMovie* getMovie = CNewzflow::Instance()->tmdbApi->GetMovie(imdbId);
-/*	if(getMovie) {
-		CTransaction transaction(CNewzflow::Instance()->database);
-		for(size_t i = 0; i < getMovie->Episodes.GetCount(); i++) {
-			TheTvDB::CEpisode* episode = getMovie->Episodes[i];
-			CNewzflow::Instance()->database->InsertTvEpisode(id, episode);
+	if(getMovie && !getMovie->Movies.IsEmpty()) {
+		TheMovieDB::CMovie* movie = getMovie->Movies[0];
+		// find and download poster image
+		int posterIndex = movie->images.Find(_T("poster"), _T("cover"));
+		if(posterIndex != -1) {
+			CString posterPath;
+			posterPath.Format(_T("%smovie%d.jpg"), CNewzflow::Instance()->settings->GetAppDataDir(), movie->id);
+			downloader.Download(movie->images[posterIndex]->url, posterPath, CString(), NULL);
 		}
-		CNewzflow::Instance()->database->UpdateTvShow(id);
-		TRACE(_T("inserted %d episodes\n"), getMovie->Episodes.GetCount());
+
+		// find and download actor images
+		for(int i = movie->cast.Find(_T("Actors"), NULL); i != -1; i = movie->cast.Find(_T("Actors"), NULL, i)) {
+			TheMovieDB::CPerson* person = movie->cast[i];
+			TheMovieDB::CGetPerson* getPerson = CNewzflow::Instance()->tmdbApi->GetPerson(person->id);
+			if(getPerson && !getPerson->Persons.IsEmpty()) {
+				person = getPerson->Persons[0];
+				int profileIndex = person->images.Find(_T("profile"), _T("profile"));
+				if(profileIndex != -1) {
+					CString profilePath;
+					profilePath.Format(_T("%sperson%d.jpg"), CNewzflow::Instance()->settings->GetAppDataDir(), person->id);
+					downloader.Download(person->images[profileIndex]->url, profilePath, CString(), NULL);
+				}
+			}
+			delete getPerson;
+		}
+
+		CTransaction transaction(CNewzflow::Instance()->database);
+		CNewzflow::Instance()->database->InsertMovie(imdbId, movie);
 	}
-*/
+
 	delete getMovie;
+*/
 }

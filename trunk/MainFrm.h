@@ -14,6 +14,7 @@
 #include "FileView.h"
 #include "Util.h"
 #include "NTray.h"
+#include "MovieView.h"
 
 class CNewzflowStatusBarCtrl : public CMultiPaneStatusBarCtrl
 {
@@ -44,6 +45,7 @@ public:
 	CNzbView m_NzbView;
 	CRssView m_RssView;
 	CTvShowView m_TvShowView;
+	CMovieView m_MovieView;
 	CTabViewEx m_TabView[2];
 	CConnectionView m_ConnectionView;
 	CFileView m_FileView;

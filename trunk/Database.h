@@ -2,6 +2,7 @@
 
 #include "SQLite/SQ3.h"
 #include "TheTvDB.h"
+#include "TheMovieDB.h"
 #include "rss.h"
 
 class CDatabase
@@ -13,15 +14,22 @@ public:
 	class QRssItems* GetRssItems(int feedId);
 	CString DownloadRssItem(int id);
 	void InsertRssItem(int feedId, CRssItem* item);
-
-	void UpdateTvShow(int showId);
+	void UpdateRssFeed(int id, CRss* rss);
 
 	class QTvEpisodes* GetTvEpisodes(int showId);
 	void InsertTvEpisode(int showId, TheTvDB::CEpisode* episode);
-	void UpdateRssFeed(int id, CRss* rss);
+	void UpdateTvShow(int showId);
+
+	class QMovies* GetMovies();
+	void InsertMovie(const CString& imdbId, TheMovieDB::CMovie* movie);
+
+	class QActors* GetActors(int movieId);
+
 	sq3::Database database;
+	CComAutoCriticalSection insertCs;
 };
 
+// auto-commit transaction
 class CTransaction
 {
 public:
@@ -62,6 +70,8 @@ public:
 	}
 	void Prepare(const CString& query)
 	{
+		delete reader; reader = NULL;
+		delete statement; statement = NULL;
 		statement = new sq3::Statement(database->database, query);
 		ASSERT(statement->IsValid());
 	}
@@ -77,6 +87,14 @@ public:
 		Prepare(query);
 		Bind(0, val1);
 		Bind(1, val2);
+	}
+	template <class T1, class T2, class T3>
+	void Prepare(const CString& query, T1 val1, T2 val2, T3 val3)
+	{
+		Prepare(query);
+		Bind(0, val1);
+		Bind(1, val2);
+		Bind(2, val3);
 	}
 	template <class T> void Bind(int num, T val)
 	{
@@ -95,6 +113,15 @@ public:
 	bool ExecuteVoid()
 	{
 		return statement->ExecuteNonQuery() == SQLITE_OK;
+	}
+	__int64 ExecuteInsert()
+	{
+		__int64 rowid = 0;
+		database->insertCs.Lock();
+		if(ExecuteVoid())
+			rowid = database->database.GetLastInsertID();
+		database->insertCs.Unlock();
+		return rowid;
 	}
 	template <class T> T Get(int id)
 	{
@@ -178,4 +205,35 @@ public:
 	int GetEpisode() { return Get<int>(2); }
 	CString GetTitle() { return Get<CString>(3); }
 	COleDateTime GetDate() { return Get<COleDateTime>(4); }
+};
+
+class QMovies : public CQuery
+{
+public:
+	QMovies(CDatabase* database)
+	: CQuery(database)
+	{
+		CString sQuery(_T("SELECT rowid, title, imdb_id, tmdb_id FROM Movies"));
+		Prepare(sQuery);
+		Execute();
+	}
+	int GetId() { return Get<int>(0); }
+	CString GetTitle() { return Get<CString>(1); }
+	CString GetImdbId() { return Get<CString>(2); }
+	int GetTmdbId() { return Get<int>(3); }
+};
+
+class QActors : public CQuery
+{
+public:
+	QActors(CDatabase* database, int movieId)
+	: CQuery(database)
+	{
+		CString sQuery(_T("SELECT Actors.rowid, Actors.name, Actors.tmdb_id FROM MovieActors INNER JOIN Actors ON MovieActors.actor = Actors.rowid WHERE MovieActors.movie = ? ORDER BY MovieActors.\"order\""));
+		Prepare(sQuery, movieId);
+		Execute();
+	}
+	int GetId() { return Get<int>(0); }
+	CString GetName() { return Get<CString>(1); }
+	int GetTmdbId() { return Get<int>(2); }
 };
