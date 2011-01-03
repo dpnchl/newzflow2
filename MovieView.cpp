@@ -28,7 +28,6 @@ enum {
 	kDate,
 };
 
-
 CMovieList::CMovieList()
 {
 //	SetSortColumn(kDate, false);
@@ -43,26 +42,20 @@ void CMovieList::Init(HWND hwndParent)
 
 	AddColumn(_T("Title"), kTitle);
 
-	m_ImageList.Create(185, 278, ILC_COLOR32, 0, 200);
-	CImage imgEmpty;
-	imgEmpty.Create(185, 278, 32);
-	unsigned char* bits = (unsigned char*)imgEmpty.GetBits();
-	int pitch = imgEmpty.GetPitch();
-	for(int y = 0; y < imgEmpty.GetHeight(); y++) {
-		memset(bits, 255, imgEmpty.GetWidth() * imgEmpty.GetBPP() / 8);
-		bits += pitch;
-	}
-	m_ImageList.Add((HBITMAP)imgEmpty, (HBITMAP)NULL);
+	m_ImageList.Create(width, height, true);
 
 	SetImageList(m_ImageList, LVSIL_NORMAL);
-	SetIconSpacing(185+5, 278+5);
+	SetIconSpacing(width+5, height+5);
 
 	Refresh();
 }
 
 void CMovieList::Refresh()
 {
+	SetRedraw(FALSE);
 	DeleteAllItems();
+	m_ImageList.RemoveAll();
+	m_ImageList.AddIcon(LoadIcon(LoadLibrary(_T("shell32.dll")), MAKEINTRESOURCE(1004)));
 
 	QMovies* view = CNewzflow::Instance()->database->GetMovies();
 	size_t count = 0;
@@ -74,27 +67,16 @@ void CMovieList::Refresh()
 		CString posterPath;
 		posterPath.Format(_T("%smovie%d.jpg"), CNewzflow::Instance()->settings->GetAppDataDir(), view->GetTmdbId());
 
-		CImage image;
-		if(SUCCEEDED(image.Load(posterPath))) {
-			// resize image to 185x278
-			int width=185,height=278;
-			CImage img1; 
-			img1.Create(width,height,32); 
-			CDC dc; 
-			dc.Attach(img1.GetDC()); 
-			dc.SetStretchBltMode(HALFTONE); 
-			image.StretchBlt(dc,0,0,width,height,SRCCOPY); 
-			dc.Detach(); 
-			img1.ReleaseDC(); 
-			int imageId = m_ImageList.GetImageCount();
-			m_ImageList.Add((HBITMAP)img1, (HBITMAP)NULL);
-			SetItem(item, 0, LVIF_IMAGE, NULL, imageId, 0, 0, 0);
-		}
-		SetItemPosition(item, count * (185+5), 0);
+		int image = m_ImageList.Add(posterPath);
+		if(image >= 0)
+			SetItem(item, 0, LVIF_IMAGE, NULL, image, 0, 0, 0);
+		SetItemPosition(item, count * (width+5), 0);
 
 		count++;
 	}
 	delete view;
+
+	SetRedraw(TRUE);
 }
 
 // CActorList
@@ -114,27 +96,18 @@ void CActorList::Init(HWND hwndParent)
 
 	AddColumn(_T("Title"), kTitle);
 
-	m_ImageList.Create(185, 278, ILC_COLOR32, 0, 200);
+	m_ImageList.Create(width, height, true);
 
 	SetImageList(m_ImageList, LVSIL_NORMAL);
-	SetIconSpacing(185+5, 278+5);
+	SetIconSpacing(width+5, height+5);
 }
 
 void CActorList::SetMovie(int movieId)
 {
 	SetRedraw(FALSE);
 	DeleteAllItems();
-
 	m_ImageList.RemoveAll();
-	CImage imgEmpty;
-	imgEmpty.Create(185, 278, 32);
-	unsigned char* bits = (unsigned char*)imgEmpty.GetBits();
-	int pitch = imgEmpty.GetPitch();
-	for(int y = 0; y < imgEmpty.GetHeight(); y++) {
-		memset(bits, 255, imgEmpty.GetWidth() * imgEmpty.GetBPP() / 8);
-		bits += pitch;
-	}
-	m_ImageList.Add((HBITMAP)imgEmpty, (HBITMAP)NULL);
+	m_ImageList.AddIcon(LoadIcon(LoadLibrary(_T("shell32.dll")), MAKEINTRESOURCE(1004)), RGB(0xf0, 0xf0, 0xf0) | 0xff000000, RGB(0xd0, 0xd0, 0xd0) | 0xff000000);
 
 	QActors* view = CNewzflow::Instance()->database->GetActors(movieId);
 	size_t count = 0;
@@ -146,23 +119,10 @@ void CActorList::SetMovie(int movieId)
 		CString posterPath;
 		posterPath.Format(_T("%sperson%d.jpg"), CNewzflow::Instance()->settings->GetAppDataDir(), view->GetTmdbId());
 
-		CImage image;
-		if(SUCCEEDED(image.Load(posterPath))) {
-			// resize image to 185x278
-			int width=185,height=278;
-			CImage img1; 
-			img1.Create(width,height,32); 
-			CDC dc; 
-			dc.Attach(img1.GetDC()); 
-			dc.SetStretchBltMode(HALFTONE); 
-			image.StretchBlt(dc,0,0,width,height,SRCCOPY); 
-			dc.Detach(); 
-			img1.ReleaseDC(); 
-			int imageId = m_ImageList.GetImageCount();
-			m_ImageList.Add((HBITMAP)img1, (HBITMAP)NULL);
-			SetItem(item, 0, LVIF_IMAGE, NULL, imageId, 0, 0, 0);
-		}
-		SetItemPosition(item, count * (185+5), 0);
+		int image = m_ImageList.Add(posterPath);
+		if(image >= 0)
+			SetItem(item, 0, LVIF_IMAGE, NULL, image, 0, 0, 0);
+		SetItemPosition(item, count * (width+5), 0);
 
 		count++;
 	}

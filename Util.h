@@ -53,6 +53,19 @@ protected:
 	CImageList ilNormal, ilDisabled;
 };
 
+class CImageListEx : public CImageList
+{
+public:
+	BOOL Create(int _cx, int _cy, bool _crop);
+	int AddEmpty();
+	int Add(const CString& path);
+	int AddIcon(HICON icon, COLORREF gradientTop = ~0, COLORREF gradientBottom = ~0);
+
+protected:
+	int cx, cy;
+	bool crop;
+};
+
 class CAsyncDownloader
 {
 public:
