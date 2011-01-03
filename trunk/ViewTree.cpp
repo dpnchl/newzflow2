@@ -430,6 +430,7 @@ public:
 		SetWindowTheme(m_List, L"explorer", NULL);
 		m_ImageLoader.SetSink(*this, MSG_IMAGELOADED);
 		m_ImageLoader.Init(4);
+		m_ImageList.Create(300, 55, true);
 
 		return TRUE;
 	}
@@ -451,25 +452,10 @@ public:
 		CHttpDownloader downloader;
 		downloader.Init();
 		m_ImageLoader.Clear();
-		m_ImageList.Destroy();
-		m_ImageList.Create(300, 55, ILC_COLOR32, 0, 100);
-		CImage imgEmpty;
-		imgEmpty.Create(300, 55, 32);
-		unsigned char* bits = (unsigned char*)imgEmpty.GetBits();
-		int pitch = imgEmpty.GetPitch();
-		for(int y = 0; y < imgEmpty.GetHeight(); y++) {
-			memset(bits, 255, imgEmpty.GetWidth() * imgEmpty.GetBPP() / 8);
-			bits += pitch;
-		}
-		m_ImageList.Add((HBITMAP)imgEmpty, (HBITMAP)NULL);
-		CDC dc;
-		dc.Attach(imgEmpty.GetDC());
-		dc.DrawIcon((300-32)/2, (55-32)/2, LoadIcon(LoadLibrary(_T("shell32.dll")), MAKEINTRESOURCE(1004))); // doesn't work on XP; why?
-		dc.Detach();
-		imgEmpty.ReleaseDC();
-		m_ImageList.Add((HBITMAP)imgEmpty, (HBITMAP)NULL);
+		m_ImageList.RemoveAll();
+		m_ImageList.AddEmpty();
+		m_ImageList.AddIcon(LoadIcon(LoadLibrary(_T("shell32.dll")), MAKEINTRESOURCE(1004)));
 
-		m_ImageList.Add((HBITMAP)imgEmpty, (HBITMAP)NULL);
 		for(size_t i = 0; i < m_pGetSeries->Series.GetCount(); i++) {
 			TheTvDB::CSeries* series = m_pGetSeries->Series[i];
 			int id = m_List.InsertItem(i, series->SeriesName, 0);
@@ -497,23 +483,9 @@ public:
 	LRESULT OnImageLoaded(UINT /*uMsg*/, WPARAM wParam, LPARAM /*lParam*/, BOOL& /*bHandled*/)
 	{
 		CAsyncDownloader::CItem* item = (CAsyncDownloader::CItem*)wParam;
-
-		CImage image;
-		if(SUCCEEDED(image.Load(item->path))) {
-			// resize image to 300x55
-			int width=300,height=55;
-			CImage img1; 
-			img1.Create(width,height,32); 
-			CDC dc; 
-			dc.Attach(img1.GetDC()); 
-			dc.SetStretchBltMode(HALFTONE); 
-			image.StretchBlt(dc,0,0,width,height,SRCCOPY ); 
-			dc.Detach(); 
-			img1.ReleaseDC(); 
-			int imageId = m_ImageList.GetImageCount();
-			m_ImageList.Add((HBITMAP)img1, (HBITMAP)NULL);
-			m_List.SetItem(item->param, 0, LVIF_IMAGE, NULL, imageId, 0, 0, 0);
-		}
+		int image = m_ImageList.Add(item->path);
+		if(image >= 0)
+			m_List.SetItem(item->param, 0, LVIF_IMAGE, NULL, image, 0, 0, 0);
 		return 0;
 	}
 	LRESULT OnItemChanged(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/)
@@ -574,7 +546,7 @@ public:
 
 	CViewTree* m_pViewTree;
 	CListViewCtrl m_List;
-	CImageList m_ImageList;
+	CImageListEx m_ImageList;
 
 	TheTvDB::CGetSeries* m_pGetSeries;
 

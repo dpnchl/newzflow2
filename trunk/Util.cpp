@@ -412,6 +412,101 @@ void CToolBarImageList::Set(HWND hwndToolBar)
 	toolBar.SetDisabledImageList(ilDisabled);
 }
 
+// CImageListEx
+//////////////////////////////////////////////////////////////////////////
+
+BOOL CImageListEx::Create(int _cx, int _cy, bool _crop)
+{
+	cx = _cx; cy = _cy;
+	crop = _crop;
+	return CImageList::Create(cx, cy, ILC_COLOR32, 0, 200);
+}
+
+int CImageListEx::AddEmpty()
+{
+	CImage imgEmpty;
+	imgEmpty.Create(cx, cy, 32);
+	unsigned char* bits = (unsigned char*)imgEmpty.GetBits();
+	int pitch = imgEmpty.GetPitch();
+	for(int y = 0; y < imgEmpty.GetHeight(); y++) {
+		memset(bits, 255, imgEmpty.GetWidth() * imgEmpty.GetBPP() / 8);
+		bits += pitch;
+	}
+	return CImageList::Add((HBITMAP)imgEmpty, (HBITMAP)NULL);
+}
+
+int CImageListEx::Add(const CString& path)
+{
+	CImage image;
+	if(FAILED(image.Load(path)))
+		return -1;
+
+	int ocx = image.GetWidth(), ocy = image.GetHeight();
+	float oaspect = (float)ocx / (float)ocy;
+	float aspect = (float)cx / (float)cy;
+
+	// resize image
+	CImage img1; 
+	img1.Create(cx, cy, 32); 
+	CDC dc; 
+	dc.Attach(img1.GetDC()); 
+	dc.SetStretchBltMode(HALFTONE); 
+	if(crop) {
+		if(oaspect < aspect) {
+			// crop top&bottom
+			image.StretchBlt(dc, 0, (int)(cy - (float)cx / oaspect) / 2, cx, (int)(cx / oaspect), SRCCOPY); 
+		} else {
+			// crop left&right
+			image.StretchBlt(dc, (int)(cx - (float)cy * oaspect) / 2, 0, (int)(cy * oaspect), cy, SRCCOPY); 
+		}
+	} else {
+		image.StretchBlt(dc, 0, 0, cx, cy, SRCCOPY); 
+	}
+	dc.Detach(); 
+	img1.ReleaseDC(); 
+	return CImageList::Add((HBITMAP)img1, (HBITMAP)NULL);
+}
+
+int CImageListEx::AddIcon(HICON icon, COLORREF gradientTop /*= ~0*/, COLORREF gradientBottom /*= ~0*/)
+{
+	CImage imgEmpty;
+	imgEmpty.Create(cx, cy, 32);
+	CDC dc;
+	dc.Attach(imgEmpty.GetDC());
+
+	// Create an array of TRIVERTEX structures that describe 
+	// positional and color values for each vertex. For a rectangle, 
+	// only two vertices need to be defined: upper-left and lower-right. 
+	TRIVERTEX vertex[2] ;
+	vertex[0].x     = 0;
+	vertex[0].y     = 0;
+	vertex[0].Red   = GetRValue(gradientTop) << 8;
+	vertex[0].Green = GetGValue(gradientTop) << 8;
+	vertex[0].Blue  = GetBValue(gradientTop) << 8;
+	vertex[0].Alpha = (gradientTop >> 24) << 8;
+
+	vertex[1].x     = cx;
+	vertex[1].y     = cy; 
+	vertex[1].Red   = GetRValue(gradientBottom) << 8;
+	vertex[1].Green = GetGValue(gradientBottom) << 8;
+	vertex[1].Blue  = GetBValue(gradientBottom) << 8;
+	vertex[1].Alpha = (gradientBottom >> 24) << 8;
+
+	// Create a GRADIENT_RECT structure that 
+	// references the TRIVERTEX vertices. 
+	GRADIENT_RECT gRect;
+	gRect.UpperLeft  = 0;
+	gRect.LowerRight = 1;
+
+	// Draw a shaded rectangle. 
+	dc.GradientFill(vertex, 2, &gRect, 1, GRADIENT_FILL_RECT_V);
+
+	dc.DrawIcon((cx-32)/2, (cy-32)/2, icon); // doesn't work on XP; why?
+	dc.Detach();
+	imgEmpty.ReleaseDC();
+	return CImageList::Add((HBITMAP)imgEmpty, (HBITMAP)NULL);
+}
+
 // CAsyncDownloaderThread
 //////////////////////////////////////////////////////////////////////////
 

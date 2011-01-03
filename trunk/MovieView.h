@@ -7,6 +7,7 @@
 class CNzb;
 
 #include "ListViewEx.h"
+#include "Util.h"
 
 class CMovieList : public CWindowImpl<CMovieList, CListViewCtrl>
 {
@@ -23,7 +24,12 @@ public:
 	void Refresh();
 
 protected:
-	CImageList m_ImageList;
+	CImageListEx m_ImageList;
+
+	enum {
+		width = 166,
+		height = 250
+	};
 
 // Handler prototypes (uncomment arguments if needed):
 //	LRESULT MessageHandler(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)
@@ -46,7 +52,12 @@ public:
 	void SetMovie(int movieId);
 
 protected:
-	CImageList m_ImageList;
+	CImageListEx m_ImageList;
+
+	enum {
+		width = 92,
+		height = 139
+	};
 };
 
 class CMovieView : public CWindowImpl<CMovieView>
