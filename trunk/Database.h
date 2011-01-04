@@ -11,7 +11,8 @@ public:
 	CDatabase(const CString& dbPath);
 	~CDatabase();
 
-	class QRssItems* GetRssItems(int feedId);
+	class QRssItems* GetRssItemsByFeed(int feedId);
+	class QRssItems* GetRssItemsByMovie(int movieId);
 	CString DownloadRssItem(int id);
 	void InsertRssItem(int feedId, CRssItem* item);
 	void UpdateRssFeed(int id, CRss* rss);
@@ -20,11 +21,11 @@ public:
 	void InsertTvEpisode(int showId, TheTvDB::CEpisode* episode);
 	void UpdateTvShow(int showId);
 
-	class QMovies* GetMovies();
-	void InsertMovie(const CString& imdbId, TheMovieDB::CMovie* movie);
+	class QMovies* GetMovies(const CString& imdbId = _T(""));
+	int InsertMovie(const CString& imdbId, TheMovieDB::CMovie* movie);
 
 	class QActors* GetActors(int movieId);
-
+	void InsertMovieRelease(int movieId, int rssItem);
 	sq3::Database database;
 	CComAutoCriticalSection insertCs;
 };
@@ -167,17 +168,9 @@ protected:
 class QRssItems : public CQuery
 {
 public:
-	QRssItems(CDatabase* database, int feedId)
-	: CQuery(database)
-	{
-		CString sQuery(_T("SELECT RssItems.rowid, RssItems.title, RssItems.length, strftime('%s', RssItems.date), RssItems.status, RssFeeds.title FROM RssItems LEFT JOIN RssFeeds ON RssItems.feed = RssFeeds.rowid"));
-		if(feedId > 0)
-			sQuery += _T(" WHERE RssFeeds.rowid = ?");
-		Prepare(sQuery);
-		if(feedId > 0)
-			Bind(0, feedId);
-		Execute();
-	}
+	QRssItems(CDatabase* database)
+	: CQuery(database) { }
+
 	int GetId() { return Get<int>(0); }
 	CString GetTitle() { return Get<CString>(1); }
 	__int64 GetSize() { return Get<__int64>(2); }
@@ -188,6 +181,38 @@ public:
 	enum EStatus {
 		kDownloaded = 1,
 	};
+};
+
+class QRssItemsByFeed : public QRssItems
+{
+public:
+	QRssItemsByFeed(CDatabase* database, int feedId)
+	: QRssItems(database)
+	{
+		CString sQuery(_T("SELECT RssItems.rowid, RssItems.title, RssItems.length, strftime('%s', RssItems.date), RssItems.status, RssFeeds.title FROM RssItems LEFT JOIN RssFeeds ON RssItems.feed = RssFeeds.rowid"));
+		if(feedId > 0)
+			sQuery += _T(" WHERE RssFeeds.rowid = ?");
+		Prepare(sQuery);
+		if(feedId > 0)
+			Bind(0, feedId);
+		Execute();
+	}
+};
+
+class QRssItemsByMovie : public QRssItems
+{
+public:
+	QRssItemsByMovie(CDatabase* database, int movieId)
+	: QRssItems(database)
+	{
+		CString sQuery(_T("SELECT RssItems.rowid, RssItems.title, RssItems.length, strftime('%s', RssItems.date), RssItems.status, RssFeeds.title FROM MovieReleases LEFT JOIN RssItems ON MovieReleases.rss_item = RssItems.rowid LEFT JOIN RssFeeds ON RssItems.feed = RssFeeds.rowid"));
+		if(movieId > 0)
+			sQuery += _T(" WHERE MovieReleases.movie = ?");
+		Prepare(sQuery);
+		if(movieId > 0)
+			Bind(0, movieId);
+		Execute();
+	}
 };
 
 class QTvEpisodes : public CQuery
@@ -210,11 +235,15 @@ public:
 class QMovies : public CQuery
 {
 public:
-	QMovies(CDatabase* database)
+	QMovies(CDatabase* database, const CString& imdbId)
 	: CQuery(database)
 	{
 		CString sQuery(_T("SELECT rowid, title, imdb_id, tmdb_id FROM Movies"));
+		if(!imdbId.IsEmpty())
+			sQuery += _T(" WHERE imdb_id = ?");
 		Prepare(sQuery);
+		if(!imdbId.IsEmpty())
+			Bind(0, imdbId);
 		Execute();
 	}
 	int GetId() { return Get<int>(0); }

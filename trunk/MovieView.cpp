@@ -15,18 +15,10 @@
 #define new DEBUG_CLIENTBLOCK
 #endif
 
-// TODO: extract image scaling code; proper aspect-keeping scaling; smaller size for actors
-
+// TODO: measure height of MovieList/ActorList; don't just add 68 pixels to height of image list
 
 // CMovieList
 //////////////////////////////////////////////////////////////////////////
-
-// columns
-enum {
-	kTitle,
-	kEpisode,
-	kDate,
-};
 
 CMovieList::CMovieList()
 {
@@ -40,7 +32,7 @@ void CMovieList::Init(HWND hwndParent)
 	SetExtendedListViewStyle(LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
 	SetWindowTheme(*this, L"explorer", NULL);
 
-	AddColumn(_T("Title"), kTitle);
+	//AddColumn(_T("Title"), kTitle);
 
 	m_ImageList.Create(width, height, true);
 
@@ -60,9 +52,8 @@ void CMovieList::Refresh()
 	QMovies* view = CNewzflow::Instance()->database->GetMovies();
 	size_t count = 0;
 	while(view->GetRow()) {
-		int item = AddItem(count, 0, _T(""), 0);
+		int item = AddItem(count, 0, view->GetTitle(), 0);
 		SetItemData(item, view->GetId());
-		SetItemText(count, kTitle, view->GetTitle());
 
 		CString posterPath;
 		posterPath.Format(_T("%smovie%d.jpg"), CNewzflow::Instance()->settings->GetAppDataDir(), view->GetTmdbId());
@@ -94,7 +85,7 @@ void CActorList::Init(HWND hwndParent)
 	SetExtendedListViewStyle(LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
 	SetWindowTheme(*this, L"explorer", NULL);
 
-	AddColumn(_T("Title"), kTitle);
+	//AddColumn(_T("Title"), kTitle);
 
 	m_ImageList.Create(width, height, true);
 
@@ -112,9 +103,8 @@ void CActorList::SetMovie(int movieId)
 	QActors* view = CNewzflow::Instance()->database->GetActors(movieId);
 	size_t count = 0;
 	while(view->GetRow()) {
-		int item = AddItem(count, 0, _T(""), 0);
+		int item = AddItem(count, 0, view->GetName(), 0);
 		SetItemData(item, view->GetId());
-		SetItemText(count, kTitle, view->GetName());
 
 		CString posterPath;
 		posterPath.Format(_T("%sperson%d.jpg"), CNewzflow::Instance()->settings->GetAppDataDir(), view->GetTmdbId());
@@ -130,6 +120,95 @@ void CActorList::SetMovie(int movieId)
 	SetRedraw(TRUE);
 }
 
+// CMovieReleaseList
+//////////////////////////////////////////////////////////////////////////
+
+// columns
+enum {
+	kTitle,
+	kSize,
+	kDate,
+};
+
+/*static*/ const CMovieReleaseList::ColumnInfo CMovieReleaseList::s_columnInfo[] = { 
+	{ _T("Title"),		_T("Title"),		CMovieReleaseList::typeString,	LVCFMT_LEFT,	400,	true },
+	{ _T("Size"),		_T("Size"),			CMovieReleaseList::typeSize,	LVCFMT_RIGHT,	 80,	true },
+	{ _T("Date"),		_T("Date"),			CMovieReleaseList::typeDate,	LVCFMT_LEFT,	150,	true },
+	{ NULL }
+};
+
+CMovieReleaseList::CMovieReleaseList()
+{
+	m_movieId = 0;
+//	SetSortColumn(kDate, false);
+}
+
+BOOL CMovieReleaseList::PreTranslateMessage(MSG* pMsg)
+{
+	pMsg;
+	return FALSE;
+}
+
+void CMovieReleaseList::Init(HWND hwndParent)
+{
+	Create(hwndParent, rcDefault, NULL, WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | LVS_REPORT | LVS_SHOWSELALWAYS, 0);
+
+	SetExtendedListViewStyle(LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
+	SetWindowTheme(*this, L"explorer", NULL);
+
+	InitDynamicColumns(_T("MovieReleaseList"));
+
+	Refresh();
+}
+
+int CMovieReleaseList::OnRefresh()
+{
+	size_t count = 0;
+	if(m_movieId) {
+		QRssItems* view = CNewzflow::Instance()->database->GetRssItemsByMovie(m_movieId);
+		while(view->GetRow()) {
+			AddItemEx(count, view->GetId());
+			SetItemTextEx(count, kTitle, view->GetTitle());
+			SetItemTextEx(count, kSize, Util::FormatSize(view->GetSize()));
+			SetItemTextEx(count, kDate, view->GetDate().Format());
+
+			count++;
+		}
+		delete view;
+	}
+
+	return count;
+}
+
+void CMovieReleaseList::SetMovie(int movieId)
+{
+	if(movieId != m_movieId)
+		DeleteAllItems();
+	m_movieId = movieId;
+	Refresh();
+}
+
+const CMovieReleaseList::ColumnInfo* CMovieReleaseList::GetColumnInfoArray()
+{
+	return s_columnInfo;
+}
+
+// CCustomDraw
+DWORD CMovieReleaseList::OnPrePaint(int /*idCtrl*/, LPNMCUSTOMDRAW /*lpNMCustomDraw*/)
+{
+	return CDRF_NOTIFYITEMDRAW;
+}
+
+DWORD CMovieReleaseList::OnItemPrePaint(int /*idCtrl*/, LPNMCUSTOMDRAW /*lpNMCustomDraw*/)
+{
+	return CDRF_NOTIFYSUBITEMDRAW;
+}
+
+DWORD CMovieReleaseList::OnSubItemPrePaint(int /*idCtrl*/, LPNMCUSTOMDRAW lpNMCustomDraw)
+{
+	return CDRF_DODEFAULT;
+}
+
 // CMovieView
 //////////////////////////////////////////////////////////////////////////
 
@@ -138,15 +217,28 @@ void CMovieView::Init(HWND hwndParent)
 	Create(hwndParent, rcDefault, NULL, WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | LVS_ICON | LVS_SHOWSELALWAYS, 0);
 	m_MovieList.Init(*this);
 	m_ActorList.Init(*this);
+	m_ReleaseList.Init(*this);
 }
 
 void CMovieView::OnSize(UINT nType, CSize size)
 {
 	HDWP hdwp = BeginDeferWindowPos(2);
-	if(m_MovieList.IsWindow())
-		m_MovieList.DeferWindowPos(hdwp, NULL, 0, 0, size.cx, size.cy/2, SWP_NOZORDER | SWP_NOACTIVATE);
-	if(m_ActorList.IsWindow())
-		m_ActorList.DeferWindowPos(hdwp, NULL, 0, size.cy/2, size.cx, size.cy/2, SWP_NOZORDER | SWP_NOACTIVATE);
+	int y = 0;
+	if(m_MovieList.IsWindow()) {
+		int height = CMovieList::height + 58;
+		m_MovieList.DeferWindowPos(hdwp, NULL, 0, 0, size.cx, height, SWP_NOZORDER | SWP_NOACTIVATE);
+		y += height;
+	}
+	if(m_ActorList.IsWindow()) {
+		int height = CActorList::height + 58;
+		m_ActorList.DeferWindowPos(hdwp, NULL, 0, y, size.cx, height, SWP_NOZORDER | SWP_NOACTIVATE);
+		y += height;
+	}
+	if(m_ReleaseList.IsWindow()) {
+		int height = max(0, (int)size.cy - y);
+		m_ReleaseList.DeferWindowPos(hdwp, NULL, 0, y, size.cx, height, SWP_NOZORDER | SWP_NOACTIVATE);
+		y += height;
+	}
 	EndDeferWindowPos(hdwp);
 }
 
@@ -156,6 +248,29 @@ LRESULT CMovieView::OnItemChanged(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled
 	if(pnmh->hwndFrom == m_MovieList) {
 		if(nmlv->uNewState & LVIS_SELECTED) {
 			m_ActorList.SetMovie(nmlv->lParam);
+			m_ReleaseList.SetMovie(nmlv->lParam);
+		}
+	}
+	return 0;
+}
+
+LRESULT CMovieView::OnDblClick(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled*/)
+{
+	LPNMLISTVIEW nmlv = (LPNMLISTVIEW)pnmh;
+	if(pnmh->hwndFrom == m_ReleaseList) {
+		if(m_ReleaseList.GetNextItem(-1, LVNI_SELECTED) != -1) {
+			{ CTransaction transaction(CNewzflow::Instance()->database);
+				for(int iItem = m_ReleaseList.GetNextItem(-1, LVNI_SELECTED); iItem != -1; iItem = m_ReleaseList.GetNextItem(iItem, LVNI_SELECTED)) {
+					int id = m_ReleaseList.GetItemData(iItem);
+
+					// get URL for RSS item and add NZB; set status to downloaded
+					CString sUrl = CNewzflow::Instance()->database->DownloadRssItem(id);
+					if(!sUrl.IsEmpty())
+						CNewzflow::Instance()->controlThread->AddURL(sUrl);
+					else
+						transaction.Rollback();
+				}
+			}
 		}
 	}
 	return 0;

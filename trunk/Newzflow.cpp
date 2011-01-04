@@ -22,6 +22,8 @@
 #endif
 
 // TODO:
+// - RSS parsing for NzbMatrix: enclosure-size is modulo 32bit; get real one from description; also get pubDate from description
+// - leak at themoviedb.cpp(123)
 // - associate NZBs with RssItems to get status information back into RssView
 // - ... also to get NZB filename when no sensible one is returned (e.g. binsearch.info only returns the NZB ID)
 // - remove .nzb extension from NZB names/download directories

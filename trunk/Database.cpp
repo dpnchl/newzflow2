@@ -23,6 +23,7 @@ CDatabase::CDatabase(const CString& dbPath)
 		database.Execute("CREATE TABLE IF NOT EXISTS \"Movies\" (\"title\" TEXT, \"imdb_id\" TEXT, \"tmdb_id\" INTEGER NOT NULL UNIQUE)");
 		database.Execute("CREATE TABLE IF NOT EXISTS \"MovieActors\" (\"movie\" INTEGER, \"actor\" INTEGER, \"order\" INTEGER)");
 		database.Execute("CREATE TABLE IF NOT EXISTS \"Actors\" (\"name\" TEXT, \"tmdb_id\" INTEGER NOT NULL UNIQUE)");
+		database.Execute("CREATE TABLE IF NOT EXISTS \"MovieReleases\" (\"movie\" INTEGER, \"rss_item\" INTEGER NOT NULL UNIQUE)");
 	}
 }
 
@@ -30,9 +31,14 @@ CDatabase::~CDatabase()
 {
 }
 
-QRssItems* CDatabase::GetRssItems(int feedId)
+QRssItems* CDatabase::GetRssItemsByFeed(int feedId)
 {
-	return new QRssItems(this, feedId);
+	return new QRssItemsByFeed(this, feedId);
+}
+
+class QRssItems* CDatabase::GetRssItemsByMovie(int movieId)
+{
+	return new QRssItemsByMovie(this, movieId);
 }
 
 QTvEpisodes* CDatabase::GetTvEpisodes(int showId)
@@ -40,9 +46,9 @@ QTvEpisodes* CDatabase::GetTvEpisodes(int showId)
 	return new QTvEpisodes(this, showId);
 }
 
-QMovies* CDatabase::GetMovies()
+QMovies* CDatabase::GetMovies(const CString& imdbId)
 {
-	return new QMovies(this);
+	return new QMovies(this, imdbId);
 }
 
 QActors* CDatabase::GetActors(int movieId)
@@ -133,7 +139,7 @@ void CDatabase::UpdateRssFeed(int feedId, CRss* rss)
 	}
 }
 
-void CDatabase::InsertMovie(const CString& imdbId, TheMovieDB::CMovie* movie)
+int CDatabase::InsertMovie(const CString& imdbId, TheMovieDB::CMovie* movie)
 {
 	CQuery q(this);
 	q.Prepare(_T("INSERT OR IGNORE INTO Movies (imdb_id, tmdb_id, title) VALUES (?, ?, ?)"));
@@ -155,5 +161,12 @@ void CDatabase::InsertMovie(const CString& imdbId, TheMovieDB::CMovie* movie)
 			q.ExecuteInsert();
 		}
 	}
+	return (int)movieId;
 }
 
+void CDatabase::InsertMovieRelease(int movieId, int rssItem)
+{
+	CQuery q(this);
+	q.Prepare(_T("INSERT OR IGNORE INTO MovieReleases (movie, rss_item) VALUES (?, ?)"), movieId, rssItem);
+	q.ExecuteInsert();
+}

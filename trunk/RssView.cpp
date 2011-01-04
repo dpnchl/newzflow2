@@ -59,7 +59,7 @@ void CRssView::Init(HWND hwndParent)
 
 int CRssView::OnRefresh()
 {
-	QRssItems* rssView = CNewzflow::Instance()->database->GetRssItems(m_feedId);
+	QRssItems* rssView = CNewzflow::Instance()->database->GetRssItemsByFeed(m_feedId);
 	size_t count = 0;
 	while(rssView->GetRow()) {
 		AddItemEx(count, rssView->GetId());

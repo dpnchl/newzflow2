@@ -23,13 +23,13 @@ public:
 	void Init(HWND hwndParent);
 	void Refresh();
 
-protected:
-	CImageListEx m_ImageList;
-
 	enum {
 		width = 166,
 		height = 250
 	};
+
+protected:
+	CImageListEx m_ImageList;
 
 // Handler prototypes (uncomment arguments if needed):
 //	LRESULT MessageHandler(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)
@@ -51,13 +51,46 @@ public:
 	void Init(HWND hwndParent);
 	void SetMovie(int movieId);
 
-protected:
-	CImageListEx m_ImageList;
-
 	enum {
 		width = 92,
 		height = 139
 	};
+
+protected:
+	CImageListEx m_ImageList;
+};
+
+class CMovieReleaseList : public CWindowImpl<CMovieReleaseList, CListViewCtrl>, public CDynamicColumns<CMovieReleaseList>, public CCustomDraw<CMovieReleaseList>
+{
+public:
+	DECLARE_WND_SUPERCLASS(_T("CMovieReleaseList"), CListViewCtrl::GetWndClassName())
+
+	BOOL PreTranslateMessage(MSG* pMsg);
+
+	BEGIN_MSG_MAP(CMovieReleaseList)
+		CHAIN_MSG_MAP(CDynamicColumns<CMovieReleaseList>)
+		CHAIN_MSG_MAP_ALT(CCustomDraw<CMovieReleaseList>, 1)
+		DEFAULT_REFLECTION_HANDLER()
+	END_MSG_MAP()
+
+	CMovieReleaseList();
+
+	void Init(HWND hwndParent);
+	void SetMovie(int movieId);
+
+	// CCustomDraw overrides
+	DWORD OnPrePaint(int /*idCtrl*/, LPNMCUSTOMDRAW /*lpNMCustomDraw*/);
+	DWORD OnItemPrePaint(int /*idCtrl*/, LPNMCUSTOMDRAW /*lpNMCustomDraw*/);
+	DWORD OnSubItemPrePaint(int /*idCtrl*/, LPNMCUSTOMDRAW /*lpNMCustomDraw*/);
+
+	// CSortableList overrides
+	int OnRefresh();
+	const ColumnInfo* GetColumnInfoArray();
+
+protected:
+	static const ColumnInfo s_columnInfo[];
+
+	int m_movieId;
 };
 
 class CMovieView : public CWindowImpl<CMovieView>
@@ -65,7 +98,7 @@ class CMovieView : public CWindowImpl<CMovieView>
 public:
 	BEGIN_MSG_MAP(CMovieView)
 		NOTIFY_CODE_HANDLER(LVN_ITEMCHANGED, OnItemChanged)
-		//REFLECTED_NOTIFY_CODE_HANDLER(NM_DBLCLK, OnDblClick)
+		NOTIFY_CODE_HANDLER(NM_DBLCLK, OnDblClick)
 		//DEFAULT_REFLECTION_HANDLER()
 		MSG_WM_SIZE(OnSize)
 	END_MSG_MAP()
@@ -74,8 +107,10 @@ public:
 
 	void OnSize(UINT nType, CSize size);
 	LRESULT OnItemChanged(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled*/);
+	LRESULT OnDblClick(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled*/);
 
 protected:
 	CMovieList m_MovieList;
 	CActorList m_ActorList;
+	CMovieReleaseList m_ReleaseList;
 };
