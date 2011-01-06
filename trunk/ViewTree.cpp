@@ -76,38 +76,30 @@ void CViewTree::Refresh()
 	}
 
 	// add RSS feeds
-	{
-		sq3::Statement st(CNewzflow::Instance()->database->database, _T("SELECT rowid, title FROM RssFeeds ORDER BY title ASC"));
-		sq3::Reader reader = st.ExecuteReader();
-		while(reader.Step() == SQLITE_ROW) {
-			int id; reader.GetInt(0, id);
-			CString sTitle; reader.GetString(1, sTitle);
-			CTreeItem tvRss = InsertItem(sTitle, 13, 13, tvFeeds, TVI_LAST);
-			tvRss.SetData(kFeeds + id);
-			if(oldSel == tvRss.GetData()) {
-				tvRss.Select();
-				oldSelRestored = true;
-			}
+	QRssFeeds* rssFeeds = CNewzflow::Instance()->database->GetRssFeeds();
+	while(rssFeeds->GetRow()) {
+		CTreeItem tvRss = InsertItem(rssFeeds->GetTitle(), 13, 13, tvFeeds, TVI_LAST);
+		tvRss.SetData(kFeeds + rssFeeds->GetId());
+		if(oldSel == tvRss.GetData()) {
+			tvRss.Select();
+			oldSelRestored = true;
 		}
-		tvFeeds.Expand();
 	}
+	tvFeeds.Expand();
+	delete rssFeeds;
 
 	// add TV shows
-	{
-		sq3::Statement st(CNewzflow::Instance()->database->database, _T("SELECT rowid, title FROM TvShows ORDER BY title ASC"));
-		sq3::Reader reader = st.ExecuteReader();
-		while(reader.Step() == SQLITE_ROW) {
-			int id; reader.GetInt(0, id);
-			CString sTitle; reader.GetString(1, sTitle);
-			CTreeItem tvShow = InsertItem(sTitle, 12, 12, tvTvShows, TVI_LAST);
-			tvShow.SetData(kTvShows + id);
-			if(oldSel == tvShow.GetData()) {
-				tvShow.Select();
-				oldSelRestored = true;
-			}
+	QTvShows* tvShows = CNewzflow::Instance()->database->GetTvShows();
+	while(tvShows->GetRow()) {
+		CTreeItem tvShow = InsertItem(tvShows->GetTitle(), 12, 12, tvTvShows, TVI_LAST);
+		tvShow.SetData(kTvShows + tvShows->GetId());
+		if(oldSel == tvShow.GetData()) {
+			tvShow.Select();
+			oldSelRestored = true;
 		}
-		tvTvShows.Expand();
 	}
+	tvTvShows.Expand();
+	delete tvShows;
 
 	// we couldn't select the same item as before
 	if(!oldSelRestored) {
@@ -182,12 +174,10 @@ public:
 		pDropTarget->Register(*this, this);
 		CenterWindow(GetParent());
 		if(m_iRowId) {
-			sq3::Statement st(CNewzflow::Instance()->database->database, _T("SELECT title, url FROM RssFeeds WHERE rowid = ?"));
-			st.Bind(0, m_iRowId);
-			sq3::Reader reader = st.ExecuteReader();
-			if(reader.Step() == SQLITE_ROW) {
-				reader.GetString(0, m_sAlias);
-				reader.GetString(1, m_sURL);
+			QRssFeeds* rssFeeds = CNewzflow::Instance()->database->GetRssFeeds(m_iRowId);
+			if(rssFeeds->GetRow()) {
+				m_sAlias = rssFeeds->GetTitle();
+				m_sURL = rssFeeds->GetUrl();
 				m_sOldURL = m_sURL;
 				if(!m_sAlias.IsEmpty()) {
 					CheckDlgButton(IDC_ALIAS_CHECK, 1);
@@ -203,6 +193,7 @@ public:
 			} else {
 				m_iRowId = 0;
 			}
+			delete rssFeeds;
 		}
 		ShowWindow(SW_SHOW);
 		return TRUE;
@@ -221,35 +212,9 @@ public:
 			OnDataCustomError(IDC_URL, _T("Please enter a valid http:// or https:// URL."));
 		} else {
 			if(m_iRowId == 0) {
-				sq3::Statement st(CNewzflow::Instance()->database->database, _T("INSERT OR IGNORE INTO RssFeeds (title, url) VALUES (?, ?)"));
-				ASSERT(st.IsValid());
-				if(IsDlgButtonChecked(IDC_ALIAS_CHECK))
-					st.Bind(0, m_sAlias);
-				else
-					st.Bind(0);
-				st.Bind(1, m_sURL);
-				if(st.ExecuteNonQuery() != SQLITE_OK) {
-					TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database->database.GetErrorMessage());
-				}
+				CNewzflow::Instance()->database->InsertRssFeed(0, IsDlgButtonChecked(IDC_ALIAS_CHECK) ? m_sAlias : _T(""), m_sURL);
 			} else {
-				sq3::Statement st(CNewzflow::Instance()->database->database, _T("UPDATE RssFeeds SET title = ?, url = ? WHERE rowid = ?"));
-				ASSERT(st.IsValid());
-				if(IsDlgButtonChecked(IDC_ALIAS_CHECK))
-					st.Bind(0, m_sAlias);
-				else
-					st.Bind(0);
-				st.Bind(1, m_sURL);
-				st.Bind(2, m_iRowId);
-				if(st.ExecuteNonQuery() != SQLITE_OK) {
-					TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database->database.GetErrorMessage());
-				}
-				if(m_sURL != m_sOldURL) {
-					sq3::Statement st(CNewzflow::Instance()->database->database, _T("UPDATE RssFeeds SET last_update = NULL WHERE rowid = ?"));
-					st.Bind(0, m_iRowId);
-					if(st.ExecuteNonQuery() != SQLITE_OK) {
-						TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database->database.GetErrorMessage());
-					}
-				}
+				CNewzflow::Instance()->database->InsertRssFeed(m_iRowId, IsDlgButtonChecked(IDC_ALIAS_CHECK) ? m_sAlias : _T(""), m_sURL, m_sURL != m_sOldURL);
 			}
 			DestroyWindow();
 			m_pViewTree->Refresh();
@@ -327,27 +292,9 @@ LRESULT CViewTree::OnFeedsDelete(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWnd
 	if(!item.IsNull() && item.GetParent() == tvFeeds) {
 		ASSERT(item.GetData() >= kFeeds + 1 && item.GetData() <= kFeedsEnd);
 		int feedId = item.GetData() - kFeeds;
-		{ sq3::Transaction transaction(CNewzflow::Instance()->database->database);
-			{
-				sq3::Statement st(CNewzflow::Instance()->database->database, _T("DELETE FROM RssItems WHERE feed = ?"));
-				ASSERT(st.IsValid());
-				st.Bind(0, feedId);
-				if(st.ExecuteNonQuery() != SQLITE_OK) {
-					TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database->database.GetErrorMessage());
-				}
-			}
-
-			{
-				sq3::Statement st(CNewzflow::Instance()->database->database, _T("DELETE FROM RssFeeds WHERE rowid = ?"));
-				ASSERT(st.IsValid());
-				st.Bind(0, feedId);
-				if(st.ExecuteNonQuery() != SQLITE_OK) {
-					TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database->database.GetErrorMessage());
-				}
-			}
-			transaction.Commit();
+		{ CTransaction transaction(CNewzflow::Instance()->database);
+			CNewzflow::Instance()->database->DeleteRssFeed(feedId);
 		}
-
 		Refresh();
 	}
 
@@ -454,7 +401,7 @@ public:
 		m_ImageLoader.Clear();
 		m_ImageList.RemoveAll();
 		m_ImageList.AddEmpty();
-		m_ImageList.AddIcon(LoadIcon(LoadLibrary(_T("shell32.dll")), MAKEINTRESOURCE(1004)));
+		m_ImageList.AddIcon(LoadIcon(LoadLibrary(_T("shell32.dll")), MAKEINTRESOURCE(1004)), RGB(0xf0, 0xf0, 0xf0) | 0xff000000, RGB(0xd0, 0xd0, 0xd0) | 0xff000000);
 
 		for(size_t i = 0; i < m_pGetSeries->Series.GetCount(); i++) {
 			TheTvDB::CSeries* series = m_pGetSeries->Series[i];
@@ -473,8 +420,14 @@ public:
 			if(!series->banner.IsEmpty()) {
 				CString bannerFile;
 				bannerFile.Format(_T("%sseries%d.jpg"), CNewzflow::Instance()->settings->GetAppDataDir(), series->id);
-				m_ImageLoader.Add(_T("http://www.thetvdb.com/banners/") + series->banner, bannerFile, id);
-				m_List.SetItem(id, 0, LVIF_IMAGE, NULL, 1, 0, 0, 0); // "loading"
+				int imageId = m_ImageList.Add(bannerFile);
+				if(imageId >= 0) {
+					m_List.SetItem(id, 0, LVIF_IMAGE, NULL, imageId, 0, 0, 0);
+				} else {
+					m_ImageLoader.Add(_T("http://www.thetvdb.com/banners/") + series->banner, bannerFile, id);
+				}
+			} else {
+				m_List.SetItem(id, 0, LVIF_IMAGE, NULL, 1, 0, 0, 0); // "no image"
 			}
 		}
 		m_List.SetImageList(m_ImageList, LVSIL_NORMAL);
@@ -508,14 +461,7 @@ public:
 
 		TheTvDB::CSeries* series = m_pGetSeries->Series[m_List.GetItemData(iSelection)];
 
-		sq3::Statement st(CNewzflow::Instance()->database->database, _T("INSERT OR IGNORE INTO TvShows (title, tvdb_id, description) VALUES (?, ?, ?)"));
-		ASSERT(st.IsValid());
-		st.Bind(0, series->SeriesName);
-		st.Bind(1, series->id);
-		st.Bind(2, series->Overview);
-		if(st.ExecuteNonQuery() != SQLITE_OK) {
-			TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database->database.GetErrorMessage());
-		}
+		CNewzflow::Instance()->database->InsertTvShow(series);
 
 		DestroyWindow();
 		m_pViewTree->Refresh();
@@ -567,26 +513,7 @@ LRESULT CViewTree::OnTvDelete(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl
 	if(!item.IsNull() && item.GetParent() == tvTvShows) {
 		ASSERT(item.GetData() >= kTvShows + 1 && item.GetData() <= kTvShowsEnd);
 		int showId = item.GetData() - kTvShows;
-		{ sq3::Transaction transaction(CNewzflow::Instance()->database->database);
-			{
-				sq3::Statement st(CNewzflow::Instance()->database->database, _T("DELETE FROM TvEpisodes WHERE show_id = ?"));
-				ASSERT(st.IsValid());
-				st.Bind(0, showId);
-				if(st.ExecuteNonQuery() != SQLITE_OK) {
-					TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database->database.GetErrorMessage());
-				}
-			}
-
-			{
-				sq3::Statement st(CNewzflow::Instance()->database->database, _T("DELETE FROM TvShows WHERE rowid = ?"));
-				ASSERT(st.IsValid());
-				st.Bind(0, showId);
-				if(st.ExecuteNonQuery() != SQLITE_OK) {
-					TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database->database.GetErrorMessage());
-				}
-			}
-			transaction.Commit();
-		}
+		CNewzflow::Instance()->database->DeleteTvShow(showId);
 
 		Refresh();
 	}

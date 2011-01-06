@@ -34,6 +34,7 @@ namespace Util
 		MSG_NZB_FINISHED, // (sent from CPostProcessor to indicate a NZB is finished; handler must decrease nzb->refCount) wParam = (CNzb*)nzb
 		MSG_RSSFEED_UPDATED, // (sent from CRssWatcher to indicate a RSS feed has been updated)
 		MSG_TVSHOW_UPDATED, // (sent from CRssWatcher to indicate a TV show has been updated)
+		MSG_MOVIES_UPDATED, // (sent from CRssWatcher to indicate the movie list has been updated)
 		MSG_TRAY_NOTIFY
 	};
 };

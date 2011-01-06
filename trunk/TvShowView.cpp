@@ -117,37 +117,16 @@ int CTvShowView::OnRefresh()
 
 LRESULT CTvShowView::OnDblClick(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/)
 {
-/*	if(GetNextItem(-1, LVNI_SELECTED) != -1) {
-		{ sq3::Transaction transaction(CNewzflow::Instance()->database->database);
+	if(GetNextItem(-1, LVNI_SELECTED) != -1) {
+		{ CTransaction transaction(CNewzflow::Instance()->database);
 			for(int iItem = GetNextItem(-1, LVNI_SELECTED); iItem != -1; iItem = GetNextItem(iItem, LVNI_SELECTED)) {
 				int id = GetItemData(iItem);
-
-				// get URL for RSS item and add NZB
-				{
-					sq3::Statement st(CNewzflow::Instance()->database->database, _T("SELECT link FROM RssItems WHERE rowid = ?"));
-					st.Bind(0, id);
-					CString sUrl;
-					if(st.ExecuteString(sUrl) != SQLITE_OK) {
-						TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database->database.GetErrorMessage());
-					}
-					CNewzflow::Instance()->controlThread->AddURL(sUrl);
-				}
-
-				// set status to downloaded
-				{
-					sq3::Statement st(CNewzflow::Instance()->database->database, _T("UPDATE RssItems SET status = ? WHERE rowid = ?"));
-					st.Bind(0, kDownloaded);
-					st.Bind(1, id);
-					if(st.ExecuteNonQuery() != SQLITE_OK) {
-						TRACE(_T("DB error: %s\n"), CNewzflow::Instance()->database->database.GetErrorMessage());
-					}
-				}
+				// TODO!
 			}
-			transaction.Commit();
 		}
 		Refresh();
 	}
-*/	return 0;
+	return 0;
 }
 
 void CTvShowView::SetShow(int showId)

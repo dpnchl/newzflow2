@@ -313,7 +313,7 @@ HRESULT STDMETHODCALLTYPE CErrorHandler::ignorableWarning(
 
 } // namespace
 
-bool CRss::Parse(const CString& path)
+bool CRss::Parse(const CString& path, const CString& url)
 {
 	bool retCode = false;
 
@@ -344,7 +344,47 @@ bool CRss::Parse(const CString& path)
 
 	// Post-processing
 	if(retCode) {
+		CString urlLC(url);
+		urlLC.MakeLower();
+		if(urlLC.Find(_T("nzbmatrix")))
+			FixupNzbMatrix();
+
 	}
 
 	return retCode;
+}
+
+void CRss::FixupNzbMatrix()
+{
+	using std::tr1::tregex; using std::tr1::tcmatch; using std::tr1::regex_search; using std::tr1::regex_match;
+	tregex reDate(_T("([0-9]{4})-([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2}):([0-9]{2})"));
+	tregex reSize(_T("([0-9]{1,4}(\\.[0-9]+)? GB)"));
+	tcmatch match;
+
+	static const __int64 _2GB = 2LL*1024LL*1024LL*1024LL;
+	static const __int64 _4GB = 4LL*1024LL*1024LL*1024LL;
+
+	for(size_t i = 0; i < items.GetCount(); i++) {
+		CRssItem* item = items[i];
+
+		// NzbMatrix omits item/pubDate, so parse from item/description
+		if(regex_search((const TCHAR*)item->description, match, reDate)) {
+			item->pubDate.SetDateTime(
+				_ttoi(CString(match[1].first, match[1].length())),
+				_ttoi(CString(match[2].first, match[2].length())),
+				_ttoi(CString(match[3].first, match[3].length())),
+				_ttoi(CString(match[4].first, match[4].length())),
+				_ttoi(CString(match[5].first, match[5].length())),
+				_ttoi(CString(match[6].first, match[6].length()))
+			);
+		}
+
+		// NzbMatrix's item/enclosure/length is truncated to 32 bit, so reconstruct real size from item/description
+		if(item->enclosure->length > 0 && item->enclosure->length < _4GB && regex_search((const TCHAR*)item->description, match, reSize)) {
+			__int64 size = Util::ParseSize(CString(match[1].first, match[1].length()));
+			// just keep adding 4GB until we approximately reach the GB size matched from item/description (+/- 2GB)
+			while(item->enclosure->length + _2GB < size)
+				item->enclosure->length += _4GB;
+		}
+	}
 }

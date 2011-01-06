@@ -220,6 +220,11 @@ void CMovieView::Init(HWND hwndParent)
 	m_ReleaseList.Init(*this);
 }
 
+void CMovieView::Refresh()
+{
+	m_MovieList.Refresh();
+}
+
 void CMovieView::OnSize(UINT nType, CSize size)
 {
 	HDWP hdwp = BeginDeferWindowPos(2);

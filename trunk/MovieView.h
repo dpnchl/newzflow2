@@ -104,7 +104,9 @@ public:
 	END_MSG_MAP()
 
 	void Init(HWND hwndParent);
+	void Refresh();
 
+protected:
 	void OnSize(UINT nType, CSize size);
 	LRESULT OnItemChanged(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled*/);
 	LRESULT OnDblClick(int /*idCtrl*/, LPNMHDR pnmh, BOOL& /*bHandled*/);

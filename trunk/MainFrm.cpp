@@ -855,6 +855,12 @@ LRESULT CMainFrame::OnRssFeedUpdated(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*
 	return 0;
 }
 
+LRESULT CMainFrame::OnMoviesUpdated(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)
+{
+	m_MovieView.Refresh();
+	return 0;
+}
+
 void CMainFrame::UpdateNzbButtons()
 {
 	bool enable = m_NzbView.GetSelectedCount() > 0;
