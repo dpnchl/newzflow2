@@ -39,7 +39,7 @@ public:
 		for(size_t i = 0; i < items.GetCount(); i++) delete items[i];
 	}
 
-	bool Parse(const CString& path);
+	bool Parse(const CString& path, const CString& url); // parse rss file from "path"; "url" is used to determine if post-processing (fixup) is necessary
 
 	// <channel>
 	CString title, link, description;
@@ -47,4 +47,7 @@ public:
 	COleDateTime pubDate;
 
 	CAtlArray<CRssItem*> items;
+
+protected:
+	void FixupNzbMatrix();
 };

@@ -105,6 +105,7 @@ public:
 		MESSAGE_HANDLER(Util::MSG_NZB_FINISHED, OnNzbFinished)
 		MESSAGE_HANDLER(Util::MSG_TRAY_NOTIFY, OnTrayNotify)
 		MESSAGE_HANDLER(Util::MSG_RSSFEED_UPDATED, OnRssFeedUpdated)
+		MESSAGE_HANDLER(Util::MSG_MOVIES_UPDATED, OnMoviesUpdated)
 		NOTIFY_CODE_HANDLER(LVN_ITEMCHANGED, OnNzbChanged)
 		NOTIFY_CODE_HANDLER(TVN_SELCHANGED, OnTreeChanged)
 		CHAIN_MSG_MAP(CUpdateUI<CMainFrame>)
@@ -131,6 +132,7 @@ public:
 	LRESULT OnSaveNzb(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
 	LRESULT OnNzbFinished(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
 	LRESULT OnRssFeedUpdated(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
+	LRESULT OnMoviesUpdated(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
 	LRESULT OnTrayNotify(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
 	LRESULT OnNzbRemove(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnNzbMoveUp(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);

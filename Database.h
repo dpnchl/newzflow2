@@ -15,43 +15,70 @@ public:
 	class QRssItems* GetRssItemsByMovie(int movieId);
 	CString DownloadRssItem(int id);
 	void InsertRssItem(int feedId, CRssItem* item);
+
+	class QRssFeeds* GetRssFeeds(int id = 0);
+	class QRssFeedsToRefresh* GetRssFeedsToRefresh();
+	void InsertRssFeed(int id, const CString& title, const CString& url, bool clearLastUpdate = true);
 	void UpdateRssFeed(int id, CRss* rss);
+	void DeleteRssFeed(int id);
 
 	class QTvEpisodes* GetTvEpisodes(int showId);
 	void InsertTvEpisode(int showId, TheTvDB::CEpisode* episode);
+
+	class QTvShows* GetTvShows(int id = 0);
+	void InsertTvShow(TheTvDB::CSeries* series);
 	void UpdateTvShow(int showId);
 
 	class QMovies* GetMovies(const CString& imdbId = _T(""));
 	int InsertMovie(const CString& imdbId, TheMovieDB::CMovie* movie);
+	void CleanupMovies();
 
 	class QActors* GetActors(int movieId);
 	void InsertMovieRelease(int movieId, int rssItem);
+	void DeleteTvShow(int showId);
+//protected:
 	sq3::Database database;
-	CComAutoCriticalSection insertCs;
+	CComAutoCriticalSection insertCs, transactionCs;
+	sq3::Transaction* volatile transaction;
 };
 
 // auto-commit transaction
 class CTransaction
 {
 public:
-	CTransaction(CDatabase* database)
-		: transaction(database->database)
+	CTransaction(CDatabase* _database)
 	{
+		database = _database;
+		database->transactionCs.Lock();
+		if(!database->transaction) {
+			database->transaction = new sq3::Transaction(database->database);
+			own = true;
+		} else {
+			own = false;
+		}
 		rollback = false;
 	}
 	~CTransaction()
 	{
-		if(!rollback)
-			transaction.Commit();
+		if(own) {
+			if(!rollback)
+				database->transaction->Commit();
+			delete database->transaction;
+			database->transaction = NULL;
+		}
+		database->transactionCs.Unlock();
 	}
 	void Rollback()
 	{
-		transaction.Rollback();
+		if(own) {
+			database->transaction->Rollback();
+		}
 		rollback = true;
 	}
 
 protected:
-	sq3::Transaction transaction;
+	CDatabase* database;
+	bool own;
 	bool rollback;
 };
 
@@ -215,6 +242,61 @@ public:
 	}
 };
 
+class QRssFeeds : public CQuery
+{
+public:
+	QRssFeeds(CDatabase* database, int feedId)
+	: CQuery(database)
+	{
+		CString sQuery(_T("SELECT rowid, title, url FROM RssFeeds"));
+		if(feedId > 0)
+			sQuery += _T(" WHERE rowid = ?");
+		else
+			sQuery += _T(" ORDER BY title ASC");
+		Prepare(sQuery, feedId);
+		if(feedId > 0)
+			Bind(0, feedId);
+		Execute();
+	}
+	int GetId() { return Get<int>(0); }
+	CString GetTitle() { return Get<CString>(1); }
+	CString GetUrl() { return Get<CString>(2); }
+};
+
+class QRssFeedsToRefresh : public CQuery
+{
+public:
+	QRssFeedsToRefresh(CDatabase* database)
+	: CQuery(database)
+	{
+		Prepare(_T("SELECT rowid, title, url FROM RssFeeds WHERE last_update ISNULL OR ((strftime('%s', 'now') - strftime('%s', last_update)) / 60) >= update_interval"));
+		Execute();
+	}
+	int GetId() { return Get<int>(0); }
+	CString GetTitle() { return Get<CString>(1); }
+	CString GetUrl() { return Get<CString>(2); }
+};
+
+class QTvShows : public CQuery
+{
+public:
+	QTvShows(CDatabase* database, int showId)
+	: CQuery(database)
+	{
+		CString sQuery(_T("SELECT rowid, title FROM TvShows"));
+		if(showId > 0)
+			sQuery += _T(" WHERE rowid = ?");
+		else
+			sQuery += _T(" ORDER BY title ASC");
+		Prepare(sQuery);
+		if(showId > 0)
+			Bind(0, showId);
+		Execute();
+	}
+	int GetId() { return Get<int>(0); }
+	CString GetTitle() { return Get<CString>(1); }
+};
+
 class QTvEpisodes : public CQuery
 {
 public:
@@ -238,9 +320,11 @@ public:
 	QMovies(CDatabase* database, const CString& imdbId)
 	: CQuery(database)
 	{
-		CString sQuery(_T("SELECT rowid, title, imdb_id, tmdb_id FROM Movies"));
+		CString sQuery(_T("SELECT Movies.rowid, Movies.title, Movies.imdb_id, Movies.tmdb_id FROM Movies"));
 		if(!imdbId.IsEmpty())
 			sQuery += _T(" WHERE imdb_id = ?");
+		else
+			sQuery += _T(" LEFT JOIN MovieReleases ON Movies.rowid = MovieReleases.movie LEFT JOIN RssItems ON MovieReleases.rss_item = RssItems.rowid GROUP BY Movies.rowid ORDER BY MAX(RssItems.date) DESC");
 		Prepare(sQuery);
 		if(!imdbId.IsEmpty())
 			Bind(0, imdbId);

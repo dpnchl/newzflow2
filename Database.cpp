@@ -5,13 +5,11 @@
 #define new DEBUG_CLIENTBLOCK
 #endif
 
-// CQuery<>
-//////////////////////////////////////////////////////////////////////////
-
 // CDatabase
 //////////////////////////////////////////////////////////////////////////
 
 CDatabase::CDatabase(const CString& dbPath)
+: transaction(NULL)
 {
 	database.Open(dbPath);
 	ASSERT(database.IsOpen());
@@ -29,6 +27,7 @@ CDatabase::CDatabase(const CString& dbPath)
 
 CDatabase::~CDatabase()
 {
+	ASSERT(!transaction);
 }
 
 QRssItems* CDatabase::GetRssItemsByFeed(int feedId)
@@ -39,6 +38,21 @@ QRssItems* CDatabase::GetRssItemsByFeed(int feedId)
 class QRssItems* CDatabase::GetRssItemsByMovie(int movieId)
 {
 	return new QRssItemsByMovie(this, movieId);
+}
+
+class QRssFeeds* CDatabase::GetRssFeeds(int id)
+{
+	return new QRssFeeds(this, id);
+}
+
+class QRssFeedsToRefresh* CDatabase::GetRssFeedsToRefresh()
+{
+	return new QRssFeedsToRefresh(this);
+}
+
+class QTvShows* CDatabase::GetTvShows(int id /*= 0*/)
+{
+	return new QTvShows(this, id);
 }
 
 QTvEpisodes* CDatabase::GetTvEpisodes(int showId)
@@ -58,20 +72,15 @@ QActors* CDatabase::GetActors(int movieId)
 
 CString CDatabase::DownloadRssItem(int id)
 {
-	CString sUrl;
-	// get URL for RSS item and add NZB
-	{
-		CQuery q(this);
-		q.Prepare(_T("SELECT link FROM RssItems WHERE rowid = ?"), id);
-		sUrl = q.ExecuteSingle<CString>();
-	}
+	CQuery q(this);
+
+	// get URL for RSS item
+	q.Prepare(_T("SELECT link FROM RssItems WHERE rowid = ?"), id);
+	CString sUrl = q.ExecuteSingle<CString>();
 
 	// set status to downloaded
-	{
-		CQuery q(this);
-		q.Prepare(_T("UPDATE RssItems SET status = ? WHERE rowid = ?"), QRssItems::kDownloaded, id);
-		q.ExecuteVoid();
-	}
+	q.Prepare(_T("UPDATE RssItems SET status = ? WHERE rowid = ?"), QRssItems::kDownloaded, id);
+	q.ExecuteVoid();
 
 	return sUrl;
 }
@@ -90,11 +99,33 @@ void CDatabase::InsertTvEpisode(int showId, TheTvDB::CEpisode* episode)
 	q.ExecuteInsert();
 }
 
+void CDatabase::InsertTvShow(TheTvDB::CSeries* series)
+{
+	CQuery q(this);
+	q.Prepare(_T("INSERT OR IGNORE INTO TvShows (title, tvdb_id, description) VALUES (?, ?, ?)"));
+	q.Bind(0, series->SeriesName);
+	q.Bind(1, series->id);
+	q.Bind(2, series->Overview);
+	q.ExecuteInsert();
+}
+
 void CDatabase::UpdateTvShow(int showId)
 {
 	// set last update
 	CQuery q(this);
 	q.Prepare(_T("UPDATE TvShows SET last_update = julianday('now') WHERE rowid = ?"), showId);
+	q.ExecuteVoid();
+}
+
+void CDatabase::DeleteTvShow(int showId)
+{
+	CTransaction transaction(this);
+
+	CQuery q(this);
+	q.Prepare(_T("DELETE FROM TvEpisodes WHERE show_id = ?"), showId);
+	q.ExecuteVoid();
+
+	q.Prepare(_T("DELETE FROM TvShows WHERE rowid = ?"), showId);
 	q.ExecuteVoid();
 }
 
@@ -117,30 +148,66 @@ void CDatabase::InsertRssItem(int feedId, CRssItem* item)
 	q.ExecuteInsert();
 }
 
+// INSERT if id=0; UPDATE otherwise
+void CDatabase::InsertRssFeed(int id, const CString& title, const CString& url, bool clearLastUpdate /*= true*/)
+{
+	CTransaction transaction(this);
+
+	CQuery q(this);
+	if(id == 0) {
+		q.Prepare(_T("INSERT OR IGNORE INTO RssFeeds (title, url) VALUES (?, ?)"), title, url);
+		q.ExecuteInsert();
+	} else {
+		q.Prepare(_T("UPDATE RssFeeds SET title = ?, url = ? WHERE rowid = ?"), title, url, id);
+		q.ExecuteVoid();
+		if(clearLastUpdate) {
+			q.Prepare(_T("UPDATE RssFeeds SET last_update = NULL WHERE rowid = ?"), id);
+			q.ExecuteVoid();
+		}
+	}
+}
+
 void CDatabase::UpdateRssFeed(int feedId, CRss* rss)
 {
+	CTransaction transaction(this);
+
+	CQuery q(this);
 	// set update interval
 	if(rss->ttl > 0) {
-		CQuery q(this);
 		q.Prepare(_T("UPDATE RssFeeds SET update_interval = ? WHERE rowid = ?"), rss->ttl, feedId);
 		q.ExecuteVoid();
 	}
+
 	// set last update
-	{
-		CQuery q(this);
-		q.Prepare(_T("UPDATE RssFeeds SET last_update = julianday('now') WHERE rowid = ?"), feedId);
-		q.ExecuteVoid();
-	}
+	q.Prepare(_T("UPDATE RssFeeds SET last_update = julianday('now') WHERE rowid = ?"), feedId);
+	q.ExecuteVoid();
+
 	// set title from feed if previously empty
-	{
-		CQuery q(this);
-		q.Prepare(_T("UPDATE RssFeeds SET title = ? WHERE rowid = ? AND title ISNULL"), rss->title, feedId);
-		q.ExecuteVoid();
-	}
+	q.Prepare(_T("UPDATE RssFeeds SET title = ? WHERE rowid = ? AND title = ''"), rss->title, feedId);
+	q.ExecuteVoid();
+}
+
+void CDatabase::DeleteRssFeed(int id)
+{
+	CTransaction transaction(this);
+
+	CQuery q(this);
+	q.Prepare(_T("DELETE FROM MovieReleases WHERE rss_item IN (SELECT rowid FROM RssItems WHERE feed = ?)"), id);
+	q.ExecuteVoid();
+
+	q.Prepare(_T("DELETE FROM RssItems WHERE feed = ?"), id);
+	q.ExecuteVoid();
+
+	q.Prepare(_T("DELETE FROM RssFeeds WHERE rowid = ?"), id);
+	q.ExecuteVoid();
+
+	CleanupMovies();
 }
 
 int CDatabase::InsertMovie(const CString& imdbId, TheMovieDB::CMovie* movie)
 {
+	CTransaction transaction(this);
+
 	CQuery q(this);
 	q.Prepare(_T("INSERT OR IGNORE INTO Movies (imdb_id, tmdb_id, title) VALUES (?, ?, ?)"));
 	q.Bind(0, imdbId);
@@ -162,6 +229,25 @@ int CDatabase::InsertMovie(const CString& imdbId, TheMovieDB::CMovie* movie)
 		}
 	}
 	return (int)movieId;
+}
+
+void CDatabase::CleanupMovies()
+{
+	CTransaction transaction(this);
+
+	CQuery q(this);
+
+	// delete movies that have no releases
+	q.Prepare(_T("DELETE FROM Movies WHERE rowid IN (SELECT Movies.rowid FROM Movies LEFT JOIN MovieReleases ON Movies.rowid = MovieReleases.movie WHERE MovieReleases.movie ISNULL)"));
+	q.ExecuteVoid();
+
+	// delete cast that has no movie
+	q.Prepare(_T("DELETE FROM MovieActors WHERE rowid IN (SELECT MovieActors.rowid FROM MovieActors LEFT JOIN Movies ON MovieActors.movie = Movies.rowid WHERE Movies.rowid ISNULL)"));
+	q.ExecuteVoid();
+
+	// delete actors that have no cast
+	q.Prepare(_T("DELETE FROM Actors WHERE rowid IN (SELECT Actors.rowid FROM Actors LEFT JOIN MovieActors ON Actors.rowid = MovieActors.actor WHERE MovieActors.actor ISNULL)"));
+	q.ExecuteVoid();
 }
 
 void CDatabase::InsertMovieRelease(int movieId, int rssItem)

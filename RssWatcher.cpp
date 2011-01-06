@@ -40,18 +40,14 @@ DWORD CRssWatcher::Run()
 		}
 
 		// Process RSS Feeds
-		{
-			sq3::Statement st(CNewzflow::Instance()->database->database, _T("SELECT rowid, url, title FROM RssFeeds WHERE last_update ISNULL OR ((strftime('%s', 'now') - strftime('%s', last_update)) / 60) >= update_interval"));
-			sq3::Reader reader = st.ExecuteReader();
-			while(reader.Step() == SQLITE_ROW) {
-				int id; reader.GetInt(0, id);
-				CString sUrl; reader.GetString(1, sUrl);
-				CString sTitle; reader.GetString(2, sTitle);
-				CString s; s.Format(_T("ProcessFeed(%s (%d), %s)\n"), sTitle, id, sUrl); Util::Print(s);
-				ProcessFeed(id, sUrl);
-				Util::PostMessageToMainWindow(Util::MSG_RSSFEED_UPDATED);
-			}
+		QRssFeedsToRefresh* rss = CNewzflow::Instance()->database->GetRssFeedsToRefresh();
+		while(rss->GetRow()) {
+			CString s; s.Format(_T("ProcessFeed(%s (%d), %s)\n"), rss->GetTitle(), rss->GetId(), rss->GetUrl()); Util::Print(s);
+			ProcessFeed(rss->GetId(), rss->GetUrl());
+			Util::PostMessageToMainWindow(Util::MSG_RSSFEED_UPDATED);
 		}
+		delete rss;
+
 		// Process TV Shows
 		{
 			sq3::Statement st(CNewzflow::Instance()->database->database, _T("SELECT rowid, tvdb_id, title FROM TvShows WHERE last_update ISNULL")); // OR ((strftime('%s', 'now') - strftime('%s', last_update)) / 60) >= update_interval"));
@@ -65,6 +61,7 @@ DWORD CRssWatcher::Run()
 				Util::PostMessageToMainWindow(Util::MSG_TVSHOW_UPDATED);
 			}
 		}
+
 		// Process Movies; TEST
 		{
 			sq3::Statement st(CNewzflow::Instance()->database->database, _T("SELECT rowid, description FROM RssItems WHERE description like ?"));
@@ -78,9 +75,9 @@ DWORD CRssWatcher::Run()
 				if(imdbStart > 0)
 					imdbId = sDescription.Mid(imdbStart + _tcslen(_T("www.imdb.com/title/")), 9);
 				CString s; s.Format(_T("ProcessMovie(%s (%d))\n"), imdbId, id); Util::Print(s);
-				//ProcessMovie(id, imdbId);
-				//Util::PostMessageToMainWindow(Util::MSG_TVSHOW_UPDATED);
+				ProcessMovie(id, imdbId);
 			}
+			Util::PostMessageToMainWindow(Util::MSG_MOVIES_UPDATED);
 		}
 
 		delay = 60;
@@ -94,7 +91,7 @@ void CRssWatcher::ProcessFeed(int id, const CString& sUrl)
 	CString rssFile = CNewzflow::Instance()->settings->GetAppDataDir() + _T("temp.rss");
 	if(downloader.Download(sUrl, rssFile, CString(), NULL)) {
 		CRss rss;
-		if(rss.Parse(rssFile)) {
+		if(rss.Parse(rssFile, sUrl)) {
 			CTransaction transaction(CNewzflow::Instance()->database);
 			for(size_t i = 0; i < rss.items.GetCount(); i++) {
 				CRssItem* item = rss.items[i];
