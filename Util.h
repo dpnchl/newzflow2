@@ -20,6 +20,7 @@ namespace Util
 	void PostMessageToMainWindow(UINT msg, WPARAM wParam = 0, LPARAM lParam = 0);
 	CString GetErrorMessage(int error);
 	int TestCreateDirectory(const CString& path); // return: system error codes (ERROR_SUCCESS, ...)
+	void CheckDlgGroup(HWND hDlg, HWND hCheck, HWND hGroup);
 	enum EShutdownMode {
 		shutdown_nothing,
 		shutdown_exit,

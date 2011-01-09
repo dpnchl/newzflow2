@@ -186,6 +186,134 @@ void CSettingsDirectoriesPage::OnWatchDirButton(WORD /*wNotifyCode*/, WORD /*wID
 	SetDlgItemText(IDC_WATCH_DIR, Util::BrowseForFolder(*this, NULL, sDir));
 }
 
+// CSettingsProviderPage
+//////////////////////////////////////////////////////////////////////////
+
+CSettingsProviderPage::CSettingsProviderPage()
+{
+	CSettings* settings = CNewzflow::Instance()->settings;
+	m_bNzbMatrix = settings->GetIni(_T("nzbmatrix.com"), _T("Use"), _T("0")) != _T("0");
+	m_sNzbMatrixUser = settings->GetIni(_T("nzbmatrix.com"), _T("User"));
+	m_sNzbMatrixApiKey = settings->GetIni(_T("nzbmatrix.com"), _T("ApiKey"));
+}
+
+CSettingsProviderPage::~CSettingsProviderPage()
+{
+}
+
+int CSettingsProviderPage::OnApply()
+{
+	CSettings* settings = CNewzflow::Instance()->settings;
+	settings->SetIni(_T("nzbmatrix.com"), _T("Use"), m_bNzbMatrix);
+	settings->SetIni(_T("nzbmatrix.com"), _T("User"), m_sNzbMatrixUser);
+	settings->SetIni(_T("nzbmatrix.com"), _T("ApiKey"), m_sNzbMatrixApiKey);
+
+	return PSNRET_NOERROR;
+}
+
+BOOL CSettingsProviderPage::OnInitDialog(HWND hwndFocus, LPARAM lParam)
+{
+	DoDataExchange(false);
+	Util::CheckDlgGroup(*this, GetDlgItem(IDC_NZBMATRIX_CHECK), GetDlgItem(IDC_NZBMATRIX_GROUP));
+
+	return TRUE;
+}
+
+BOOL CSettingsProviderPage::OnKillActive()
+{
+	return DoDataExchange(true) ? PSNRET_NOERROR : PSNRET_INVALID;
+}
+
+LRESULT CSettingsProviderPage::OnChange(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& bHandled)
+{
+	SetModified(TRUE);
+	bHandled = FALSE;
+	return 0;
+}
+
+LRESULT CSettingsProviderPage::OnCheck(WORD /*wNotifyCode*/, WORD wID, HWND /*hWndCtl*/, BOOL& bHandled)
+{
+	Util::CheckDlgGroup(*this, GetDlgItem(IDC_NZBMATRIX_CHECK), GetDlgItem(IDC_NZBMATRIX_GROUP));
+
+	bHandled = FALSE;
+	return 0;
+}
+
+// CSettingsMoviesPage
+//////////////////////////////////////////////////////////////////////////
+
+CSettingsMoviesPage::CSettingsMoviesPage()
+{
+}
+
+CSettingsMoviesPage::~CSettingsMoviesPage()
+{
+}
+
+int CSettingsMoviesPage::OnApply()
+{
+	CSettings* settings = CNewzflow::Instance()->settings;
+	unsigned qualityMask = 0;
+	for(int i = 0; i < m_List.GetItemCount(); i++) {
+		if(m_List.GetCheckState(i))
+			qualityMask |= 1 << i;
+	}
+	settings->SetIni(_T("Movies"), _T("QualityMask"), qualityMask);
+	return PSNRET_NOERROR;
+}
+
+namespace {
+	// keep in sync with CSettings::EMovieQuality
+	const LPCTSTR qualities[] = {
+		// quality,        resolution,      size
+		_T("Blu-Ray ISO"), _T("1920x1080"), _T("25-50 GB"),
+		_T("x264 1080p"), _T("1920x1080"), _T("7-15 GB"),
+		_T("x264 720p"), _T("1280x720"), _T("4-7 GB"),
+		_T("WMV 1080p"), _T("1920x1080"), _T("7-15 GB"),
+		_T("WMV 720p"), _T("1280x720"), _T("4-9 GB"),
+		_T("DVD ISO"), _T("720x480"), _T("4.7 GB"),
+		_T("Xvid"), _T("640x352"), _T("0.7-1.5 GB")
+	};
+}
+
+BOOL CSettingsMoviesPage::OnInitDialog(HWND hwndFocus, LPARAM lParam)
+{
+	DoDataExchange(false);
+
+	CSettings* settings = CNewzflow::Instance()->settings;
+	unsigned qualityMask = _ttoi(settings->GetIni(_T("Movies"), _T("QualityMask"), _T("0")));
+
+	m_List.SetExtendedListViewStyle(LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER | LVS_EX_CHECKBOXES);
+	SetWindowTheme(m_List, L"explorer", NULL);
+	m_List.AddColumn(_T("Quality"), 0); 
+	m_List.AddColumn(_T("Resolution"), 1);
+	m_List.AddColumn(_T("Size"), 2);
+	for(size_t i = 0; i < countof(qualities) / 3; i++) {
+		m_List.AddItem(i, 0, qualities[i*3+0]);
+		m_List.AddItem(i, 1, qualities[i*3+1]);
+		m_List.AddItem(i, 2, qualities[i*3+2]);
+		if(qualityMask & (1 << i))
+			m_List.SetCheckState(i, TRUE);
+	}
+	m_List.SetColumnWidth(0, LVSCW_AUTOSIZE);
+	m_List.SetColumnWidth(1, LVSCW_AUTOSIZE_USEHEADER);
+	m_List.SetColumnWidth(2, LVSCW_AUTOSIZE);
+
+	return TRUE;
+}
+
+BOOL CSettingsMoviesPage::OnKillActive()
+{
+	return DoDataExchange(true) ? PSNRET_NOERROR : PSNRET_INVALID;
+}
+
+LRESULT CSettingsMoviesPage::OnChange(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& bHandled)
+{
+	SetModified(TRUE);
+	bHandled = FALSE;
+	return 0;
+}
+
 // CSettingsSheet
 //////////////////////////////////////////////////////////////////////////
 
@@ -205,6 +333,8 @@ CSettingsSheet::CSettingsSheet(HWND hWndParent /*= NULL*/)
 
 	AddPage(m_pgServer);
 	AddPage(m_pgDirectories);
+	AddPage(m_pgProvider);
+	AddPage(m_pgMovies);
 }
 
 void CSettingsSheet::OnFinalMessage(HWND)

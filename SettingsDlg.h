@@ -103,6 +103,79 @@ public:
 	CString m_sWatchDir;
 };
 
+class CSettingsProviderPage : public CPropertyPageImplEx<CSettingsProviderPage>, public CWinDataExchangeEx<CSettingsProviderPage>
+{
+public:
+	enum { IDD = IDD_SETTINGS_PROVIDER };
+
+	// Construction
+	CSettingsProviderPage();
+	~CSettingsProviderPage();
+
+	// Maps
+	BEGIN_MSG_MAP(CSettingsProviderPage)
+		MSG_WM_INITDIALOG(OnInitDialog)
+		COMMAND_CODE_HANDLER(EN_CHANGE, OnChange)
+		COMMAND_HANDLER(IDC_NZBMATRIX_CHECK, BN_CLICKED, OnCheck)
+		COMMAND_CODE_HANDLER(BN_CLICKED, OnChange)
+		CHAIN_MSG_MAP(CWinDataExchangeEx<CSettingsProviderPage>)
+		CHAIN_MSG_MAP(CPropertyPageImplEx<CSettingsProviderPage>)
+	END_MSG_MAP()
+
+	BEGIN_DDX_MAP(CSettingsProviderPage)
+		DDX_TEXT(IDC_NZBMATRIX_USER, m_sNzbMatrixUser)
+		DDX_TEXT(IDC_NZBMATRIX_APIKEY, m_sNzbMatrixApiKey)
+		DDX_CHECK(IDC_NZBMATRIX_CHECK, m_bNzbMatrix)
+	END_DDX_MAP()
+
+	// Message handlers
+	BOOL OnInitDialog(HWND hwndFocus, LPARAM lParam);
+	LRESULT OnCheck(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
+	LRESULT OnChange(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
+
+	// Property page notification handlers
+	int OnApply();
+	BOOL OnKillActive();
+
+	// DDX variables
+	CString m_sNzbMatrixUser, m_sNzbMatrixApiKey;
+	bool m_bNzbMatrix;
+};
+
+class CSettingsMoviesPage : public CPropertyPageImplEx<CSettingsMoviesPage>, public CWinDataExchangeEx<CSettingsMoviesPage>
+{
+public:
+	enum { IDD = IDD_SETTINGS_MOVIES };
+
+	// Construction
+	CSettingsMoviesPage();
+	~CSettingsMoviesPage();
+
+	// Maps
+	BEGIN_MSG_MAP(CSettingsMoviesPage)
+		MSG_WM_INITDIALOG(OnInitDialog)
+		COMMAND_CODE_HANDLER(EN_CHANGE, OnChange)
+		COMMAND_CODE_HANDLER(BN_CLICKED, OnChange)
+		CHAIN_MSG_MAP(CWinDataExchangeEx<CSettingsMoviesPage>)
+		CHAIN_MSG_MAP(CPropertyPageImplEx<CSettingsMoviesPage>)
+	END_MSG_MAP()
+
+	BEGIN_DDX_MAP(CSettingsMoviesPage)
+		DDX_CONTROL_HANDLE(IDC_LIST, m_List)
+	END_DDX_MAP()
+
+	// Message handlers
+	BOOL OnInitDialog(HWND hwndFocus, LPARAM lParam);
+	LRESULT OnChange(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
+
+	// Property page notification handlers
+	int OnApply();
+	BOOL OnKillActive();
+
+	// DDX variables
+	CListViewCtrl m_List;
+};
+
 class CSettingsSheet : public CPropertySheetImplEx<CSettingsSheet>
 {
 public:
@@ -127,4 +200,6 @@ public:
 	// Property pages
 	CSettingsServerPage m_pgServer;
 	CSettingsDirectoriesPage m_pgDirectories;
+	CSettingsProviderPage m_pgProvider;
+	CSettingsMoviesPage m_pgMovies;
 };

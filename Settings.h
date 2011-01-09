@@ -37,6 +37,16 @@ public:
 	void SetListViewSort(const CString& name, int sortColumn, bool sortAsc);
 	CAtlArray<CString> downloadDirHistory;
 
+	enum EMovieQuality {
+		mqBD,
+		mqMKV1080p,
+		mqMKV720p,
+		mqWMV1080p,
+		mqWMV720p,
+		mqDVD,
+		mqXvid,
+	};
+
 protected:
 	CString m_appData; // %appdata%\Newzflow
 	CString m_ini; // %appdata%\Newzflow\Newzflow.ini

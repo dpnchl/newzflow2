@@ -347,6 +347,35 @@ namespace Util
 			return false;
 		}
 	}
+
+	namespace {
+		struct SGroupCheck {
+			CRect groupRect;
+			BOOL enable;
+			HWND check;
+		};
+
+		BOOL CALLBACK CheckDlgGroupCallback(HWND hWnd, LPARAM lParam)
+		{
+			SGroupCheck* gc = (SGroupCheck*)lParam;
+			CRect r;
+			GetWindowRect(hWnd, &r);
+			if(hWnd != gc->check && gc->groupRect.PtInRect(r.TopLeft()) && gc->groupRect.PtInRect(r.BottomRight()))
+				EnableWindow(hWnd, gc->enable);
+			return TRUE;
+		}
+	} // namespace
+
+	void CheckDlgGroup(HWND hDlg, HWND hCheck, HWND hGroup)
+	{
+		SGroupCheck gc;
+		GetWindowRect(hGroup, &gc.groupRect);
+		gc.enable = SendMessage(hCheck, BM_GETCHECK, 0, 0);
+		gc.check = hCheck;
+
+		// reposition all dialog controls
+		EnumChildWindows(hDlg, CheckDlgGroupCallback, (LPARAM)&gc);
+	}
 };
 
 // CToolBarImageList
