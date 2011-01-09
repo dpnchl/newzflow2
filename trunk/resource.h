@@ -23,6 +23,8 @@
 #define IDR_TREEVIEW                    211
 #define IDD_ADD_FEED                    212
 #define IDD_ADD_TVSHOW                  213
+#define IDD_SETTINGS_PROVIDER           214
+#define IDD_SETTINGS_MOVIES             215
 #define IDC_PROGRESS                    1000
 #define IDC_TEXT                        1001
 #define IDC_HOSTNAME                    1002
@@ -60,6 +62,13 @@
 #define IDC_SEARCH                      1033
 #define IDC_SHOWLIST                    1034
 #define IDC_SHOWNAME                    1035
+#define IDC_CHECK1                      1036
+#define IDC_NZBMATRIX_CHECK             1036
+#define IDC_NZBMATRIX_GROUP             1037
+#define IDC_NZBMATRIX_USER              1038
+#define IDC_NZBMATRIX_APIKEY            1039
+#define IDC_LIST2                       1041
+#define IDC_LIST                        1041
 #define ID_FILE_ADD                     32775
 #define ID_FILE_ADD_URL                 32776
 #define ID_CREATE                       32777
@@ -96,7 +105,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        212
 #define _APS_NEXT_COMMAND_VALUE         32804
-#define _APS_NEXT_CONTROL_VALUE         1036
+#define _APS_NEXT_CONTROL_VALUE         1042
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif
