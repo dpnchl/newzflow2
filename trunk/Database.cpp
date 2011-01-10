@@ -14,8 +14,8 @@ CDatabase::CDatabase(const CString& dbPath)
 	database.Open(dbPath);
 	ASSERT(database.IsOpen());
 	{ CTransaction transaction(this);
-		database.Execute("CREATE TABLE IF NOT EXISTS \"RssFeeds\" (\"title\" TEXT, \"url\" TEXT NOT NULL UNIQUE, \"update_interval\" INTEGER DEFAULT 15, \"last_update\" REAL)");
-		database.Execute("CREATE TABLE IF NOT EXISTS \"RssItems\" (\"feed\" INTEGER, \"title\" TEXT NOT NULL, \"link\" TEXT NOT NULL, \"length\" INTEGER DEFAULT 0, \"description\" TEXT, \"category\" TEXT, \"status\" INTEGER, \"date\" REAL, UNIQUE (feed, title))");
+		database.Execute("CREATE TABLE IF NOT EXISTS \"RssFeeds\" (\"title\" TEXT, \"url\" TEXT, \"update_interval\" INTEGER DEFAULT 15, \"last_update\" REAL, \"provider\" TEXT, \"special\" TEXT)");
+		database.Execute("CREATE TABLE IF NOT EXISTS \"RssItems\" (\"feed\" INTEGER, \"title\" TEXT NOT NULL, \"link\" TEXT NOT NULL, \"length\" INTEGER DEFAULT 0, \"description\" TEXT, \"category\" TEXT, \"status\" INTEGER, \"date\" REAL, \"quality\" INTEGER, UNIQUE (feed, title))");
 		database.Execute("CREATE TABLE IF NOT EXISTS \"TvShows\" (\"title\" TEXT, \"tvdb_id\" INTEGER, \"last_update\" REAL, \"description\" TEXT)");
 		database.Execute("CREATE TABLE IF NOT EXISTS \"TvEpisodes\" (\"show_id\" INTEGER, \"tvdb_id\" INTEGER, \"title\" TEXT, \"season\" INTEGER, \"episode\" INTEGER, \"description\" TEXT, \"date\" REAL)");
 		database.Execute("CREATE TABLE IF NOT EXISTS \"Movies\" (\"title\" TEXT, \"imdb_id\" TEXT, \"tmdb_id\" INTEGER NOT NULL UNIQUE)");
@@ -45,9 +45,9 @@ class QRssFeeds* CDatabase::GetRssFeeds(int id)
 	return new QRssFeeds(this, id);
 }
 
-class QRssFeedsToRefresh* CDatabase::GetRssFeedsToRefresh()
+class QRssFeedsToRefresh* CDatabase::GetRssFeedsToRefresh(const CString& provider)
 {
-	return new QRssFeedsToRefresh(this);
+	return new QRssFeedsToRefresh(this, provider);
 }
 
 class QTvShows* CDatabase::GetTvShows(int id /*= 0*/)
@@ -129,10 +129,10 @@ void CDatabase::DeleteTvShow(int showId)
 	q.ExecuteVoid();
 }
 
-void CDatabase::InsertRssItem(int feedId, CRssItem* item)
+int CDatabase::InsertRssItem(int feedId, CRssItem* item, int quality /*= -1*/)
 {
 	CQuery q(this);
-	q.Prepare(_T("INSERT OR IGNORE INTO RssItems (feed, title, link, length, description, category, date) VALUES (?, ?, ?, ?, ?, ?, julianday(?))"));
+	q.Prepare(_T("INSERT INTO RssItems (feed, title, link, length, description, category, date, quality) VALUES (?, ?, ?, ?, ?, ?, julianday(?), ?)"));
 	q.Bind(0, feedId);
 	q.Bind(1, item->title);
 	if(item->enclosure) {
@@ -145,7 +145,9 @@ void CDatabase::InsertRssItem(int feedId, CRssItem* item)
 	q.Bind(4, item->description);
 	q.Bind(5, item->category);
 	q.Bind(6, item->pubDate.Format(_T("%Y-%m-%d %H:%M:%S")));
-	q.ExecuteInsert();
+	if(quality != -1)
+		q.Bind(7, quality);
+	return (int)q.ExecuteInsert();
 }
 
 // INSERT if id=0; UPDATE otherwise
@@ -173,7 +175,7 @@ void CDatabase::UpdateRssFeed(int feedId, CRss* rss)
 
 	CQuery q(this);
 	// set update interval
-	if(rss->ttl > 0) {
+	if(rss && rss->ttl > 0) {
 		q.Prepare(_T("UPDATE RssFeeds SET update_interval = ? WHERE rowid = ?"), rss->ttl, feedId);
 		q.ExecuteVoid();
 	}
@@ -183,8 +185,10 @@ void CDatabase::UpdateRssFeed(int feedId, CRss* rss)
 	q.ExecuteVoid();
 
 	// set title from feed if previously empty
-	q.Prepare(_T("UPDATE RssFeeds SET title = ? WHERE rowid = ? AND title = ''"), rss->title, feedId);
-	q.ExecuteVoid();
+	if(rss) {
+		q.Prepare(_T("UPDATE RssFeeds SET title = ? WHERE rowid = ? AND title = ''"), rss->title, feedId);
+		q.ExecuteVoid();
+	}
 }
 
 void CDatabase::DeleteRssFeed(int id)

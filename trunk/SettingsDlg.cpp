@@ -207,6 +207,7 @@ int CSettingsProviderPage::OnApply()
 	settings->SetIni(_T("nzbmatrix.com"), _T("Use"), m_bNzbMatrix);
 	settings->SetIni(_T("nzbmatrix.com"), _T("User"), m_sNzbMatrixUser);
 	settings->SetIni(_T("nzbmatrix.com"), _T("ApiKey"), m_sNzbMatrixApiKey);
+	CNewzflow::Instance()->OnProviderSettingsChanged();
 
 	return PSNRET_NOERROR;
 }
@@ -259,6 +260,7 @@ int CSettingsMoviesPage::OnApply()
 			qualityMask |= 1 << i;
 	}
 	settings->SetIni(_T("Movies"), _T("QualityMask"), qualityMask);
+	CNewzflow::Instance()->OnProviderSettingsChanged();
 	return PSNRET_NOERROR;
 }
 

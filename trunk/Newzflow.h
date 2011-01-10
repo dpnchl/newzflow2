@@ -89,6 +89,7 @@ public:
 	void RemoveNzb(CNzb* nzb);
 	void FreeDeletedNzbs();
 	void OnServerSettingsChanged();
+	void OnProviderSettingsChanged();
 	void OnTimer();
 	void SetSpeedLimit(int limit);
 	void AddPostProcessor(CNzb* nzb);
@@ -106,8 +107,6 @@ public:
 	TheTvDB::CAPI* tvdbApi;
 	TheMovieDB::CAPI* tmdbApi;
 	CDatabase* database;
-
-
 
 	CComAutoCriticalSection cs;
 

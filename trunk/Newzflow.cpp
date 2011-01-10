@@ -22,7 +22,8 @@
 #endif
 
 // TODO:
-// - RSS parsing for NzbMatrix: enclosure-size is modulo 32bit; get real one from description; also get pubDate from description
+// - Unique file names instead of temp.rss
+// - Settings: Go to NZB Providers tab, click twice on checkbox, go to Movies tab, go back to NZB Providers tab, press "apply". CSettingsMoviesPage::OnApply is also called, although nothing has been changed on that page!
 // - leak at themoviedb.cpp(123)
 // - associate NZBs with RssItems to get status information back into RssView
 // - ... also to get NZB filename when no sensible one is returned (e.g. binsearch.info only returns the NZB ID)
@@ -497,6 +498,12 @@ void CNewzflow::OnServerSettingsChanged()
 	Util::Print("Finished shutting down downloaders\n");
 
 	// when downloaders are shutting down, CreateDownloaders will be called to recreate new downloaders
+}
+
+// called by settings dialog when NZB provider or Movies settings have been changed
+void CNewzflow::OnProviderSettingsChanged()
+{
+	rssWatcher->settingsChanged.Set();
 }
 
 // write the queue to disk so it can be restored later

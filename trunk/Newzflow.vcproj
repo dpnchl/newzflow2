@@ -276,6 +276,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\Provider.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\rss.cpp"
 				>
 			</File>
@@ -450,6 +454,10 @@
 			</File>
 			<File
 				RelativePath=".\PostProcessor.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Provider.h"
 				>
 			</File>
 			<File

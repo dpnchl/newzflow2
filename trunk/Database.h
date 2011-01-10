@@ -14,10 +14,10 @@ public:
 	class QRssItems* GetRssItemsByFeed(int feedId);
 	class QRssItems* GetRssItemsByMovie(int movieId);
 	CString DownloadRssItem(int id);
-	void InsertRssItem(int feedId, CRssItem* item);
+	int InsertRssItem(int feedId, CRssItem* item, int quality = -1);
 
 	class QRssFeeds* GetRssFeeds(int id = 0);
-	class QRssFeedsToRefresh* GetRssFeedsToRefresh();
+	class QRssFeedsToRefresh* GetRssFeedsToRefresh(const CString& provider = _T(""));
 	void InsertRssFeed(int id, const CString& title, const CString& url, bool clearLastUpdate = true);
 	void UpdateRssFeed(int id, CRss* rss);
 	void DeleteRssFeed(int id);
@@ -123,6 +123,15 @@ public:
 		Bind(0, val1);
 		Bind(1, val2);
 		Bind(2, val3);
+	}
+	template <class T1, class T2, class T3, class T4>
+	void Prepare(const CString& query, T1 val1, T2 val2, T3 val3, T4 val4)
+	{
+		Prepare(query);
+		Bind(0, val1);
+		Bind(1, val2);
+		Bind(2, val3);
+		Bind(3, val4);
 	}
 	template <class T> void Bind(int num, T val)
 	{
@@ -266,15 +275,21 @@ public:
 class QRssFeedsToRefresh : public CQuery
 {
 public:
-	QRssFeedsToRefresh(CDatabase* database)
+	QRssFeedsToRefresh(CDatabase* database, const CString& provider)
 	: CQuery(database)
 	{
-		Prepare(_T("SELECT rowid, title, url FROM RssFeeds WHERE last_update ISNULL OR ((strftime('%s', 'now') - strftime('%s', last_update)) / 60) >= update_interval"));
+		CString query;
+		query.Format(_T("SELECT rowid, title, url, provider, special FROM RssFeeds WHERE provider %s AND (last_update ISNULL OR ((strftime('%%s', 'now') - strftime('%%s', last_update)) / 60) >= update_interval)"), provider.IsEmpty() ? _T("ISNULL") : _T("= ?"));
+		Prepare(query);
+		if(!provider.IsEmpty())
+			Bind(0, provider);
 		Execute();
 	}
 	int GetId() { return Get<int>(0); }
 	CString GetTitle() { return Get<CString>(1); }
 	CString GetUrl() { return Get<CString>(2); }
+	CString GetProvider() { return Get<CString>(3); }
+	CString GetSpecial() { return Get<CString>(4); }
 };
 
 class QTvShows : public CQuery
