@@ -7,6 +7,7 @@
 #include "TheTvDB.h"
 #include "TheMovieDB.h"
 #include "Database.h"
+#include "Provider.h"
 
 #ifdef _DEBUG
 #define new DEBUG_CLIENTBLOCK
@@ -19,6 +20,7 @@ CRssWatcher::CRssWatcher()
 : CThreadImpl<CRssWatcher>(CREATE_SUSPENDED)
 , shutDown(TRUE, FALSE)
 , refresh(FALSE, FALSE)
+, settingsChanged(FALSE, FALSE)
 {
 	Resume();
 }
@@ -28,13 +30,20 @@ DWORD CRssWatcher::Run()
 	int delay = 0;
 	downloader.Init();
 
+	providers.Add(new CProviderNzbMatrix);
+
 	for(;;) {
 		if(CNewzflow::Instance()->IsShuttingDown() || WaitForSingleObject(shutDown, 0) == WAIT_OBJECT_0)
 			break;
 
 		if(delay > 0) {
-			HANDLE objs[] = { shutDown, refresh };
-			WaitForMultipleObjects(2, objs, FALSE, delay * 1000);
+			HANDLE objs[] = { shutDown, refresh, settingsChanged };
+			switch(WaitForMultipleObjects(3, objs, FALSE, delay * 1000)) {
+			case WAIT_OBJECT_0 + 2: // settingsChanged
+				for(size_t i = 0; i < providers.GetCount(); i++)
+					providers[i]->OnSettingsChanged();
+				break;
+			}
 			delay = 0;
 			continue;
 		}
@@ -47,6 +56,10 @@ DWORD CRssWatcher::Run()
 			Util::PostMessageToMainWindow(Util::MSG_RSSFEED_UPDATED);
 		}
 		delete rss;
+
+		// Process Providers
+		for(size_t i = 0; i < providers.GetCount(); i++)
+			providers[i]->Process();
 
 		// Process TV Shows
 		{
@@ -62,26 +75,11 @@ DWORD CRssWatcher::Run()
 			}
 		}
 
-		// Process Movies; TEST
-		{
-			sq3::Statement st(CNewzflow::Instance()->database->database, _T("SELECT rowid, description FROM RssItems WHERE description like ?"));
-			st.Bind(0, _T("%www.imdb.com/title/tt%"));
-			sq3::Reader reader = st.ExecuteReader();
-			while(reader.Step() == SQLITE_ROW) {
-				int id; reader.GetInt(0, id);
-				CString sDescription; reader.GetString(1, sDescription);
-				CString imdbId;
-				int imdbStart = sDescription.Find(_T("www.imdb.com/title/tt"));
-				if(imdbStart > 0)
-					imdbId = sDescription.Mid(imdbStart + _tcslen(_T("www.imdb.com/title/")), 9);
-				CString s; s.Format(_T("ProcessMovie(%s (%d))\n"), imdbId, id); Util::Print(s);
-				ProcessMovie(id, imdbId);
-			}
-			Util::PostMessageToMainWindow(Util::MSG_MOVIES_UPDATED);
-		}
-
 		delay = 60;
 	}
+
+	for(size_t i = 0; i < providers.GetCount(); i++)
+		delete providers[i];
 
 	return 0;
 }
