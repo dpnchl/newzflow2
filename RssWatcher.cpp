@@ -37,6 +37,7 @@ DWORD CRssWatcher::Run()
 			break;
 
 		if(delay > 0) {
+			SetLastCommand(_T("")); SetLastReply(_T(""));
 			HANDLE objs[] = { shutDown, refresh, settingsChanged };
 			switch(WaitForMultipleObjects(3, objs, FALSE, delay * 1000)) {
 			case WAIT_OBJECT_0 + 2: // settingsChanged
@@ -51,7 +52,8 @@ DWORD CRssWatcher::Run()
 		// Process RSS Feeds
 		QRssFeedsToRefresh* rss = CNewzflow::Instance()->database->GetRssFeedsToRefresh();
 		while(rss->GetRow()) {
-			CString s; s.Format(_T("ProcessFeed(%s (%d), %s)\n"), rss->GetTitle(), rss->GetId(), rss->GetUrl()); Util::Print(s);
+			CString s; s.Format(_T("Refreshing RSS Feed: %s"), rss->GetTitle());
+			SetLastCommand(s); SetLastReply(_T(""));
 			ProcessFeed(rss->GetId(), rss->GetUrl());
 			Util::PostMessageToMainWindow(Util::MSG_RSSFEED_UPDATED);
 		}
@@ -69,7 +71,8 @@ DWORD CRssWatcher::Run()
 				int id; reader.GetInt(0, id);
 				int tvdb_id; reader.GetInt(1, tvdb_id);
 				CString sTitle; reader.GetString(2, sTitle);
-				CString s; s.Format(_T("ProcessTvShow(%s (%d), tvdb_id=%d)\n"), sTitle, id, tvdb_id); Util::Print(s);
+				CString s; s.Format(_T("Refreshing TV Show: %s"), sTitle);
+				SetLastCommand(s); SetLastReply(_T(""));
 				ProcessTvShow(id, tvdb_id);
 				Util::PostMessageToMainWindow(Util::MSG_TVSHOW_UPDATED);
 			}
@@ -162,4 +165,28 @@ void CRssWatcher::ProcessMovie(int id, const CString& imdbId)
 	if(movieId > 0) {
 		CNewzflow::Instance()->database->InsertMovieRelease(movieId, id);
 	}
+}
+
+void CRssWatcher::SetLastCommand(const CString& s)
+{
+	CComCritSecLock<CComAutoCriticalSection> lock(cs);
+	lastCommand = s;
+}
+
+void CRssWatcher::SetLastReply(const CString& s)
+{
+	CComCritSecLock<CComAutoCriticalSection> lock(cs);
+	lastReply = s;
+}
+
+CString CRssWatcher::GetLastCommand()
+{
+	CComCritSecLock<CComAutoCriticalSection> lock(cs);
+	return lastCommand;
+}
+
+CString CRssWatcher::GetLastReply()
+{
+	CComCritSecLock<CComAutoCriticalSection> lock(cs);
+	return lastReply;
 }

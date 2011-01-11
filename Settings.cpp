@@ -234,3 +234,20 @@ bool CSettings::GetDeleteWatch()
 	return GetIni(_T("Directories"), _T("DeleteWatch"), _T("0")) != _T("0");
 }
 
+CString CSettings::GetMovieQualityName(int q)
+{
+	static const LPCTSTR names[] = {
+		_T("Blu-Ray ISO"),
+		_T("x264 1080p"),
+		_T("x264 720p"),
+		_T("WMV 1080p"),
+		_T("WMV 720p"),
+		_T("DVD ISO"),
+		_T("Xvid"),
+	};
+
+	if(q >= 0 && q < mqMax)
+		return names[q];
+	else
+		return CString();
+}
