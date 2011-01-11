@@ -126,12 +126,14 @@ void CActorList::SetMovie(int movieId)
 // columns
 enum {
 	kTitle,
+	kQuality,
 	kSize,
 	kDate,
 };
 
 /*static*/ const CMovieReleaseList::ColumnInfo CMovieReleaseList::s_columnInfo[] = { 
 	{ _T("Title"),		_T("Title"),		CMovieReleaseList::typeString,	LVCFMT_LEFT,	400,	true },
+	{ _T("Quality"),	_T("Quality"),		CMovieReleaseList::typeString,	LVCFMT_LEFT,	 80,	true },
 	{ _T("Size"),		_T("Size"),			CMovieReleaseList::typeSize,	LVCFMT_RIGHT,	 80,	true },
 	{ _T("Date"),		_T("Date"),			CMovieReleaseList::typeDate,	LVCFMT_LEFT,	150,	true },
 	{ NULL }
@@ -169,6 +171,7 @@ int CMovieReleaseList::OnRefresh()
 		while(view->GetRow()) {
 			AddItemEx(count, view->GetId());
 			SetItemTextEx(count, kTitle, view->GetTitle());
+			SetItemTextEx(count, kQuality, CSettings::GetMovieQualityName(view->GetQuality()));
 			SetItemTextEx(count, kSize, Util::FormatSize(view->GetSize()));
 			SetItemTextEx(count, kDate, view->GetDate().Format());
 

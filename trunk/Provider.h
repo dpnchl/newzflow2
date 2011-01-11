@@ -24,6 +24,7 @@ public:
 
 protected:
 	void ProcessMovies(int feedId);
-
+	CRss* GetRssFeed(int category, const CString& term);
+	void InsertMovie(int feedId, CRssItem* item, int quality);
 	CHttpDownloader downloader;
 };

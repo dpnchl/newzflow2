@@ -212,7 +212,8 @@ public:
 	__int64 GetSize() { return Get<__int64>(2); }
 	COleDateTime GetDate() { return Get<COleDateTime>(3); }
 	int GetStatus() { return Get<int>(4); }
-	CString GetFeedTitle() { return Get<CString>(5); }
+	int GetQuality() { return Get<int>(5); }
+	CString GetFeedTitle() { return Get<CString>(6); }
 
 	enum EStatus {
 		kDownloaded = 1,
@@ -225,7 +226,7 @@ public:
 	QRssItemsByFeed(CDatabase* database, int feedId)
 	: QRssItems(database)
 	{
-		CString sQuery(_T("SELECT RssItems.rowid, RssItems.title, RssItems.length, strftime('%s', RssItems.date), RssItems.status, RssFeeds.title FROM RssItems LEFT JOIN RssFeeds ON RssItems.feed = RssFeeds.rowid"));
+		CString sQuery(_T("SELECT RssItems.rowid, RssItems.title, RssItems.length, strftime('%s', RssItems.date), RssItems.status, RssItems.quality, RssFeeds.title FROM RssItems LEFT JOIN RssFeeds ON RssItems.feed = RssFeeds.rowid"));
 		if(feedId > 0)
 			sQuery += _T(" WHERE RssFeeds.rowid = ?");
 		Prepare(sQuery);
@@ -241,7 +242,7 @@ public:
 	QRssItemsByMovie(CDatabase* database, int movieId)
 	: QRssItems(database)
 	{
-		CString sQuery(_T("SELECT RssItems.rowid, RssItems.title, RssItems.length, strftime('%s', RssItems.date), RssItems.status, RssFeeds.title FROM MovieReleases LEFT JOIN RssItems ON MovieReleases.rss_item = RssItems.rowid LEFT JOIN RssFeeds ON RssItems.feed = RssFeeds.rowid"));
+		CString sQuery(_T("SELECT RssItems.rowid, RssItems.title, RssItems.length, strftime('%s', RssItems.date), RssItems.status, RssItems.quality, RssFeeds.title FROM MovieReleases LEFT JOIN RssItems ON MovieReleases.rss_item = RssItems.rowid LEFT JOIN RssFeeds ON RssItems.feed = RssFeeds.rowid"));
 		if(movieId > 0)
 			sQuery += _T(" WHERE MovieReleases.movie = ?");
 		Prepare(sQuery);

@@ -45,7 +45,10 @@ public:
 		mqWMV720p,
 		mqDVD,
 		mqXvid,
+
+		mqMax, // marker for end-of-enum
 	};
+	static CString GetMovieQualityName(int q);
 
 protected:
 	CString m_appData; // %appdata%\Newzflow
